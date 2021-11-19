@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="BruTE++" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="Debug">
+				<Option output="bin/Debug/BruTE++" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Debug/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-fopenmp" />
+					<Add option="-g" />
+				</Compiler>
+				<Linker>
+					<Add library="gomp" />
+				</Linker>
+			</Target>
+			<Target title="Release">
+				<Option output="bin/Release/BruTE++" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Release/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-fopenmp" />
+					<Add option="-O2" />
+					<Add option="-std=c++17" />
+				</Compiler>
+				<Linker>
+					<Add option="-s" />
+					<Add library="gomp" />
+				</Linker>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-Wall" />
+		</Compiler>
+		<Unit filename="Binasc.cpp" />
+		<Unit filename="MidiEvent.cpp" />
+		<Unit filename="MidiEventList.cpp" />
+		<Unit filename="MidiFile.cpp" />
+		<Unit filename="MidiMessage.cpp" />
+		<Unit filename="Options.cpp" />
+		<Unit filename="brutepp.cpp" />
+		<Unit filename="include/Binasc.h" />
+		<Unit filename="include/MidiEvent.h" />
+		<Unit filename="include/MidiEventList.h" />
+		<Unit filename="include/MidiFile.h" />
+		<Unit filename="include/MidiMessage.h" />
+		<Unit filename="include/Options.h" />
+		<Unit filename="include/brute.h" />
+		<Unit filename="include/brutedefinitions.h" />
+		<Unit filename="include/chord.h" />
+		<Unit filename="include/configfile.h" />
+		<Unit filename="include/erase_simple.h" />
+		<Extensions>
+			<lib_finder disable_auto="1" />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>
