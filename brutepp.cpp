@@ -211,6 +211,17 @@ void Notepad::OnTranscode(wxCommandEvent &event)
     logfile.clear();
     logfile << m_log.rdbuf();
     logfile.close();
+
+    if (ABCFileName != "")
+    {
+        myBrute.GenerateABC();
+        // also save the ABC file in the targeted location .. a bit unintuitive but easier to use when checking the file all the time with the abc player
+        std::ofstream abcoutfile;
+        abcoutfile.open(ABCFileName.mb_str());
+
+        abcoutfile << myBrute.m_ABCText.rdbuf();
+        abcoutfile.close();
+    }
 }
 
 void Notepad::OnPlaywithABCPlayer(wxCommandEvent &event)
@@ -262,6 +273,9 @@ bool MainApp::OnInit() {
     // create a new Notepad (we used a wxFrame in part 2)
     Notepad *main = new Notepad();
     main->Show(true); // show it
+
+    // to make sure that there is no default ABCName
+    main->ABCFileName = "";
 
     return true;
 }
