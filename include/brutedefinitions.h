@@ -6,6 +6,7 @@
 #include <sstream>
 #include <fstream>
 #include <iostream>
+#include <map>
 
 
 
@@ -205,6 +206,94 @@ int noteranges[22][2] = {
                {0,36}   // bassonstac
               };
 
+// Midi Generation Information
+std::string abcpitches[58] = {   "C,","^C,","_D,","D,","^D,","_E,","E,","^E,","_F,","F,","^F,","_G,","G,","^G,","_A,","A,","^A,","_B,","B,",
+                                 "C" ,"^C" ,"_D" ,"D" ,"^D" ,"_E" ,"E" ,"^E" ,"_F" ,"F" ,"^F" ,"_G" ,"G" ,"^G" ,"_A" ,"A" ,"^A" ,"_B" ,"B" ,
+                                 "c" ,"^c" ,"_d" ,"d" ,"^d" ,"_e" ,"e" ,"^e" ,"_f" ,"f" ,"^f" ,"_g" ,"g" ,"^g" ,"_a" ,"a" ,"^a" ,"_b" ,"b" , "'c"};
+
+int abcpitchvalues[58] =     {     36,   37,   37,  38,   39,   39,  40,   41, 40  , 41 ,   42,   42,  43,   44,   44,  45,   46,   46,  47,
+                                   48,   49,   49,  50,   51,   51,  52,   53, 40  , 53 ,   54,   54,  55,   56,   56,  57,   58,   58,  59,
+                                   60,   61,   61,  62,   63,   63,  64,   65, 40  , 65 ,   66,   66,  67,   68,   68,  69,   70,   70,  71,  72};
+
+
+std::map<std::string,int>InstrumentMidiChannels =
+{
+    {"lute", 24},
+    {"Lute", 24},
+    {"Harp", 46},
+    {"harp", 46},
+    {"Theorbo", 32},
+    {"theorbo", 32},
+    {"Drums", 118},
+    {"drums", 118},
+    {"Cowbell", 115},
+    {"cowbell", 115},
+    {"Moor Cowbell", 114},
+    {"moor cowbell", 114},
+    {"moorbell", 114},
+    {"Pibgorn", 84},
+    {"pibgorn", 84},
+    {"misty_harp", 27},
+    {"mmharp", 27},
+    {"misty harp", 27},
+    {"Basic Lute", 25},
+    {"basic lute", 25},
+    {"basiclute", 25},
+    {"brokenlute", 25},
+    {"lute of ages", 24},
+    {"agelute", 24},
+    {"Lute of Ages", 24},
+    {"Clarinet", 71},
+    {"clarinet", 71},
+    {"Flute", 73},
+    {"flute", 73},
+    {"Horn", 69},
+    {"horn", 69},
+    {"bagpipe", 109},
+    {"bagpipes", 109},
+    {"Bagpipes", 109},
+    {"Bagpipes", 109},
+    {"student fiddle", 60},
+    {"student", 60},
+    {"Student Fiddle", 60},
+    {"lonely", 41},
+    {"Lonely Mountain Fiddle", 41},
+    {"Lonely", 41},
+    {"sprightly", 49},
+    {"Sprightly", 49},
+    {"Sprightly Fiddle", 49},
+    {"Travellers Trusty Fiddle", 45},
+    {"travellers", 45},
+    {"Travellers", 45},
+    {"travellers trusty fiddle", 45},
+    {"bardic", 42},
+    {"Bardic", 42},
+    {"Bardic Fiddle", 42},
+    {"bardic fiddle", 42},
+    {"basicfiddle", 43},
+    {"BasicFiddle", 43},
+    {"Basson_flat", 77},
+    {"basson_flat", 77},
+    {"Basson_vib", 76},
+    {"basson_vib", 76},
+    {"basson_stac", 75},
+    {"Basson_stac", 75}
+};
+
+std::map<std::string, int> MidiVelocities =
+{
+              {"+pppp+" , 51},
+              {"+ppp+", 51},
+              {"+pp+", 64},
+              {"+p+", 73},
+              {"+mp+", 82},
+              {"+mf+", 89},
+              {"+f+", 96},
+              {"+ff+", 102},
+              {"+fff+", 105},
+              {"+ffff+", 105}
+};
+
 // string split function
 std::vector<std::string> split(const std::string& s, char delimiter)
 {
@@ -316,5 +405,40 @@ bool dequal( double a, double b)
           retval = true;
     return retval;
 }
+
+const static unsigned char MinimalSoundFont[] =
+{
+	#define TEN0 0,0,0,0,0,0,0,0,0,0
+	'R','I','F','F',220,1,0,0,'s','f','b','k',
+	'L','I','S','T',88,1,0,0,'p','d','t','a',
+	'p','h','d','r',76,TEN0,TEN0,TEN0,TEN0,0,0,0,0,TEN0,0,0,0,0,0,0,0,255,0,255,0,1,TEN0,0,0,0,
+	'p','b','a','g',8,0,0,0,0,0,0,0,1,0,0,0,'p','m','o','d',10,TEN0,0,0,0,'p','g','e','n',8,0,0,0,41,0,0,0,0,0,0,0,
+	'i','n','s','t',44,TEN0,TEN0,0,0,0,0,0,0,0,0,TEN0,0,0,0,0,0,0,0,1,0,
+	'i','b','a','g',8,0,0,0,0,0,0,0,2,0,0,0,'i','m','o','d',10,TEN0,0,0,0,
+	'i','g','e','n',12,0,0,0,54,0,1,0,53,0,0,0,0,0,0,0,
+	's','h','d','r',92,TEN0,TEN0,0,0,0,0,0,0,0,50,0,0,0,0,0,0,0,49,0,0,0,34,86,0,0,60,0,0,0,1,TEN0,TEN0,TEN0,TEN0,0,0,0,0,0,0,0,
+	'L','I','S','T',112,0,0,0,'s','d','t','a','s','m','p','l',100,0,0,0,86,0,119,3,31,7,147,10,43,14,169,17,58,21,189,24,73,28,204,31,73,35,249,38,46,42,71,46,250,48,150,53,242,55,126,60,151,63,108,66,126,72,207,
+		70,86,83,100,72,74,100,163,39,241,163,59,175,59,179,9,179,134,187,6,186,2,194,5,194,15,200,6,202,96,206,159,209,35,213,213,216,45,220,221,223,76,227,221,230,91,234,242,237,105,241,8,245,118,248,32,252
+};
+
+typedef struct STEREO_WAV_HEADER {
+  /* RIFF Chunk Descriptor */
+  uint8_t RIFF[4] = {'R', 'I', 'F', 'F'}; // RIFF Header Magic header
+  uint32_t ChunkSize;                     // RIFF Chunk Size
+  uint8_t WAVE[4] = {'W', 'A', 'V', 'E'}; // WAVE Header
+  /* "fmt" sub-chunk */
+  uint8_t fmt[4] = {'f', 'm', 't', ' '}; // FMT header
+  uint32_t Subchunk1Size = 16;           // Size of the fmt chunk
+  uint16_t AudioFormat = 1; // Audio format 1=PCM,6=mulaw,7=alaw,     257=IBM
+                            // Mu-Law, 258=IBM A-Law, 259=ADPCM
+  uint16_t NumOfChan = 2;   // Number of channels 1=Mono 2=Sterio
+  uint32_t SamplesPerSec = 44100;   // Sampling Frequency in Hz
+  uint32_t bytesPerSec = 44100 * 4; // bytes per second
+  uint16_t blockAlign = 4;          // 2=16-bit mono, 4=16-bit stereo
+  uint16_t bitsPerSample = 16;      // Number of bits per sample
+  /* "data" sub-chunk */
+  uint8_t Subchunk2ID[4] = {'d', 'a', 't', 'a'}; // "data"  string
+  uint32_t Subchunk2Size;                        // Sampled data length
+} stereo_wav_hdr;
 
 #endif

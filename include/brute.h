@@ -60,6 +60,7 @@ public:
     std::stringstream m_MappingText;  // internal out.config equivalent, contains the mapping information
     std::stringstream m_ABCText;
 
+    double m_globalmaxtick;
 
 private:
     // MidiFile instance to deal with the midi file
@@ -89,7 +90,7 @@ private:
     std::vector< std::vector < double >> m_qnoteenderror;
 
     // global max tick
-    double m_globalmaxtick;
+
     int m_globalminvel;
     int m_globalmaxvel;
     int64_t m_registerlength;
@@ -107,6 +108,7 @@ private:
     int m_minnotestart;
 
     int64_t m_verylasttone;
+
     int64_t m_verylasttonestart;
 
     // pitch statistics
@@ -1914,4 +1916,5 @@ void Brute::GenerateNoteSelection()
         }
     }
 }
+
 #endif
