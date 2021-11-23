@@ -3,6 +3,8 @@
 #include <string>
 #include <list>
 #include "include/brute.h"
+#include "include/midipreview.h"
+
 
 
 class Notepad : public wxFrame {
@@ -12,6 +14,8 @@ class Notepad : public wxFrame {
         wxString ABCFileName;
 
         Brute myBrute;  // instance of the conversion class, for simplicity this is public for now
+
+        MidiPreview * myMidiPreview; // the object that will be handling the midi preview
 
         //Chord mychord;
 
@@ -37,16 +41,25 @@ class Notepad : public wxFrame {
         void OnSelectABCFile(wxCommandEvent &event); // click event for selecting ABC file name
         void OnTranscode(wxCommandEvent &event); // the click event for "transcode"
 
-        void OnPlaywithABCPlayer(wxCommandEvent &event);
-        void OnWavRender(wxCommandEvent &event);
-        void OnPlayDirectly(wxCommandEvent &event);
+        void OnPlaywithABCPlayer(wxCommandEvent &event); // click event for playing with ABC Player
+        void OnWavRender(wxCommandEvent &event); // click event for Rendering a WAVE File
+        void OnPlayDirectly(wxCommandEvent &event); // click event to play directly
 
-        void OnLogFile(wxCommandEvent &event);
+        void OnLogFile(wxCommandEvent &event); // click event to open the logfile
 
         // declare some ID values for our menu items
         enum MenuControls {
             idSave = 1000,
-            idOpen, idExit, idMidiFileSelect, idSelectABCFile, idTranscode, idPlaywithABCPlayer, idWavRender, idPlayDirectly, idLogFile, idDefaultMap
+            idOpen = 1100,
+            idExit = 1200,
+            idMidiFileSelect = 1300,
+            idSelectABCFile = 1400,
+            idTranscode = 1500,
+            idPlaywithABCPlayer = 1600,
+            idWavRender = 1700,
+            idPlayDirectly = 1800,
+            idLogFile = 1900,
+            idDefaultMap = 2000,
         };
 
         // this bit's important~
@@ -65,6 +78,9 @@ BEGIN_EVENT_TABLE(Notepad, wxFrame) // begin the event table for our Notepad cla
     EVT_MENU(idTranscode, Notepad::OnTranscode)         // set an event for Transcoding
     EVT_MENU(idLogFile, Notepad::OnLogFile)
     EVT_MENU(idDefaultMap, Notepad::OnDefaultMap)
+    EVT_MENU(idPlaywithABCPlayer, Notepad::OnPlaywithABCPlayer)
+    EVT_MENU(idWavRender, Notepad::OnWavRender)
+    EVT_MENU(idPlayDirectly, Notepad::OnPlayDirectly)
 END_EVENT_TABLE() // end the event table
 
 // our constructor, which does all this stuff for the wxFrame constructor
@@ -106,6 +122,7 @@ Notepad::Notepad() : wxFrame(NULL, wxID_ANY, wxT("BruTE++ 0.001"), wxDefaultPosi
     this->SetMenuBar(menu); // set our menu bar to be visible on the application
 
     this->text = new wxTextCtrl(this, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER | wxTE_MULTILINE);
+
 }
 
 void Notepad::OnSave(wxCommandEvent &event) {
@@ -227,16 +244,31 @@ void Notepad::OnTranscode(wxCommandEvent &event)
 void Notepad::OnPlaywithABCPlayer(wxCommandEvent &event)
 {
     // play with ABC Player
+    std::cout << " Play with ABC Player " << std::endl;
+
+    system("new.abc");
+
 }
 
 void Notepad::OnWavRender(wxCommandEvent &event)
 {
     // Render the WAV and play
+    myBrute.GenerateABC();
+    myMidiPreview->GeneratePreviewMidi(&myBrute.m_ABCText, int64_t( myBrute.m_globalmaxtick/0.36) );
+
+    // poor mans solution!
+    system("audio.wav");
+  //  m_mediaplayer->Load("audio.wav");
+  //  m_mediaplayer->Play();
+
+
+     //  auto mediactrl=new wxMediaCtrl(this, wxID_ANY, wxT(""), wxDefaultPosition, wxSize(60,60), wxNO_BORDER, wxMEDIABACKEND_WMP10); //Or whatever you need here
+   //mediactrl->Connect(wxEVT_MEDIA_LOADED, wxMediaEventHandler(MediaDialog::OnLoad), NULL, this);
 }
 
 void Notepad::OnPlayDirectly(wxCommandEvent &event)
 {
-    // Play directly
+
 }
 
 void Notepad::OnLogFile(wxCommandEvent &event)
@@ -276,6 +308,8 @@ bool MainApp::OnInit() {
 
     // to make sure that there is no default ABCName
     main->ABCFileName = "";
+
+    main->myMidiPreview = new MidiPreview();
 
     return true;
 }
