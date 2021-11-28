@@ -7,9 +7,10 @@ Audio Preview is rendered directly by BruTE++ instead of intermediate Midi Files
 
 Current state: 
 
-  still buggy ( regular crashes ) but basically implements the same functionality as BruTE: 
+a bit buggy ( sometimes crashed ) but basically implements the same functionality as BruTE: 
     - Midi loading
     - editing a text window for the arrangement
     - exporting an ABC as well as starting some Audio Preview using the registered program for WAV files in Windows.
+    - a first version of a Band View, which allows assigning midi tracks to musicians in a GUI
 
 
