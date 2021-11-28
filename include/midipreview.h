@@ -309,7 +309,7 @@ void MidiPreview::GeneratePreviewMidi(std::stringstream * abctext, int64_t buffe
    }
 */
 
-
+/*
    std::cout << " Writing WAV Track " << std::endl;
 
    STEREO_WAV_HEADER myheader;
@@ -321,7 +321,7 @@ void MidiPreview::GeneratePreviewMidi(std::stringstream * abctext, int64_t buffe
    fwrite(&myheader, 1, sizeof(STEREO_WAV_HEADER), myfile );
    fwrite( m_StereoStream.data() , 1, m_StereoStream.size()*sizeof(short), myfile);
    fclose(myfile);
-
+*/
 }
 
 
