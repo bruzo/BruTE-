@@ -2,8 +2,12 @@
 #include "stdio.h"
 #include <string>
 #include <list>
+
 #include "include/brute.h"
+
 #include "include/midipreview.h"
+
+#include "include/bandview.h"
 
 
 
@@ -13,9 +17,14 @@ class Notepad : public wxFrame {
         wxString MidiFileName;
         wxString ABCFileName;
 
-        Brute myBrute;  // instance of the conversion class, for simplicity this is public for now
+        Brute * myBrute;  // instance of the conversion class, for simplicity this is public for now
 
         MidiPreview * myMidiPreview; // the object that will be handling the midi preview
+
+        wxFrame *frame;
+        BandView * bandview;
+
+
 
         //Chord mychord;
 
@@ -25,6 +34,7 @@ class Notepad : public wxFrame {
         wxMenu *file; // the midi file menu (keep this simple
         wxMenu *abcmap; // the menu to manage the mapping files
         wxMenu *transcode; // the menu for transcoding
+        wxMenu *band; // the menu for bandview interaction
         wxMenu *listen; // the menu for checking the audio preview
         wxMenu *statistics; // the menu for statistics
 
@@ -35,6 +45,10 @@ class Notepad : public wxFrame {
         void OnExit(wxCommandEvent &event); // the click event for "close"
 
         void OnDefaultMap(wxCommandEvent &event); // the click event to generate the default map
+        void EmptyMap();
+        void OnUpdateMap(wxCommandEvent &event);
+        void OnPushMap(wxCommandEvent &event);
+
         void OnSave(wxCommandEvent &event); // the click event for "map save"
         void OnOpen(wxCommandEvent &event); // the click event for "map open"
 
@@ -46,6 +60,8 @@ class Notepad : public wxFrame {
         void OnPlayDirectly(wxCommandEvent &event); // click event to play directly
 
         void OnLogFile(wxCommandEvent &event); // click event to open the logfile
+
+
 
         // declare some ID values for our menu items
         enum MenuControls {
@@ -60,6 +76,8 @@ class Notepad : public wxFrame {
             idPlayDirectly = 1800,
             idLogFile = 1900,
             idDefaultMap = 2000,
+            idUpdateMap = 2100,
+            idPushMap = 2200,
         };
 
         // this bit's important~
@@ -81,7 +99,14 @@ BEGIN_EVENT_TABLE(Notepad, wxFrame) // begin the event table for our Notepad cla
     EVT_MENU(idPlaywithABCPlayer, Notepad::OnPlaywithABCPlayer)
     EVT_MENU(idWavRender, Notepad::OnWavRender)
     EVT_MENU(idPlayDirectly, Notepad::OnPlayDirectly)
+    EVT_MENU(idUpdateMap, Notepad::OnUpdateMap)
+    EVT_MENU(idPushMap, Notepad::OnPushMap)
 END_EVENT_TABLE() // end the event table
+
+
+
+
+
 
 // our constructor, which does all this stuff for the wxFrame constructor
 // this makes it easier to simply create our notepad object later~
@@ -108,6 +133,11 @@ Notepad::Notepad() : wxFrame(NULL, wxID_ANY, wxT("BruTE++ 0.001"), wxDefaultPosi
     this->transcode->Append(idSelectABCFile, wxT("&Define ABC output file\tCtrl-A"));
     this->transcode->Append(idTranscode, wxT("&Transcode\tCtrl-T"));
     this->menu->Append(transcode, wxT("&Transcode"));
+
+    this->band = new wxMenu();
+    this->band->Append(idUpdateMap, wxT("Poll Map from Bandview\tCtrl-P"));
+    this->band->Append(idPushMap, wxT("Send Map to Bandview\tCtrl-B"));
+    this->menu->Append(band, wxT("&BandView"));
 
     this->listen = new wxMenu();
     this->listen->Append(idPlaywithABCPlayer, wxT("&Play with ABCPlayer\tCtrl-P"));
@@ -158,8 +188,13 @@ void Notepad::OnMidiFileSelect(wxCommandEvent &event)
         char cstring[1024];
         strncpy(cstring, (const char*)this->MidiFileName.mb_str(wxConvUTF8), 1023);
 
-        this->myBrute.LoadMidi(cstring);  // this loads the midi into the Brute instance
+       // delete(this->myBrute);
+       // this->myBrute = new(Brute);
+        this->myBrute->LoadMidi(cstring);  // this loads the midi into the Brute instance
+
     }
+    EmptyMap();
+    this->bandview->Refresh();
 }
 
 void Notepad::OnSelectABCFile(wxCommandEvent &event)
@@ -179,49 +214,50 @@ void Notepad::OnTranscode(wxCommandEvent &event)
     // 1st get a stringstream of the Notepad Text, then parse the mapping
     std::stringstream mappingstream(  std::string(this->text->GetValue().mb_str())  );
 
-    myBrute.ParseConfig(&mappingstream);
+    myBrute->ParseConfig(&mappingstream);
 
     // Assuming the midi file is loaded we can do the transcoding
 
     // in case it's wanted break up bended tones
-    if ( myBrute.m_Mapping.m_dopitchbends ) myBrute.PitchBends();
+    if ( myBrute->m_Mapping.m_dopitchbends ) myBrute->PitchBends();
 
     // this starts the tone quantization
-    myBrute.GenerateQuantizedNotes();
+    myBrute->GenerateQuantizedNotes();
 
     // this creates the reduced selection for the abctracks (alternate, split, durationsplit)
-    myBrute.GenerateNoteSelection();
+    myBrute->GenerateNoteSelection();
 
     // map the tones on the grid
-    myBrute.MapToRegister();
+    myBrute->MapToRegister();
 
     // break it into lists of chords with duration
-    myBrute.GenerateRoughChordLists();
+    myBrute->GenerateRoughChordLists();
 
     // now we need to adjust Chords in time to get them to not have a missmatch if possible and also make sure they are
     // long enough
-    myBrute.ChordJoinDurations();
+    myBrute->ChordJoinDurations();
 
     // now that we joined equal chords, we have to transfer duration to make the starts fit
-    myBrute.CorrectMissmatch();
+    myBrute->CorrectMissmatch();
 
     // Check for too short tones and try to correct them!
-    myBrute.CompensateEasy();
+    myBrute->CompensateEasy();
 
     // Make sure we really have it all!
-    if (!myBrute.AllChordsOK()){
+    if (!myBrute->AllChordsOK()){
                 std::cout << " we didn't catch everything " << std::endl;
-                myBrute.CompensateEasy();
+                myBrute->CompensateEasy();
+                if (!myBrute->AllChordsOK()) std::cout << " we still didn't catch everything .. ABC is garbage " << std::endl;
     }
 
-    myBrute.Check_for_too_long_tones();   // essentially break up chords that are too long into sustained ones
+    myBrute->Check_for_too_long_tones();   // essentially break up chords that are too long into sustained ones
 
     // Pre-Generate duration string names
-    myBrute.GenerateDurationNames();
+    myBrute->GenerateDurationNames();
 
     // Now we can export an ABC file
     char abcname[8] = "new.abc";
-    myBrute.ExportABC(abcname);
+    myBrute->ExportABC(abcname);
 
     std::ofstream logfile;
     logfile.open("logfile.txt");
@@ -231,14 +267,15 @@ void Notepad::OnTranscode(wxCommandEvent &event)
 
     if (ABCFileName != "")
     {
-        myBrute.GenerateABC();
+        myBrute->GenerateABC();
         // also save the ABC file in the targeted location .. a bit unintuitive but easier to use when checking the file all the time with the abc player
         std::ofstream abcoutfile;
         abcoutfile.open(ABCFileName.mb_str());
 
-        abcoutfile << myBrute.m_ABCText.rdbuf();
+        abcoutfile << myBrute->m_ABCText.rdbuf();
         abcoutfile.close();
     }
+
 }
 
 void Notepad::OnPlaywithABCPlayer(wxCommandEvent &event)
@@ -253,8 +290,8 @@ void Notepad::OnPlaywithABCPlayer(wxCommandEvent &event)
 void Notepad::OnWavRender(wxCommandEvent &event)
 {
     // Render the WAV and play
-    myBrute.GenerateABC();
-    myMidiPreview->GeneratePreviewMidi(&myBrute.m_ABCText, int64_t( myBrute.m_globalmaxtick/0.36) );
+    myBrute->GenerateABC();
+    myMidiPreview->GeneratePreviewMidi(&myBrute->m_ABCText, int64_t( myBrute->m_globalmaxtick/0.36) );
 
     // poor mans solution!
     system("audio.wav");
@@ -279,24 +316,53 @@ void Notepad::OnLogFile(wxCommandEvent &event)
 void Notepad::OnDefaultMap(wxCommandEvent &event)
 {
     // Generate a Default Map
-    myBrute.GenerateDefaultConfig();
+    myBrute->GenerateDefaultConfig();
 
     this->text->Clear();
 
-    wxString newdata(myBrute.m_MappingText.str().c_str(), wxConvUTF8);   // stringstream to string to c_string to make a wxString .. kind of cumbersome
+    wxString newdata(myBrute->m_MappingText.str().c_str(), wxConvUTF8);   // stringstream to string to c_string to make a wxString .. kind of cumbersome
 
     this->text->ChangeValue( newdata );
 
     // Somehow get the text into the Notepadwindow
 }
 
+void Notepad::EmptyMap()
+{
+    myBrute->GenerateEmptyConfig();
+    this->text->Clear();
+    wxString newdata(myBrute->m_MappingText.str().c_str(), wxConvUTF8);
+    this->text->ChangeValue(newdata);
+}
+
+// Take the text from the m_Mappingtext to the Notepad
+void Notepad::OnUpdateMap(wxCommandEvent &event)
+{
+    myBrute->GenerateEmptyConfig();   // this is just a placeholder real deal should come from bandview
+    this->bandview->AppendMapping();  // as Bandview has a pointer to myBrute it can add the mapping text to the map itself
+
+    this->text->Clear();
+    wxString newdata(myBrute->m_MappingText.str().c_str(), wxConvUTF8);
+    this->text->ChangeValue(newdata);
+}
+
+void Notepad::OnPushMap(wxCommandEvent &event)
+{
+    std::stringstream mappingstream(  std::string(this->text->GetValue().mb_str())  );
+    myBrute->ParseConfig(&mappingstream);
+    bandview->GetMapping();
+}
+
 // if the user clicks exit (from the menu) then we should close the window
 void Notepad::OnExit(wxCommandEvent &event) {
+    this->frame->Destroy();
     this->Destroy(); // close the window, and get clear any resources used (eg, memory)
 }
 
 // now all that's left is the implementation! we need to create our MainApp class
 class MainApp : public wxApp {
+
+
     public: // remember this from part 2? very simple from here on in, we're almost done
         virtual bool OnInit();
 };
@@ -310,6 +376,17 @@ bool MainApp::OnInit() {
     main->ABCFileName = "";
 
     main->myMidiPreview = new MidiPreview();
+    main->myBrute = new Brute;
+
+
+    // Make the BandView Window
+    wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
+    main->frame = new wxFrame((wxFrame *)NULL, -1,  wxT("Hello wxDC"), wxPoint(200,50), wxSize(1050,700));
+    main->bandview = new BandView( (wxFrame*) main->frame, main->myBrute );
+    sizer->Add(main->bandview, 1, wxEXPAND);
+    main->frame->SetSizer(sizer);
+    main->frame->SetAutoLayout(true);
+    main->frame->Show();
 
     return true;
 }

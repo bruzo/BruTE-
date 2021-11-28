@@ -14,9 +14,15 @@
 				<Compiler>
 					<Add option="-fopenmp" />
 					<Add option="-g" />
+					<Add directory="midifile/include" />
+					<Add directory="include" />
 				</Compiler>
 				<Linker>
 					<Add library="gomp" />
+					<Add library="midifile" />
+					<Add directory="midifile/visual-studio/DebugLib" />
+					<Add directory="fluidsynth/64bit/lib" />
+					<Add directory="fluidsynth/64bit/bin" />
 				</Linker>
 			</Target>
 			<Target title="Release">
@@ -26,36 +32,38 @@
 				<Option compiler="gcc" />
 				<Compiler>
 					<Add option="-fopenmp" />
-					<Add option="-O2" />
+					<Add option="-fexpensive-optimizations" />
+					<Add option="-O3" />
 					<Add option="-std=c++17" />
+					<Add directory="midifile/include" />
+					<Add directory="include" />
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
 					<Add library="gomp" />
+					<Add library="midifile" />
+					<Add directory="midifile/visual-studio/ReleaseLib" />
+					<Add directory="fluidsynth/64bit/lib" />
+					<Add directory="fluidsynth/64bit/bin" />
 				</Linker>
 			</Target>
 		</Build>
 		<Compiler>
 			<Add option="-Wall" />
 		</Compiler>
-		<Unit filename="Binasc.cpp" />
-		<Unit filename="MidiEvent.cpp" />
-		<Unit filename="MidiEventList.cpp" />
-		<Unit filename="MidiFile.cpp" />
-		<Unit filename="MidiMessage.cpp" />
-		<Unit filename="Options.cpp" />
 		<Unit filename="brutepp.cpp" />
-		<Unit filename="include/Binasc.h" />
-		<Unit filename="include/MidiEvent.h" />
-		<Unit filename="include/MidiEventList.h" />
-		<Unit filename="include/MidiFile.h" />
-		<Unit filename="include/MidiMessage.h" />
-		<Unit filename="include/Options.h" />
+		<Unit filename="include/bandview.h" />
 		<Unit filename="include/brute.h" />
 		<Unit filename="include/brutedefinitions.h" />
 		<Unit filename="include/chord.h" />
 		<Unit filename="include/configfile.h" />
-		<Unit filename="include/erase_simple.h" />
+		<Unit filename="include/midipreview.h" />
+		<Unit filename="midifile/include/Binasc.h" />
+		<Unit filename="midifile/include/MidiEvent.h" />
+		<Unit filename="midifile/include/MidiEventList.h" />
+		<Unit filename="midifile/include/MidiFile.h" />
+		<Unit filename="midifile/include/MidiMessage.h" />
+		<Unit filename="midifile/include/Options.h" />
 		<Extensions>
 			<lib_finder disable_auto="1" />
 		</Extensions>
