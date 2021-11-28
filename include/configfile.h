@@ -126,6 +126,9 @@ public:
 
     int m_DATA_maxdelay;
 
+   std::vector< int > abctrackpositions_x;
+   std::vector< int > abctrackpositions_y;
+
 private:
 
     // Singular variables
@@ -206,6 +209,12 @@ void ConfigFile::ImportDrumMaps()
             }
          }
       }
+      else
+      {  // file not found, so no mapping for this one
+         m_drumsmapd[i].resize(128);
+         // default is not mapped
+         for (int j =0; j < 128; j++) m_drumsmapd[i][j] = -1;
+      }
       drumfile.close();
    }
 }
@@ -256,6 +265,10 @@ void ConfigFile::ParseConfigMapping(std::stringstream * mappingtext)
     std::stringstream mysongname;
     std::getline(myconfigfile, songnameline);
     std::vector< std::string > songnamelinelist = split(songnameline,' ');
+
+    abctrackpositions_x = std::vector<int>();
+    abctrackpositions_y = std::vector<int>();
+
     for (unsigned int i = 1; i < songnamelinelist.size(); i++)
     {
         mysongname << songnamelinelist[i] << " ";
@@ -432,6 +445,17 @@ void ConfigFile::ParseConfigMapping(std::stringstream * mappingtext)
                 {gofurther = 0;}
           }
        }
+// check for the abctrack positioning
+if (thisline.size() > 0)
+{
+    if (thisline[0].size() > 1)
+        if ((thisline[0][0] == '%' ) && (thisline[0][1] == 'B'))
+        {
+            // this line has some info
+            abctrackpositions_x.push_back( atoi(thisline[3].c_str()));
+            abctrackpositions_y.push_back( atoi(thisline[5].c_str()));
+        }
+}
 
 // we can do nothing if this line is empty
 if (thisline.size() > 0)

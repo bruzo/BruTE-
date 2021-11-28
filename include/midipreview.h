@@ -2,10 +2,10 @@
 #define MIDIPREVIEW_H
 
 #include <vector>
+#include <deque>
 #include <iostream>
 #include <fstream>
 #include <iomanip>
-#include <regex>
 #include <stdio.h>
 #include <string.h>
 #include "Options.h"
@@ -30,6 +30,11 @@ public:
    std::vector< int > m_WavPannings;
 
    MidiPreview();  // constructor
+
+   std::vector< std::list<std::tuple< double, int, int, float   > > > m_ABCToneStarts;
+   std::vector< std::list<std::tuple< double, int, int > > > m_ABCToneEnds;
+
+
 
 private:
 
@@ -79,19 +84,20 @@ void MidiPreview::GeneratePreviewMidi(std::stringstream * abctext, int64_t buffe
    //std::cout << "Last Event is at " << lasttone << std::endl;
 
    // Make sure we have the empty MidiFile instances
-   PreviewMidiTracks.resize(m_Nabctracks);
-   for (size_t i = 0; i<PreviewMidiTracks.size(); i++) PreviewMidiTracks[i] = smf::MidiFile();
+   // PreviewMidiTracks.resize(m_Nabctracks);
+   // for (size_t i = 0; i<PreviewMidiTracks.size(); i++) PreviewMidiTracks[i] = smf::MidiFile();
 
    // Make sure we have enough WAV Streams
-   m_WavStreams.resize(m_Nabctracks);
+   // m_WavStreams.resize(m_Nabctracks);
    // Now set them to a proper length and delete everthing that was inside
+   /*
    for (size_t i = 0; i < m_WavStreams.size(); i++)
    {
        m_WavStreams[i].resize(buffersize*2);
        std::fill(m_WavStreams[i].begin(), m_WavStreams[i].end(), short(0));
    }
-
-   m_StereoStream.resize(buffersize*4);
+*/
+   m_StereoStream.resize(buffersize*4.1);
    std::fill(m_StereoStream.begin(), m_StereoStream.end(), short(0));
 
 
@@ -99,9 +105,17 @@ void MidiPreview::GeneratePreviewMidi(std::stringstream * abctext, int64_t buffe
    for (size_t i = 0; i < m_WavPannings.size(); i++)
        m_WavPannings[i]=64;
 
-   short myBuffer[ 44100*3 ]; //synthesize buffer
+   short myBuffer[ 44100*3 ]; //synthesize buffer for 3 seconds
+
+   m_ABCToneStarts.resize(m_Nabctracks);
+   m_ABCToneEnds.resize(m_Nabctracks);
+
 
    std::vector<std::string> ABCTracks = ABCTextArray(ABCString); // Cut down the text into ABC parts
+
+
+
+ //  std::cout << "We found " << ABCTracks.size() << " ABC Tracks in the Mapping " << std::endl;
 
    // Now we got all the ABC Tracks separated, ABCTextArray[0] is just the header so 1 to N+1 are the tracks
 
@@ -109,10 +123,16 @@ void MidiPreview::GeneratePreviewMidi(std::stringstream * abctext, int64_t buffe
    // #pragma omp parallel for
    for (size_t track=1; track < m_Nabctracks+1; track++)
    {
-       size_t mytracknumber = track-1;
+       // empty the tonestart/toneend lists
+       int ztrack = track -1 ;
+       m_ABCToneStarts[ztrack] = {};
+       m_ABCToneEnds[ztrack] = {};
+
        // make a string stream copy of the track
        std::stringstream mytrack;
        mytrack << ABCTracks[track];
+
+       // why do we need to copy all the lines once more into a list? we already got all the text accessible by line
 
        // and break it down into a list of lines
        std::list< std::string > mytracklines;
@@ -122,11 +142,12 @@ void MidiPreview::GeneratePreviewMidi(std::stringstream * abctext, int64_t buffe
            mytracklines.push_back(line);
        }
        auto lineiterator = mytracklines.begin();
-
+    //   std::cout << "We found " << mytracklines.size() << " Lines in the ABC " << std::endl;
        ++lineiterator; // first line is bogus
 
        // Instrument from T line
        line = *lineiterator; // this is the line with the instrument
+
        std::string myinstrument = line.substr(line.find_last_of("[")+1,line.find_last_of("]") ); // we only use instruments defined between [] in the T line
        myinstrument.pop_back();
 
@@ -135,7 +156,8 @@ void MidiPreview::GeneratePreviewMidi(std::stringstream * abctext, int64_t buffe
        line = *lineiterator;
        auto ps = split(line, ' ');
        int panning = std::stoi( ps[ ps.size()-1 ] );
-       m_WavPannings[mytracknumber] = panning;  // keep this for later
+
+       m_WavPannings[ztrack] = panning;  // keep this for later
 
        // the next three line we ignore, as all the BruTE ABCs have identical timings
        ++lineiterator; ++ lineiterator; ++lineiterator;
@@ -146,13 +168,10 @@ void MidiPreview::GeneratePreviewMidi(std::stringstream * abctext, int64_t buffe
 
        std::cout << "Track: " << track << " \t " << myinstrument << "\t MidiChannel "<< MidiChannel  << " \t  Panning " << panning << std::endl;
 
-       PreviewMidiTracks[mytracknumber].addTempo(0, 0, 125);
-       PreviewMidiTracks[mytracknumber].addTracks(1);
-       PreviewMidiTracks[mytracknumber].addTimbre(0, 0, 0, MidiChannel);
-
-
-
-       int tpq     = PreviewMidiTracks[mytracknumber].getTPQ();
+    //   PreviewMidiTracks[mytracknumber].addTempo(0, 0, 125);
+    //   PreviewMidiTracks[mytracknumber].addTracks(1);
+    //   PreviewMidiTracks[mytracknumber].addTimbre(0, 0, 0, MidiChannel);
+       // int tpq     = PreviewMidiTracks[mytracknumber].getTPQ();
 
        // now the fun starts generating tones from the chords
        double currenttime = 0.;
@@ -163,33 +182,28 @@ void MidiPreview::GeneratePreviewMidi(std::stringstream * abctext, int64_t buffe
        claviature.resize(38);
        std::fill(claviature.begin(), claviature.end(), false);
 
-       while (lineiterator != mytracklines.end() )
+       while ( lineiterator != mytracklines.end() )
        {
            std::string myline = *lineiterator;
+           //std::cout << myline << std::endl;
            double myduration = 0.;     // so far this line has a 0 duration
-           std::list<int> pitchends;
+           std::list<int> pitchends = {};
 
            // is this a velocity change?
            if (IsVelchange( myline ))
            {
                 currentvelocity = Velocity( myline );
-               // std::cout << " Velocity changed to " << currentvelocity << "  at time  "<< currenttime  << std::endl;
            }
 
            // is this a break?
            if (IsBreak(myline))
            {
-               myduration = BreakDuration(myline);  // there is no new events, so only keep track of duration
-               // All tones that are on have to end now
-
-               // go through claviature to check if there is still something on
+               myduration = BreakDuration(myline);
            }
 
            if (IsTone(myline))
            {
                myduration = ChordDuration(myline);
-
-               // std::cout << "Ton at : " << currenttime << " Name "  << myline << " Duration : " << myduration << std::endl;
 
                std::deque<int> pitches = GetPitches(myline);
 
@@ -203,34 +217,28 @@ void MidiPreview::GeneratePreviewMidi(std::stringstream * abctext, int64_t buffe
                    // Check if this generated a new tone start event
                    if ( !claviature[mypitch] )
                    {
-                       // this tone was not yet on so this is a new event
                        claviature[mypitch] = true;
-                       //std::cout << " Tone On Event at "<< currenttime << " Pitch " << mypitch << " Velocity " << currentvelocity << std::endl;
-                       int thistick = int( currenttime *tpq  );
-                       PreviewMidiTracks[mytracknumber].addNoteOn(1, thistick,0, mypitch+36, currentvelocity);
+                       // int thistick = int( currenttime *tpq  );
+                       // PreviewMidiTracks[mytracknumber].addNoteOn(1, thistick,0, mypitch+36, currentvelocity);
 
                        // also switch on tone in tinysf
                        tsf_note_on(TinySoundFont, TinyMidiChannel, mypitch+36, currentvelocity/128.0 ); //preset 0, middle C , MidiChannel!
+                       m_ABCToneStarts[ztrack].push_back(std::make_tuple(currenttime, TinyMidiChannel, mypitch+36, currentvelocity/128.0));
                    }
                    if (cont == -1)
                    {
                        // this tone ends here
                        claviature[mypitch] = false;
-                       //std::cout << " Tone Off Event at " << currenttime + myduration << " Pitch " << mypitch << std::endl;
-                       int thistick = int( (currenttime+myduration)*tpq  );
-                       PreviewMidiTracks[mytracknumber].addNoteOff(1, thistick,0, mypitch+36); //
+
+                      //  int thistick = int( (currenttime+myduration)*tpq  );
+                      // PreviewMidiTracks[mytracknumber].addNoteOff(1, thistick,0, mypitch+36); //
 
                        // the tone end will happen only after the duration .. so we need to memorize this for the tinysf
                        pitchends.push_front(mypitch+36);
                    }
-
-
                    // Check if this generates a tone end event
-
                }
-
            }
-
            // Render a bit into the WAV stream
 
 
@@ -240,6 +248,8 @@ void MidiPreview::GeneratePreviewMidi(std::stringstream * abctext, int64_t buffe
            // calculations for timings:
            //     currenttime/ 2 = current time in seconds
            //     (currenttime / 2) * 44100 in samples
+
+
            int64_t currentsampleposition = int64_t(currenttime*0.5 * 44100);
            int64_t currentbuffer = int64_t(myduration * 0.5 * 44100);
 
@@ -251,18 +261,29 @@ void MidiPreview::GeneratePreviewMidi(std::stringstream * abctext, int64_t buffe
               tsf_render_short(TinySoundFont, myBuffer, int(currentbuffer), 0);  // render this duration
 
               for (int64_t cp = 0; cp < currentbuffer; cp++){
-                 m_WavStreams[mytracknumber][currentsampleposition + cp] = myBuffer[cp];
+                 // m_WavStreams[mytracknumber][currentsampleposition + cp] = myBuffer[cp];
+
+                 float weightleft = panning / 128.0;
+                 float weightright = 1.0 - weightleft;
+
+                 m_StereoStream[2*cp   +currentsampleposition*2] += int( myBuffer[cp] * weightleft);            // left channel
+                 m_StereoStream[2*cp+1 +currentsampleposition*2] += int( myBuffer[cp] * weightright);
+
               }
            }
+
            currenttime = currenttime + myduration;
 
            for (std::list<int>::iterator ip=pitchends.begin(); ip!=pitchends.end(); ip++)
+           {
                 tsf_note_off(TinySoundFont, TinyMidiChannel, *ip);  // Midichannel
+                m_ABCToneEnds[ztrack].push_back(std::make_tuple(currenttime, TinyMidiChannel, *ip));
+           }
 
 
            ++lineiterator; // take the next line
        }
-     PreviewMidiTracks[mytracknumber].sortTracks();
+    // PreviewMidiTracks[mytracknumber].sortTracks();
    }
 
 /*
@@ -275,22 +296,9 @@ void MidiPreview::GeneratePreviewMidi(std::stringstream * abctext, int64_t buffe
    }
 */
 
-/*
-   // write out raw audio files for testing
-   for (size_t i = 0; i < PreviewMidiTracks.size(); i++)
-   {
-       std::cout << " Writing WAV Track " << i << std::endl;
-       std::stringstream myfilename;
-       myfilename << "audio_" << i << ".raw";
-       FILE * myfile;
-       myfile = fopen(myfilename.str().c_str(), "wb");
-       fwrite( m_WavStreams[i].data() , 1, m_WavStreams[i].size()*sizeof(short), myfile);
-       fclose(myfile);
-
-   }
-*/
 
    // Mix down the tracks into one
+   /*
    for (size_t track = 0; track < m_Nabctracks; track++)
     for (size_t i = 0; i < m_WavStreams[0].size(); i++)
    {
@@ -299,6 +307,8 @@ void MidiPreview::GeneratePreviewMidi(std::stringstream * abctext, int64_t buffe
        m_StereoStream[2*i] += int(m_WavStreams[track][i] * weightleft);            // left channel
        m_StereoStream[2*i+1] += int(m_WavStreams[track][i] * weightright);
    }
+*/
+
 
    std::cout << " Writing WAV Track " << std::endl;
 
@@ -314,15 +324,33 @@ void MidiPreview::GeneratePreviewMidi(std::stringstream * abctext, int64_t buffe
 
 }
 
-std::vector<std::string> MidiPreview::ABCTextArray( std::string input )
-{
-    std::regex myregex("\\X:");
 
-    std::vector<std::string> out(
-                    std::sregex_token_iterator(input.begin(), input.end(), myregex, -1),
-                    std::sregex_token_iterator()
-                    );
-    return out;
+std::vector<std::string> MidiPreview::ABCTextArray( std::string input)
+{
+    std::stringstream abctext;
+    abctext << input;
+
+    std::vector<std::string> returntext;
+
+
+    std::string line;
+    std::stringstream abcblock;
+
+    std::getline(abctext, line);
+    while ( !abctext.eof() )
+    {
+        if (line[0] == 'X')
+        {
+            returntext.push_back(abcblock.str());
+            abcblock.str(std::string());
+        }
+
+        abcblock << line << std::endl;
+        std::getline(abctext, line);
+    }
+    returntext.push_back(abcblock.str());
+
+    return returntext;
 }
 
 

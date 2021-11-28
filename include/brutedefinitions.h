@@ -72,7 +72,13 @@
         std::string lotroinstruments3[22] = { "Lute", "Harp", "Theorbo", "Horn", "Clarinet", "Flute", "bagpipe", "Pibgorn", "drum",
                     "cowbell", "moor", "basic", "misty", "Student", "Lonely", "Sprightly", "Travellers", "Bardic", "BasicFiddle", "Basson_flat", "Basson_vib", "Basson_stac" };
 
-
+    std::string lotroinstruments_formal[22] =
+          {"Lute of the Ages", "Basic Harp", "Theorbo", "Horn", "Clarinet", "Flute", "Bagpipes", "Pipgorn", "Drums",
+     //      0      1        2         3         4          5        6           7         8
+           "Cowbell", "Moor Cowbell", "Basic Lute", "Misty M. Harp", "Student Fiddle", "Lonely M. Fiddle", "Sprightly Fiddle", "Travellers Tr.", "Bardic Fiddle",
+     //      9          10                 11            12         13          14           15         16          17
+           "Basic Fiddle", "Basic Basson", "Lonely M. Basson", "Brusque Basson"};
+     //      18             19              20            21
 //     const char * pitchnames[38] = {"=C,","^C,","=D,","^D,","=E,","=F,","^F,","=G,","^G,","=A,","^A,","=B,", "=C","^C","=D","^D","=E","=F","^F","=G","^G","=A","^A","=B", "=c","^c","=d","^d","=e","=f","^f","=g","^g","=a","^a","=b","=c'", "^c'" };
 
      std::string pitchnames[38] = {"=C,","^C,","=D,","^D,","=E,","=F,","^F,","=G,","^G,","=A,","^A,","=B,", "=C","^C","=D","^D","=E","=F","^F","=G","^G","=A","^A","=B", "=c","^c","=d","^d","=e","=f","^f","=g","^g","=a","^a","=b","=c'", "^c'" };

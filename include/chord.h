@@ -1,5 +1,5 @@
-#ifndef CHORD_H
-#define CHORD_H
+#ifndef CHORDL_H
+#define CHORDL_H
 
 #include<vector>
 #include<list>

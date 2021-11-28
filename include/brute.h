@@ -33,6 +33,7 @@ public:
 
     void ExportDefaultConfig( char * outfilename ); // Routine to save the mapping to the out.config
     void GenerateDefaultConfig(); // Make the default mapping text internally
+    void GenerateEmptyConfig(); // An empty Config after loading a midi
 
     void ImportConfig( char * infilename ); // Imports the mapping from out.config
     void ParseConfig(std::stringstream * text ); // Parses the internal config into the mapping information
@@ -54,6 +55,7 @@ public:
     void ExportABC(char * abcfilename);
     void GenerateABC();
 
+
     // config file ( out.config equivalent )
     ConfigFile m_Mapping;
 
@@ -62,12 +64,16 @@ public:
 
     double m_globalmaxtick;
 
+    size_t GetNumberOfMidiTracks();
+    size_t GetMidiInstrument(size_t i);
+    bool GetMidiIsDrum(size_t i);
+
 private:
     // MidiFile instance to deal with the midi file
     smf::MidiFile m_Midi;
 
     // list of midi channel instruments
-    std::vector<int> m_midiinstruments;
+    std::vector<int> m_midiinstruments = {};
 
     // list of drum or non-drum tracks in midi
     std::vector<bool> m_isdrumtrack;
@@ -148,10 +154,27 @@ private:
     void Long_enough_Chord_next_long_enough(int abctrack);
     void Short_following_long(int abctrack);
     void Two_shorts(int abctrack);
+    void Check_For_Situation(int abctrack);
 
     int m_corrections;
     bool m_done;
 };
+
+
+size_t Brute::GetNumberOfMidiTracks()
+{
+    return m_midiinstruments.size();
+}
+
+size_t Brute::GetMidiInstrument(size_t i)
+{
+    return m_midiinstruments[i];
+}
+
+bool Brute::GetMidiIsDrum(size_t i)
+{
+    return m_isdrumtrack[i];
+}
 
 // Midi File Loader
 void Brute::LoadMidi(char * mymidiname)
@@ -201,7 +224,8 @@ void Brute::LoadMidi(char * mymidiname)
     //int ticksperbeat =  m_Midi.getTicksPerQuarterNote();
     m_bpm = 120; // initial default tempo
 
-    double timetoticks = 0.630;
+    double timetoticks = 0.6048204338;
+    timetoticks = 0.604835254011;
 
     //MidiEvent * ptr;
     m_Midi.absoluteTicks();
@@ -468,16 +492,103 @@ void Brute::ExportOutAll( char * outfilename)
 // For compatibility this exports a config which corresponds to the midi tracks
 void Brute::ExportDefaultConfig( char * outfilename )
 {
-
     GenerateDefaultConfig();
-
     std::ofstream myconfigfile;
     myconfigfile.open(outfilename);
-
     myconfigfile << m_MappingText.rdbuf();;
-
     myconfigfile.close();
+}
 
+//
+void Brute::GenerateEmptyConfig()
+{
+    m_MappingText.str(std::string());
+
+
+    // default.config values
+    int drumtype = 0;
+    char defaultdrumhandling[127] = "nosplit";
+    char ABCstyle[127] = "Rocks";
+    char defaulttranscriber[127] = "Himbeertony";
+    char dummy[127];
+
+    // check for default instrument mappings
+    std::ifstream dinstrumentfile;
+    dinstrumentfile.open("dinstruments.config");
+    if (!dinstrumentfile.fail())
+    {
+        std::cout << "Using custom dinstruments.config file " << std::endl;
+        std::string thisline;
+        int pos = 0;
+
+        while( !dinstrumentfile.fail() )
+        {
+            std::getline(dinstrumentfile, thisline);
+            if (thisline.at(0) != '#')
+
+
+                for (unsigned int j = 0; j < split(thisline,' ').size(); j++)
+                {
+                    std::string numberstring = split(thisline, ' ')[j];
+                    int number = std::atoi( numberstring.c_str() );
+                    miditolotro[pos] = number;
+                    pos = pos + 1;
+                }
+        }
+        std::cout << std::endl;
+        dinstrumentfile.close();
+    }
+
+    // check for defaults file
+    std::ifstream defaultsfile;
+    defaultsfile.open("default.config");
+    if (!defaultsfile.fail() )
+    {
+        std::cout << "Using default.config" << std::endl;
+        defaultsfile >> dummy;
+        defaultsfile >> drumtype >> defaultdrumhandling;
+        defaultsfile >> dummy;
+        defaultsfile >> ABCstyle;
+        defaultsfile >> dummy;
+        defaultsfile >> defaulttranscriber;
+        defaultsfile.close();
+    }
+    else
+    {
+        std::cout << "No default.config, using intrinsic defaults" << std::endl;
+        std::ofstream newdefaultsfile;
+        newdefaultsfile.open("default.config");
+        newdefaultsfile << "Drums: 0 nosplit" << std::endl;
+        newdefaultsfile << "Style: Rocks" << std::endl;
+        newdefaultsfile << "Transcriber:" << std::endl;
+        newdefaultsfile << "Himbeertony" << std::endl;
+        newdefaultsfile.close();
+    }
+    std::cout << "Drumstyle: " << drumtype << std::endl;
+    std::cout << "Drumhandling: " << defaultdrumhandling << std::endl;
+    std::cout << "ABC Style: " << ABCstyle << std::endl;
+    std::cout << "Transcriber Name: " << defaulttranscriber << std::endl;
+
+    bool drumsplitting = true;
+    if (strcmp("nosplit", defaultdrumhandling) >= 0)
+        drumsplitting = false;
+
+    m_MappingText << "Name: <insert title>" << std::endl;
+    m_MappingText << "Speedup: 0" << std::endl;
+    m_MappingText << "Pitch: 0" << std::endl;
+
+    // remark .. think about adding compressor values!!!
+
+    m_MappingText << "Style: " << ABCstyle << "  % Defaults for -a rock and a hard place-, others: TSO, Meisterbarden, Bara" << std::endl;
+    m_MappingText << "Volume: 0" << "       % scaled, midi volume was " << m_globalmaxvel - 254 << std::endl;
+
+    m_MappingText << "Compress: 1.0" << "   % default : midi dynamics, between 0 and 1: smaller loudness differences, >1: increase loudness differences" << std::endl;
+    m_MappingText << "%no pitch guessing   %uncomment to switch off guessing of default octaves" << std::endl;
+    m_MappingText << "%no back folding     %uncomment to switch off folding of tone-pitches inside the playable region" << std::endl;
+    m_MappingText << "fadeout length 0    %seconds before the end to start with fadeout (try something between 5 and 15)" << std::endl;
+    m_MappingText << "Transcriber " << defaulttranscriber << std::endl;
+    m_MappingText << std::endl;
+    m_MappingText << std::endl;
 }
 
 // For compatibility this exports a config which corresponds to the midi tracks
@@ -619,6 +730,14 @@ void Brute::GenerateDefaultConfig( )
             m_MappingText << "abctrack end" << std::endl;
             m_MappingText << std::endl;
         }
+    }
+    m_MappingText << std::endl;
+    for (int i = 0; i < m_Midi.size(); i++)
+    {
+        int x = (i%5)*120 + 150;
+        int y = (i/5)*60  + 100;
+        m_MappingText << "%BV " << i << " x: " << x << " y: " << y << std::endl;
+
     }
 }
 
@@ -859,7 +978,7 @@ void Brute::MapToRegister()
                 else
                 {
                     // drums use the mapping
-                    pitch = m_Mapping.m_drumsmapd[m_Mapping.m_drumstylemap[abctrack][miditrack]][m_pitches[utrack][toneid]];
+                    pitch = m_Mapping.m_drumsmapd[ m_Mapping.m_drumstylemap[abctrack][miditrack] ][m_pitches[utrack][toneid]];
 
                     // check for drum sample selection
                     if (m_Mapping.m_drumsingleinstrument[abctrack][miditrack] > 0)
@@ -932,15 +1051,16 @@ void Brute::GenerateRoughChordLists()
     int abctracks = static_cast<int> ( m_Mapping.m_instrumap.size());
     // reserve a list for every ABC track
     m_log << "Breaking registers into chords." << std::endl;
+    std::cout << " Breaking registers into chords." << std::endl;
     m_chordlists.resize( abctracks );  // one list per track
     //#pragma omp parallel for
     for (int abctrack = 0; abctrack < abctracks; abctrack++)
     {
         // make chord, decide how long it is and then put it to the list
         // at this stage we loose some velocity and missmatch info
-
+        std::cout << " Track " << abctrack << std::endl;
         // make sure to wipe chords from a former run
-        m_chordlists[abctrack].clear();
+        m_chordlists.at(abctrack).clear();
 
         // first chord is special ( no continuation check )
         {
@@ -955,35 +1075,34 @@ void Brute::GenerateRoughChordLists()
 
             for (int pitch = 0; pitch < 38; pitch++)
             {
-                if ( m_register[abctrack][pitch][0]  > 0. )
+                if ( m_register.at(abctrack).at(pitch).at(0)  > 0. )
                 {
-                    // this is a tone
+                    // this register is pressed ( tone is played )
                     mychord.npitches.push_back(pitch);
-                    missmatches.push_back(m_missmatch[abctrack][pitch][0]);
-                    if ( m_velocity[abctrack][pitch][0] > mychord.velocity )
+                    missmatches.push_back(m_missmatch.at(abctrack).at(pitch).at(0));
+                    if ( m_velocity.at(abctrack).at(pitch).at(0) > mychord.velocity )
                     {
-                        mychord.velocity = m_velocity[abctrack][pitch][0];
-                        mychord.missmatch = m_missmatch[abctrack][pitch][0];
+                        mychord.velocity = m_velocity.at(abctrack).at(pitch).at(0);
+                        mychord.missmatch = m_missmatch.at(abctrack).at(pitch).at(0);
                     }
                 }
             }
             // now check if missmatches have been not agreeing
-            double totalMRMS = 0.;
-            for ( std::list<double>::iterator it = missmatches.begin(); it != missmatches.end(); it++ )
-            {
-                totalMRMS += (*it -  mychord.missmatch )*(*it - mychord.missmatch);
-            }
-            totalMRMS = std::pow(totalMRMS /  missmatches.size(), 0.5);
-            if (totalMRMS > 0.00001) m_log << "Chord Merging at " << 0 << " total Error: " << totalMRMS << std::endl;
+          //  double totalMRMS = 0.;
+          //  for ( std::list<double>::iterator it = missmatches.begin(); it != missmatches.end(); it++ )
+          //  {
+          //      totalMRMS += (*it -  mychord.missmatch )*(*it - mychord.missmatch);
+          //  }
+          //  totalMRMS = std::pow(totalMRMS /  missmatches.size(), 0.5);
+          //  if (totalMRMS > 0.00001) m_log << "Tone to Chord Merging at " << 0 << " total Error: " << totalMRMS << std::endl;
             if ( mychord.npitches.size() > 0 ) mychord.is_rest = false;
 
             // finally add this chord to the list
-            m_chordlists[abctrack].push_back(mychord);
+            m_chordlists.at(abctrack).push_back(mychord);
         }
 
-
-        unsigned int currentposition = 1;
-        while (currentposition < m_register[abctrack][0].size())
+        size_t currentposition = 1;
+        while (currentposition < m_register.at(abctrack).at(0).size())
         {
             ChordL mychord;
             mychord.velocity = 0;
@@ -995,10 +1114,10 @@ void Brute::GenerateRoughChordLists()
 
             for (int pitch = 0; pitch < 38; pitch++)
             {
-                if ( m_register[abctrack][pitch][currentposition]  > 0. )
+                if ( m_register.at(abctrack).at(pitch).at(currentposition)  > 0. )
                 {
                     // this is a tone - we need to distinguish if this is a new one or a continued one
-                    if (m_register[abctrack][pitch][currentposition] < m_register[abctrack][pitch][currentposition-1])
+                    if (m_register.at(abctrack).at(pitch).at(currentposition) < m_register.at(abctrack).at(pitch).at(currentposition-1))
                     {
                         mychord.cpitches.push_back(pitch);
                     }
@@ -1006,17 +1125,18 @@ void Brute::GenerateRoughChordLists()
                     {
                         // only new tones dominate missmatch and velocity
                         mychord.npitches.push_back(pitch);
-                        missmatches.push_back(m_missmatch[abctrack][pitch][currentposition]);
-                        if ( m_velocity[abctrack][pitch][currentposition] > mychord.velocity )
+                        missmatches.push_back(m_missmatch.at(abctrack).at(pitch).at(currentposition));
+                        if ( m_velocity.at(abctrack).at(pitch).at(currentposition) > mychord.velocity )
                         {
-                            mychord.velocity = m_velocity[abctrack][pitch][currentposition];
-                            mychord.missmatch = m_missmatch[abctrack][pitch][currentposition];
+                            mychord.velocity = m_velocity.at(abctrack).at(pitch).at(currentposition);
+                            mychord.missmatch = m_missmatch.at(abctrack).at(pitch).at(currentposition);
                         }
                     }
                 }
             }
 
             // now check if missmatches have been not agreeing
+            /*
             double totalMRMS = 0.;
             for ( std::list<double>::iterator it = missmatches.begin(); it != missmatches.end(); it++ )
             {
@@ -1024,7 +1144,10 @@ void Brute::GenerateRoughChordLists()
             }
             totalMRMS = std::pow(totalMRMS /  missmatches.size(), 0.5);
             if (totalMRMS > 0.00001) m_log << "ABCT: " << abctrack << " Chord Merge at " << currentposition << " Error: " << totalMRMS << std::endl;
+            */
+
             if ( mychord.npitches.size() + mychord.cpitches.size() > 0 ) mychord.is_rest = false;
+
             m_chordlists[abctrack].push_back(mychord);
             currentposition = currentposition+1;
         }
@@ -1155,16 +1278,6 @@ void Brute::CorrectMissmatch()
 
 void join_chords(std::list<ChordL>::iterator target, std::list<ChordL>::iterator source)
 {
-    // join continues pitches
-    for (std::list<int>::iterator checko = source->cpitches.begin(); checko!=source->cpitches.end(); checko++ )
-    {
-        int isitnotin = 0;
-        for (std::list<int>::iterator checknext = target->cpitches.begin(); checknext!=target->cpitches.end(); checknext++)
-        {
-            if (*checko==*checknext) isitnotin = 1;
-        }
-        if (isitnotin == 0) target->cpitches.push_back(*checko);
-    }
 
     // join new pitches
     for (std::list<int>::iterator checko = source->npitches.begin(); checko!=source->npitches.end(); checko++ )
@@ -1176,6 +1289,28 @@ void join_chords(std::list<ChordL>::iterator target, std::list<ChordL>::iterator
         }
         if (isitnotin == 0) target->npitches.push_back(*checko);
     }
+
+    // join continued pitches
+    for (std::list<int>::iterator checko = source->cpitches.begin(); checko!=source->cpitches.end(); checko++ )
+    {
+        int isitnotin = 0;
+        for (std::list<int>::iterator checknext = target->cpitches.begin(); checknext!=target->cpitches.end(); checknext++)
+        {
+            if (*checko ==*checknext ) isitnotin = 1;
+        }
+        if (isitnotin == 0) target->cpitches.push_back(*checko);
+    }
+
+    std::list<int> newcpitches;
+    for (std::list<int>::iterator contp = target->cpitches.begin(); contp!=target->cpitches.end(); contp++)
+    {
+        int isnotin = 0;
+        for (std::list<int>::iterator contn = target->npitches.begin(); contn!=target->npitches.begin(); contn++)
+            if (*contp == *contn) isnotin = 1;
+        if (isnotin == 0) newcpitches.push_back(*contp);
+        if (isnotin == 1) std::cout << "There was an issue with chord joining " << std::endl;
+    }
+    target->cpitches = newcpitches;
 
     // take higher velocity
     if (target->velocity < source->velocity ) target->velocity = source->velocity;
@@ -1190,6 +1325,7 @@ void Brute::Absorb_Short_Breaks(int abctrack)
     std::list<ChordL>::iterator current;
     std::list<ChordL>::iterator former;
     std::list<ChordL>::iterator next;
+
     former = m_chordlists[abctrack].begin();
     current = former;
     current++;
@@ -1201,6 +1337,7 @@ void Brute::Absorb_Short_Breaks(int abctrack)
 
     while ( next != m_chordlists[abctrack].end())
     {
+
         // the current duration is too short
         if (current->duration < 2.0)
         {
@@ -1210,17 +1347,22 @@ void Brute::Absorb_Short_Breaks(int abctrack)
                 m_corrections += 1;
                 // this is a too short break, just delete it and add duration to former tone
                 former->duration = former->duration + current->duration;
-                m_chordlists[abctrack].erase(current);
-                current = former;
-                if (current!=m_chordlists[abctrack].end()) current++;
+
+                m_chordlists[abctrack].erase(current);  // now current is gone and points into nothing
+
+
+                current = former;   // we set it to the cell one before
+                if (current != m_chordlists[abctrack].end() ) current++;
                 next = current;
                 if (next!=m_chordlists[abctrack].end()) next++;
             }
         }
+
         former = current;
         if ( current!= m_chordlists[abctrack].end()) current++;
         next = current;
         if ( current!= m_chordlists[abctrack].end()) next++;
+
     }
 }
 
@@ -1237,6 +1379,8 @@ void Brute::Next_is_Break(int abctrack)
     next++;
     m_corrections = 0;
     m_done = true; // assuming we are done
+
+   // std::cout << " Current Chord List " << m_chordlists[abctrack].size() << std::endl;
 
     while ( next != m_chordlists[abctrack].end())
     {
@@ -1477,6 +1621,32 @@ void Brute::Two_shorts(int abctrack)
     }
 }
 
+void Brute::Check_For_Situation(int abctrack)
+{
+    std::list<ChordL>::iterator current;
+    std::list<ChordL>::iterator former;
+    std::list<ChordL>::iterator next;
+    former = m_chordlists[abctrack].begin();
+    current = former;
+    current++;
+    next = current;
+    next++;
+    m_corrections = 0;
+    m_done = true;
+    if ( m_chordlists[abctrack].size() > 1 )
+    while ( next != m_chordlists[abctrack].end())
+    {
+        if (current->duration < 2.0)
+        {
+            std::cout << "Non Resolved:" << former->duration << " " << current->duration << " " << next->duration << std::endl;
+        }
+        former = current;
+        if ( current!= m_chordlists[abctrack].end()) current++;
+        next = current;
+        if ( current!= m_chordlists[abctrack].end()) next++;
+    }
+}
+
 void Brute::Check_for_too_long_tones()
 {
     int abctracks = static_cast<int> ( m_Mapping.m_instrumap.size());
@@ -1521,6 +1691,8 @@ void Brute::Check_for_too_long_tones()
     }
 }
 
+
+
 void Brute::CompensateEasy()
 {
     int abctracks = static_cast<int> ( m_Mapping.m_instrumap.size());
@@ -1545,47 +1717,92 @@ void Brute::CompensateEasy()
         int correctionlevel = 0;
         m_done = false;
 
-        while (!m_done)
+        while ((!m_done)&&(m_chordlists[abctrack].size()>1))
         {
+
             // Level 0: Absorb Short Breaks
-            if ((correctionlevel == 0) & (!m_done)) Absorb_Short_Breaks(abctrack);
-            if (m_corrections > 0) correctionlevel = 0;
-            if (m_corrections == 0) correctionlevel += 1;
+            if ((correctionlevel == 0) & (!m_done))
+            {
+                Absorb_Short_Breaks(abctrack);
+                if (m_corrections > 0) correctionlevel = 0;
+                if (m_corrections == 0) correctionlevel += 1;
+                if (m_corrections > 0) std::cout << " Track " << abctrack << " Corr Level 0  " << m_corrections << std::endl;
+            }
+            else
+            {
+            //m_done = true;
 
             // Level 1: Use a following Break to prolongue too short tone
-            if ((correctionlevel == 1) & (!m_done)) Next_is_Break(abctrack);
-            if (m_corrections > 0) correctionlevel = 0;
-            if (m_corrections == 0) correctionlevel += 1;
-
+            if ((correctionlevel == 1) & (!m_done))
+            {
+                Next_is_Break(abctrack);
+                if (m_corrections > 0) correctionlevel = 0;
+                if (m_corrections == 0) correctionlevel += 1;
+                if (m_corrections > 0) std::cout << " Track " << abctrack << " Corr Level 1  " << m_corrections << std::endl;
+            }
+            else
+            {
             // Level 2: See if next tone has no newly starting tones
-            if ((correctionlevel == 2) & (!m_done)) Next_tone_is_prolongued(abctrack);
-            if (m_corrections > 0) correctionlevel = 0;
-            if (m_corrections == 0) correctionlevel += 1;
-
+            if ((correctionlevel == 2) & (!m_done))
+            {
+                Next_tone_is_prolongued(abctrack);
+                if (m_corrections > 0) correctionlevel = 0;
+                if (m_corrections == 0) correctionlevel += 1;
+                if (m_corrections > 0) std::cout << " Track " << abctrack << " Corr Level 2  " << m_corrections << std::endl;
+            }
+            else
+            {
             // these are the nasty corrections
-
             // Level 3: current Chord is very short, absorbing to following tone
-            if ((correctionlevel == 3) & (!m_done)) Short_Chord(abctrack);
-            if (m_corrections > 0) correctionlevel = 0;
-            if (m_corrections == 0) correctionlevel += 1;
-
+            if ((correctionlevel == 3) & (!m_done))
+            {
+                Short_Chord(abctrack);
+                if (m_corrections > 0) correctionlevel = 0;
+                if (m_corrections == 0) correctionlevel += 1;
+                if (m_corrections > 0) std::cout << " Track " << abctrack << " Corr Level 3  " << m_corrections << std::endl;
+            }
+            else
+            {
             // Level 4: chord is longer than half, next chord is long enough to compensate
-            if ((correctionlevel == 4) & (!m_done)) Long_enough_Chord_next_long_enough(abctrack);
-            if (m_corrections > 0) correctionlevel = 0;
-            if (m_corrections == 0) correctionlevel += 1;
-
+            if ((correctionlevel == 4) & (!m_done))
+            {
+                Long_enough_Chord_next_long_enough(abctrack);
+                if (m_corrections > 0) correctionlevel = 0;
+                if (m_corrections == 0) correctionlevel += 1;
+                if (m_corrections > 0) std::cout << " Track " << abctrack << " Corr Level 4  " << m_corrections << std::endl;
+            }
+            else
+            {
             // Level 5: Short tone, following long, moving short tone earlier in time
-            if ((correctionlevel == 5) & (!m_done)) Short_following_long(abctrack);
-            if (m_corrections > 0) correctionlevel = 0;
-            if (m_corrections == 0) correctionlevel += 1;
-
+            if ((correctionlevel == 5) & (!m_done))
+            {
+                Short_following_long(abctrack);
+                if (m_corrections > 0) correctionlevel = 0;
+                if (m_corrections == 0) correctionlevel += 1;
+                if (m_corrections > 0) std::cout << " Track " << abctrack << " Corr Level 5  " << m_corrections << std::endl;
+            }
+            else
+            {
             // Level 6: For lack of other options: absorbing current chord to former one
-            if ((correctionlevel == 6) & (!m_done)) Two_shorts(abctrack);
-            if (m_corrections > 0) correctionlevel = 0;
-            if (m_corrections == 0) correctionlevel += 1;
-
-            if ((correctionlevel == 7) & (!m_done)) std::cout << " we are out of ideas .. Track  "<< abctrack << std::endl;
-            if ((correctionlevel == 7) & (!m_done)) correctionlevel = 0;
+            if ((correctionlevel == 6) & (!m_done))
+            {
+                Two_shorts(abctrack);
+                if (m_corrections > 0) correctionlevel = 0;
+                if (m_corrections == 0) correctionlevel += 1;
+                if (m_corrections > 0) std::cout << " Track " << abctrack << " Corr Level 6  " << m_corrections << std::endl;
+            }
+            else
+            {
+               if ((correctionlevel == 7) & (!m_done)) std::cout << " we are out of ideas .. Track  "<< abctrack << std::endl;
+          //  if ((correctionlevel == 7) & (!m_done)) correctionlevel = 0;
+               if (correctionlevel == 7) Check_For_Situation(abctrack);
+            }
+            }
+            }
+            }
+            }
+            }
+            }
         }
     }
 }
@@ -1596,7 +1813,6 @@ bool Brute::AllChordsOK()
     int abctracks = static_cast<int> ( m_Mapping.m_instrumap.size());
 
     // Loop over ABC Tracks
-    #pragma omp parallel for
     for (int abctrack=0; abctrack < abctracks; abctrack++)
     {
         std::list<ChordL>::iterator current;
@@ -1800,10 +2016,17 @@ void Brute::GenerateABC()
                     next = current;
                     next++;
                     if (next != m_chordlists[abctrack].end())
-                        for (std::list<int>::iterator nextcpitch = next->cpitches.begin(); nextcpitch != next->cpitches.end(); nextcpitch++)
+                    {
+                        bool minusalreadyadded = false;
+                        for (std::list<int>::iterator nextcpitch = next->cpitches.begin(); (nextcpitch != next->cpitches.end() && !minusalreadyadded); nextcpitch++)
                         {
-                            if ( *npitch == *nextcpitch ) m_ABCText << "-";
+                            if ( *npitch == *nextcpitch )
+                            {
+                                m_ABCText << "-";         // we get 2 -- if there is two times the same tone in the chord!!!
+                                minusalreadyadded = true;
+                            }
                         }
+                    }
                 }
                 for (std::list<int>::iterator cpitch = current->cpitches.begin(); cpitch != current->cpitches.end(); cpitch++)
                 {
@@ -1811,10 +2034,17 @@ void Brute::GenerateABC()
                     next = current;
                     next++;
                     if (next != m_chordlists[abctrack].end())
-                        for (std::list<int>::iterator nextcpitch = next->cpitches.begin(); nextcpitch != next->cpitches.end(); nextcpitch++)
+                    {
+                        bool minusalreadyadded = false;
+                        for (std::list<int>::iterator nextcpitch = next->cpitches.begin(); (nextcpitch != next->cpitches.end()&& !minusalreadyadded); nextcpitch++)
                         {
-                            if ( *cpitch == *nextcpitch ) m_ABCText << "-";
+                            if ( *cpitch == *nextcpitch )
+                            {
+                                m_ABCText << "-";
+                                minusalreadyadded = true;
+                            }
                         }
+                    }
                 }
                 m_ABCText << "]" << std::endl;
             }
