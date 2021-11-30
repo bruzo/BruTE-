@@ -1,23 +1,14 @@
 #include "wx/wx.h"
 #include "wx/sizer.h"
 #include <algorithm>
+#include "miditrackdialogue.h"
+#include "bandviewmiditrack.h"
 
 
 //#include "include/brute.h"
 
 
 
-class BandViewMidiTrack
-{
-public:
-    int range_l;
-    int range_h;
-    int volume;
-    int miditrack;          // the id of the miditrack in the BruTE midi tracklist
-    int midiinstrument;     // the numeric value of the original midi instrument
-    int pitch;
-    bool isdrum;
-};
 
 class BandViewABCTrack
 {
@@ -58,6 +49,7 @@ public:
 
     void mouseLeftDown(wxMouseEvent& event);
     void mouseLeftUp(wxMouseEvent& event);
+    void mouseRightDown(wxMouseEvent& event);
 
     bool lotroinstrumentclicked = false;
     size_t lotroinstrumentclickednumber;
@@ -105,6 +97,7 @@ BEGIN_EVENT_TABLE(BandView, wxPanel)
  */
  EVT_LEFT_DOWN(BandView::mouseLeftDown)
  EVT_LEFT_UP(BandView::mouseLeftUp)
+ EVT_RIGHT_DOWN(BandView::mouseRightDown)
  /*
  EVT_RIGHT_DOWN(BandView::rightClick)
  EVT_LEAVE_WINDOW(BandView::mouseLeftWindow)
@@ -253,6 +246,7 @@ size_t BandView::LotroInstrumentPicked(int x, int y)
     if (( x > xstart )    &&( x < xstart+98)  && (y > ystart+180) && ( y < ystart+180+18) ) return retvalue = 8;
     if (( x > xstart+100 )&&( x < xstart+198) && (y > ystart+180) && ( y < ystart+180+18) ) return retvalue = 9;
     if (( x > xstart )    &&( x < xstart+98)  && (y > ystart+200) && ( y < ystart+200+18) ) return retvalue = 10;
+    if (( x > xstart+100 )&&( x < xstart+198) && (y > ystart+200) && ( y < ystart+200+18) ) return retvalue = 17;
     return retvalue;
 }
 
@@ -318,6 +312,26 @@ size_t BandView::WhichMidiTrackInABCTrackPicked(int x, int y)
        }
     }
     return retvalue;
+}
+
+void BandView::mouseRightDown(wxMouseEvent& event)
+{
+    const wxPoint pt = wxGetMousePosition();
+    int mouseX = pt.x - this->GetScreenPosition().x;
+    int mouseY = pt.y - this->GetScreenPosition().y;
+
+    size_t mypossibleMidiInABCTrack = MidiTrackInABCTrackPicked(mouseX, mouseY);
+    if (mypossibleMidiInABCTrack != 1000)
+    {
+         // std::cout << "Someone Picked a MidiTrack in an ABC Track" << std::endl;
+         size_t whichmidi = WhichMidiTrackInABCTrackPicked(mouseX, mouseY);
+         if (whichmidi !=1000)
+         {
+             std::cout <<"Right Click on Miditrack " << whichmidi << " in ABC Track " << mypossibleMidiInABCTrack;
+             MidiTrackDialogue * custom = new MidiTrackDialogue( &BVabctracks[mypossibleMidiInABCTrack].miditrackinfo[whichmidi] );
+             custom->Show(true);
+         }
+    }
 }
 
 void BandView::mouseLeftDown(wxMouseEvent& event)
@@ -608,6 +622,7 @@ void BandView::DrawOneMidiTrack(wxDC& dc, int x, int y, int i, size_t midiinstru
     DrawOneInstrument(dc, x, 230, lotroinstruments_formal[8]);
     DrawOneInstrument(dc, x2, 230, lotroinstruments_formal[9]);
     DrawOneInstrument(dc, x, 250, lotroinstruments_formal[10]);
+    DrawOneInstrument(dc, x2, 250, lotroinstruments_formal[17]);
  }
 
 int BandView::RelX(int m)
@@ -646,13 +661,15 @@ void BandView::render(wxDC&  dc)
 
     // draw a line
     dc.SetPen( wxPen( wxColor(0,0,0), 3 ) ); // black line, 3 pixels thick
-    dc.DrawLine( 100, 30, 100, 500 ); // draw line across the rectangle
+    dc.DrawLine( 100, 50, 100, 500 ); // draw line across the rectangle
 
     dc.DrawText(wxT("Instruments"), 810, 30);
     dc.SetPen( wxPen( wxColor(0,0,0), 3 ) ); // black line, 3 pixels thick
-    dc.DrawLine( 790, 30, 790, 500 ); // draw line across the rectangle
+    dc.DrawLine( 790, 50, 790, 500 ); // draw line across the rectangle
 
     dc.DrawLine( 100,500, 790, 500 );
+    dc.DrawLine( 100, 50, 790, 50);
+
     dc.DrawText(wxT("Audience"), 445, 550);
 
     DrawLotroInstruments(dc);
