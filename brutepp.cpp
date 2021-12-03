@@ -2,12 +2,16 @@
 #include "stdio.h"
 #include <string>
 #include <list>
+#include "windows.h"
+#include "commctrl.h"
 
 #include "include/brute.h"
 
 #include "include/midipreview.h"
 
 #include "include/bandview.h"
+
+#include "audioplayer.h"
 
 #include <SDL.h>
 
@@ -27,22 +31,13 @@ class Notepad : public wxFrame {
 
         wxFrame *frame;
         BandView * bandview;
+        AudioPlayer * myaudioplayer;
 
         SDL_AudioDeviceID myaudio;
-
         Uint32 wav_length;
         Uint8 *wav_buffer;
-
         SDL_AudioSpec audiowant, audiohave;
         int audio_playing = 0;   // 0 is not playing at the moment
-
-        /*
-        wxFrame *audioframe;
-        AudioPlayer * audioplayer;
-        */
-
-
-        //Chord mychord;
 
     private:
 
@@ -308,78 +303,12 @@ void Notepad::OnWavRender(wxCommandEvent &event)
     // Render the WAV and play
     myBrute->GenerateABC();
     myMidiPreview->GeneratePreviewMidi(&myBrute->m_ABCText, int64_t( myBrute->m_globalmaxtick/0.36) );
-
-    // poor mans solution!
-   // system("audio.wav");
-
-  //  m_mediaplayer->Load("audio.wav");
-  //  m_mediaplayer->Play();
-
-
-     //  auto mediactrl=new wxMediaCtrl(this, wxID_ANY, wxT(""), wxDefaultPosition, wxSize(60,60), wxNO_BORDER, wxMEDIABACKEND_WMP10); //Or whatever you need here
-   //mediactrl->Connect(wxEVT_MEDIA_LOADED, wxMediaEventHandler(MediaDialog::OnLoad), NULL, this);
-
-
-    SDL_AudioSpec wav_spec;
-
-    SDL_AudioSpec want, have;
-
-    SDL_memset(&want, 0, sizeof(want)); /* or SDL_zero(want) */
-    want.freq = 44100;
-    want.format = AUDIO_S16SYS;
-    want.channels = 2;
-    want.samples = 4096;
-    want.callback = NULL;  // you wrote this function elsewhere.
-
-    Uint32 myposition = 0;
-    if (audio_playing > 0)
-    {
-        myposition = SDL_GetQueuedAudioSize(myaudio);
-        SDL_CloseAudioDevice(myaudio);
-        SDL_ClearQueuedAudio(myaudio);
-      //  SDL_FreeWAV(wav_buffer);
-    }
-
-    audio_playing = 1;
-    myaudio = SDL_OpenAudioDevice(NULL, 0,  &want, &have, 0);
-    SDL_QueueAudio(myaudio, &myMidiPreview->m_StereoStream[0] + myposition , myMidiPreview->m_StereoStream.size() - myposition);
-    SDL_PauseAudioDevice(myaudio, 0);
-    /*
-
-    if (SDL_LoadWAV("audio.wav", &wav_spec, &wav_buffer, &wav_length))
-    {
-
-        std::cout << "SDL wav loaded: " << wav_spec.freq << std::endl;
-        std::cout << "Format " << wav_spec.format << std::endl;
-        std::cout << "Samples " << wav_spec.samples << std::endl;
-        wav_spec.callback = nullptr;
-     //   printf("[SDL] LoadWAV obtained:\nfrequency: %d\nformat - f: %d b: %d channels: %d samples: %d\n", want.freq, SDL_AUDIO_ISFLOAT(want.format), SDL_AUDIO_BITSIZE(want.format), want.channels, want.samples);
-
-
-
-       // SDL_AudioDeviceID deviceId = SDL_OpenAudioDevice(NULL, 0, wav_spec, NULL, 0);
-       myaudio = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
-
-        if (myaudio)
-        {
-            int success = SDL_QueueAudio(myaudio, wav_buffer, wav_length);
-
-            SDL_PauseAudioDevice(myaudio, 0);
-        }
-
-    }
-*/
+    myaudioplayer->Play();
 }
 
 void Notepad::OnPlayDirectly(wxCommandEvent &event)
 {
-    if (audio_playing > 0)
-    {
-        SDL_CloseAudioDevice(myaudio);
-        SDL_ClearQueuedAudio(myaudio);
-      //  SDL_FreeWAV(wav_buffer);
-      audio_playing = 0;
-    }
+    myaudioplayer->Stop();
 }
 
 void Notepad::OnLogFile(wxCommandEvent &event)
@@ -444,18 +373,6 @@ class MainApp : public wxApp {
 
 bool MainApp::OnInit() {
 
-    // initialize Audio
-    SDL_Init(SDL_INIT_AUDIO);
-
-   // audiowantaudiohave
-
-   // main->myaudio = SDL_OpenAudioDevice(NULL, 0, NULL, NULL, 0);
-
-   // if (main->myaudio)
-   // {
-   //     std::cout << " SDL Audio Device seems to be working " << std::endl;
-   // }
-
     // create a new Notepad (we used a wxFrame in part 2)
 
     Notepad *main = new Notepad();
@@ -467,25 +384,18 @@ bool MainApp::OnInit() {
     main->myMidiPreview = new MidiPreview();
     main->myBrute = new Brute;
 
+    main->myaudioplayer = new AudioPlayer(main->myBrute, main->myMidiPreview);
+
 
     // Make the BandView Window
     wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
     main->frame = new wxFrame((wxFrame *)NULL, -1,  wxT("Hello wxDC"), wxPoint(200,50), wxSize(1050,700));
-    main->bandview = new BandView( (wxFrame*) main->frame, main->myBrute );
+    main->bandview = new BandView( (wxFrame*) main->frame, main->myBrute, main->myaudioplayer );
     sizer->Add(main->bandview, 1, wxEXPAND);
     main->frame->SetSizer(sizer);
     main->frame->SetAutoLayout(true);
     main->frame->Show();
 
-    /*
-    wxBoxSizer* sizeraudio = new wxBoxSizer(wxHORIZONTAL);
-    main->audioframe = new wxFrame((wxFrame*)NULL, -1, wxT("Audio Player"), wxPoint(400,50), wxSize(200,100));
-    main->audioplayer = new AudioPlayer( (wxFrame*) main->audioframe, main->myBrute);
-    sizer->Add(main->audioplayer, 1, wxEXPAND);
-    main->audioframe->SetSizer(sizeraudio);
-    main->audioframe->SetAutoLayout(true);
-    main->audioframe->Show();
-*/
     return true;
 }
 
