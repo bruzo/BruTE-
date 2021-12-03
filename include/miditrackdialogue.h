@@ -18,6 +18,12 @@ public:
   wxTextCtrl *tcrangel;
   wxTextCtrl *tcrangeh;
   wxButton *okButton;
+  wxStaticBox * alternatebox;
+  wxTextCtrl * alternatepart;
+  wxTextCtrl * alternateparts;
+
+  wxStaticBox * splitbox;
+  wxTextCtrl * splitnumber;
 
   BandViewMidiTrack * thisMiditrack;
 
@@ -38,7 +44,7 @@ EVT_BUTTON(wxID_OK, MidiTrackDialogue::OnButtonOK)
 END_EVENT_TABLE()
 
 MidiTrackDialogue::MidiTrackDialogue(BandViewMidiTrack * myMidiTrack)
-       : wxDialog(NULL, -1, wxT("Midi Track Info"), wxDefaultPosition, wxSize(250, 230))
+       : wxDialog(NULL, -1, wxT("Midi Track Settings"), wxDefaultPosition, wxSize(350, 270))
 {
   thisMiditrack = myMidiTrack;
   wxPanel *panel = new wxPanel(this, -1);
@@ -61,6 +67,16 @@ MidiTrackDialogue::MidiTrackDialogue(BandViewMidiTrack * myMidiTrack)
   tcrangel = new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->range_l), wxPoint(x+10, y+20), wxSize(45,sy-25));
   tcrangeh = new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->range_h), wxPoint(x+95, y+20), wxSize(45,sy-25));
 
+  x = 5; y = 120; sx = 155; sy = 45;
+  alternatebox = new wxStaticBox(panel, -1, wxT("Alternate (part, n_parts)"), wxPoint(x,y), wxSize(sx,sy), wxTE_READONLY);
+  alternatepart = new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->alternatemypart) , wxPoint(x+10, y+20), wxSize(45,20));
+  alternateparts = new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->alternateparts), wxPoint(x+95, y+20), wxSize(45,20));
+
+  x = 170; y = 20; sx = 70; sy = 45;
+  splitbox = new wxStaticBox(panel, -1, wxT("Split"), wxPoint(x,y), wxSize(sx,sy), wxTE_READONLY);
+  splitnumber = new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->split ) , wxPoint(x+10, y+20), wxSize(45,20));
+
+
 
   okButton = new wxButton(this, wxID_OK, wxT("Ok"),wxDefaultPosition, wxSize(70, 30));
 
@@ -82,6 +98,9 @@ void MidiTrackDialogue::OnButtonOK(wxCommandEvent& event)
     thisMiditrack->pitch = wxAtoi(tcpitch->GetValue());
     thisMiditrack->range_l = wxAtoi(tcrangel->GetValue());
     thisMiditrack->range_h = wxAtoi(tcrangeh->GetValue());
+    thisMiditrack->alternatemypart = wxAtoi(alternatepart->GetValue());
+    thisMiditrack->alternateparts = wxAtoi(alternateparts->GetValue());
+    thisMiditrack->split = wxAtoi(splitnumber->GetValue());
 
     this->Destroy();
 }

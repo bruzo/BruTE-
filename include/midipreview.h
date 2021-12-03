@@ -36,6 +36,11 @@ public:
 
 
 
+
+   void CombineTones();
+
+
+
 private:
 
    // Functions to make the conversion
@@ -233,17 +238,12 @@ void MidiPreview::GeneratePreviewMidi(std::stringstream * abctext, int64_t buffe
                       //  int thistick = int( (currenttime+myduration)*tpq  );
                       // PreviewMidiTracks[mytracknumber].addNoteOff(1, thistick,0, mypitch+36); //
 
-                       // the tone end will happen only after the duration .. so we need to memorize this for the tinysf
+                       // the tone end will happen only after the duration .. so we need to memorize this for now
                        pitchends.push_front(mypitch+36);
                    }
-                   // Check if this generates a tone end event
                }
            }
            // Render a bit into the WAV stream
-
-
-           // put out tone end events
-           //std::cout << currenttime << " " << myduration << std::endl;
 
            // calculations for timings:
            //     currenttime/ 2 = current time in seconds
@@ -274,6 +274,7 @@ void MidiPreview::GeneratePreviewMidi(std::stringstream * abctext, int64_t buffe
 
            currenttime = currenttime + myduration;
 
+           // now take the tone end events and write them into tsf and our data structure
            for (std::list<int>::iterator ip=pitchends.begin(); ip!=pitchends.end(); ip++)
            {
                 tsf_note_off(TinySoundFont, TinyMidiChannel, *ip);  // Midichannel
@@ -283,31 +284,7 @@ void MidiPreview::GeneratePreviewMidi(std::stringstream * abctext, int64_t buffe
 
            ++lineiterator; // take the next line
        }
-    // PreviewMidiTracks[mytracknumber].sortTracks();
    }
-
-/*
-   for (size_t i = 0; i < PreviewMidiTracks.size(); i++)
-   {
-       std::cout << " Writing Midi Track " << i << std::endl;
-       std::stringstream myfilename;
-       myfilename << "Midi_" << i << ".mid";
-       PreviewMidiTracks[i].write(myfilename.str());
-   }
-*/
-
-
-   // Mix down the tracks into one
-   /*
-   for (size_t track = 0; track < m_Nabctracks; track++)
-    for (size_t i = 0; i < m_WavStreams[0].size(); i++)
-   {
-       float weightleft = m_WavPannings[track] / 128.0;
-       float weightright = 1.0 - weightleft;
-       m_StereoStream[2*i] += int(m_WavStreams[track][i] * weightleft);            // left channel
-       m_StereoStream[2*i+1] += int(m_WavStreams[track][i] * weightright);
-   }
-*/
 
 /*
    std::cout << " Writing WAV Track " << std::endl;

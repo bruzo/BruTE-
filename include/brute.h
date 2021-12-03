@@ -18,7 +18,7 @@
 #include <vector>
 #include <iomanip>
 #include <fstream>
-#include <random>
+// #include <random>
 #include <list>
 #include <omp.h>
 #include <sstream>
@@ -67,6 +67,7 @@ public:
     size_t GetNumberOfMidiTracks();
     size_t GetMidiInstrument(size_t i);
     bool GetMidiIsDrum(size_t i);
+    int64_t GetToneCount(size_t i);
 
 private:
     // MidiFile instance to deal with the midi file
@@ -79,7 +80,7 @@ private:
     std::vector<bool> m_isdrumtrack;
 
     // tones per track
-    std::vector<int> m_tonecounts;
+    std::vector<int64_t> m_tonecounts;
 
     // midi tone events
     std::vector< std::vector<double> > m_tonestarts;
@@ -160,6 +161,10 @@ private:
     bool m_done;
 };
 
+int64_t Brute::GetToneCount(size_t i)
+{
+    return m_tonecounts[i];
+}
 
 size_t Brute::GetNumberOfMidiTracks()
 {
@@ -225,7 +230,7 @@ void Brute::LoadMidi(char * mymidiname)
     m_bpm = 120; // initial default tempo
 
     double timetoticks = 0.6048204338;
-    timetoticks = 0.604835254011;
+    timetoticks = 0.60476973728946;
 
     //MidiEvent * ptr;
     m_Midi.absoluteTicks();
@@ -774,6 +779,16 @@ void Brute::ParseConfig(std::stringstream * mappingtext)
     m_Mapping.ImportPitchBendInstructions();
 }
 
+float myrandom()
+{
+    float myvalue = 0.;
+    for (int r = 0; r < 20; r++)
+    {
+        myvalue += (std::rand()%1000)*0.001 - 0.5;
+    }
+    return myvalue;
+}
+
 void Brute::GenerateQuantizedNotes()
 {
     // this is where the quantization happens
@@ -796,8 +811,9 @@ void Brute::GenerateQuantizedNotes()
     double oldhuman3 = 0;
 
     // build the normal distribution rng
-    std::default_random_engine generator;
-    std::normal_distribution<double> distribution(0.0,m_Mapping.m_dohumanization);
+    //std::default_random_engine generator;
+
+   // std::normal_distribution<double> distribution(0.0,m_Mapping.m_dohumanization);
 
     // traditionally here would be some calculations for time correction of instruments, not beeing done right now
     m_qnotestart.resize(m_Midi.size());
@@ -827,7 +843,8 @@ void Brute::GenerateQuantizedNotes()
                 double r_start = m_tonestarts[i][j];
                 double r_end = m_toneends[i][j];
 
-                double mtdshift = distribution(generator);
+//                double mtdshift = distribution(generator);
+                double mtdshift = myrandom()*m_Mapping.m_dohumanization;  // we got rid of the <random.h> dependency for 32 bit compilations
                 r_start = r_start + (mtdshift+oldhuman+oldhuman2*0.35+oldhuman3*0.15)*0.4;
                 r_end = r_end + (mtdshift+oldhuman+oldhuman2*0.35+oldhuman3*0.15)*0.4;
 
