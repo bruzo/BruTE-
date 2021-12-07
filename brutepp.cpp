@@ -301,9 +301,20 @@ void Notepad::OnPlaywithABCPlayer(wxCommandEvent &event)
 void Notepad::OnWavRender(wxCommandEvent &event)
 {
     // Render the WAV and play
-    myBrute->GenerateABC();
-    myMidiPreview->GeneratePreviewMidi(&myBrute->m_ABCText, int64_t( myBrute->m_globalmaxtick/0.36) );
-    myaudioplayer->Play();
+    if (myBrute->DoIHaveAMidi() && myBrute->DoIHaveAMap())
+    {
+       myBrute->GenerateABC();
+       myMidiPreview->GeneratePreviewMidi(&myBrute->m_ABCText, int64_t( myBrute->m_globalmaxtick/0.36) );
+       myaudioplayer->Play();
+    }
+    else
+    {
+       wxString message;
+       if (!myBrute->DoIHaveAMap()) message = wxT("No Mapping defined.");
+       if (!myBrute->DoIHaveAMidi()) message = wxT("No Midi loaded.");
+       wxMessageDialog * edialog = new wxMessageDialog(NULL, message, wxT("Info"), wxOK);
+       edialog->ShowModal();
+    }
 }
 
 void Notepad::OnPlayDirectly(wxCommandEvent &event)
