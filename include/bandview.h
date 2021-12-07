@@ -7,6 +7,7 @@
 #include "wx/sizer.h"
 #include <algorithm>
 #include "miditrackdialogue.h"
+#include "abctrackdialogue.h"
 #include "bandviewabctrack.h"
 #include "bandviewmiditrack.h"
 #include "audioplayer.h"
@@ -337,6 +338,14 @@ void BandView::mouseRightDown(wxMouseEvent& event)
              MidiTrackDialogue * custom = new MidiTrackDialogue( &BVabctracks[mypossibleMidiInABCTrack].miditrackinfo[whichmidi] );
              custom->Show(true);
          }
+    }
+
+    size_t mypossibleABCTrack = ABCTrackPicked(mouseX, mouseY);
+    if (mypossibleABCTrack != 1000)
+    {
+        std::cout << "Right Click on ABCtrack " << mypossibleABCTrack << std::endl;
+        ABCTrackDialogue * custom = new ABCTrackDialogue( &BVabctracks[mypossibleABCTrack] );
+        custom->Show(true);
     }
 }
 

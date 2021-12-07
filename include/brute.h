@@ -69,6 +69,10 @@ public:
     bool GetMidiIsDrum(size_t i);
     int64_t GetToneCount(size_t i);
 
+    bool DoIHaveAMidi();
+    bool DoIHaveAMap();
+    bool DoIHaveAnABCFile();
+
 private:
     // MidiFile instance to deal with the midi file
     smf::MidiFile m_Midi;
@@ -160,6 +164,23 @@ private:
     int m_corrections;
     bool m_done;
 };
+
+bool Brute::DoIHaveAMidi()
+{
+    // we shouldn't have a midi if we have no instruments
+    return (m_midiinstruments.size() > 1);
+}
+
+bool Brute::DoIHaveAMap()
+{
+    // we have no map if the map file has no size
+    return (m_MappingText.str().length()>0);
+}
+
+bool Brute::DoIHaveAnABCFile()
+{
+    return (m_ABCText.str().length()>0);
+}
 
 int64_t Brute::GetToneCount(size_t i)
 {
@@ -959,17 +980,15 @@ void Brute::MapToRegister()
             int utrack = m_Mapping.m_trackmap[abctrack][miditrack];
             m_log << "ABC Track: " << abctrack+1 << " Miditrack: " << utrack << std::endl;;
 
-            int octavepitch;
+            // take either no octaveshift or if the avpitch feature is used take the mean shift into account
+            int octavepitch = 0;
             if (m_avpitchc[utrack]!=0)
             {
                 octavepitch = int(double(m_avpitches[utrack])/double(m_avpitchc[utrack])/12 - 1);
             }
-            else
-            {
-                octavepitch = 0;
-            }
-            if ( m_Mapping.m_nopitchguessing ) octavepitch = 0;
+            if ( m_Mapping.m_nopitchguessing ) octavepitch = 0; // no pitch guessing overrides everything
 
+            // now go through all the tones
             for (int toneid = 0; toneid < m_tonecounts[utrack]; toneid++)
             {
                 bool takethistone = true;
@@ -983,14 +1002,14 @@ void Brute::MapToRegister()
 
                 // now fold or not fold the pitch into playable region
                 //    if (  !m_isdrumtrack[utrack] ) // this would be the miditrack info, but we use definitions in config file!
-                if ( m_Mapping.m_instrumap[abctrack] != 8 )
+                if ( m_Mapping.m_instrumap[abctrack] != 8 )  // don't do this if this is a lotro drum
                 {
                     pitch = m_pitches[utrack][toneid] + m_Mapping.m_generalpitch + m_Mapping.m_pitchmap[abctrack][miditrack] -
                             octavepitch * 12;
                     while ( pitch < m_Mapping.m_rangemapl[abctrack][miditrack] ) pitch = pitch + 12;
                     while ( pitch > m_Mapping.m_rangemaph[abctrack][miditrack] ) pitch = pitch - 12;
 
-                    // here would be the tonality conversion, but could be done later!
+                    // here would be the tonality conversion, but will come later!
                 }
                 else
                 {
@@ -1051,7 +1070,15 @@ void Brute::MapToRegister()
                         for (int j = mystart; j < myend; j++)
                         {
                             double gm_val = (endp1 - j) * m + m_Mapping.m_priomap[abctrack][miditrack];
+
+
+                            // if the value in the register is smaller than gm_val we overwrite it - branching version
                             if (m_register[abctrack][pitch][j] < gm_val) m_register[abctrack][pitch][j] = gm_val;
+
+                            // branchless version
+                            //int condition = (m_register[abctrack][pitch][j] < gm_val);
+                            //m_register[abctrack][pitch][j] = condition * gm_val + (condition-1) * m_register[abctrack][pitch][j];
+
                         }
                     }
                 }
@@ -2118,7 +2145,9 @@ void Brute::GenerateNoteSelection()
         int miditracks = m_Mapping.m_trackmap[abctrack].size();
         for (int miditrack = 0; miditrack < miditracks; miditrack++)
         {
-            if (( m_Mapping.m_alternatemap[abctrack][miditrack] > 1) || (m_Mapping.m_splitvoicemap[abctrack][miditrack]>0))
+            int thisoneisalternated = (m_Mapping.m_alternatemap[abctrack][miditrack] > 1);
+            int thisoneissplitted = (m_Mapping.m_splitvoicemap[abctrack][miditrack]>0);
+            if (( m_Mapping.m_alternatemap[abctrack][miditrack] > 1) || (m_Mapping.m_splitvoicemap[abctrack][miditrack]>0))   // we only have to  go through this if this track is either alternated or a specific tone of each chord is picked
             {
                 // this track is alternated!
                 int utrack = m_Mapping.m_trackmap[abctrack][miditrack];
@@ -2132,9 +2161,11 @@ void Brute::GenerateNoteSelection()
 
                 while ( tonenumber < ntones)
                 {
+
+                    /*
+                    // Branching Version of the chord finder
                     // first take the tone and see if the starting time changed
-                    if (( m_tonestarts[utrack][tonenumber] < currenttime   - 0.0000001 )
-                            || (m_tonestarts[utrack][tonenumber] > currenttime + 0.0000001 ))
+                    if (( m_tonestarts[utrack][tonenumber] < currenttime   - 0.0000001 ) || (m_tonestarts[utrack][tonenumber] > currenttime + 0.0000001 ))
                     {
                         // time changed so increase the counter and take new time
                         eventcounter += 1;
@@ -2146,15 +2177,34 @@ void Brute::GenerateNoteSelection()
                         // time didn't change
                         thispart++;
                     }
+                    */
+
+
+                    // Branchless Version of the chord finder
+                    int mm = (( m_tonestarts[utrack][tonenumber] < currenttime   - 0.0000001 ) || (m_tonestarts[utrack][tonenumber] > currenttime + 0.0000001 )); // check if the new tone happens at a different time than the preceeding one
+                    eventcounter += mm;    // if yes, add one to the number of events
+                    currenttime = ( 1 - mm ) * currenttime + mm * m_tonestarts[utrack][tonenumber];   // and memorize the new time
+                    thispart =  mm + ( 1-mm ) * (thispart+1);  // this is either 1 in case it's true, or thispart+1 in case it's false, meaning it counts up the value in thispart to identify the n'th tone in the chord
+
+                    // it seems a bit weird to check again if this is either alternated or splitted ...
 
                     // see if this tone is picked
+                    // Branching version of the assignment
+                    /*
                     if (m_Mapping.m_alternatemap[abctrack][miditrack]>1)
                         if ( eventcounter % alternateparts != alternatepart )
-                            m_selected[abctrack][miditrack][tonenumber] = false;
+                            m_selected[abctrack][miditrack][tonenumber] = false;   // only stay on true if this part is supposed to be played
 
                     if (m_Mapping.m_splitvoicemap[abctrack][miditrack]>0)
                         if ( thispart != m_Mapping.m_splitvoicemap[abctrack][miditrack])
                             m_selected[abctrack][miditrack][tonenumber] = false;
+*/
+                    // Branchless version
+                    int acondition =  ( eventcounter % alternateparts != alternatepart );
+                    int scondition =  ( thispart != m_Mapping.m_splitvoicemap[abctrack][miditrack]);
+                                                                // default is true, if either this shouldn't be played by alternation or splitting it will be disabled
+                    m_selected[abctrack][miditrack][tonenumber] = true - (( thisoneisalternated * acondition ) || ( thisoneissplitted * scondition ));
+
 
                     // move a tone further
                     tonenumber++;
