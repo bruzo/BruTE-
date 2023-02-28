@@ -13,6 +13,8 @@
 
 #include "audioplayer.h"
 
+#include "miditrackview.h"
+
 #include <SDL.h>
 
 //#include "include/audioplayer.h"
@@ -28,6 +30,8 @@ class Notepad : public wxFrame {
         Brute * myBrute;  // instance of the conversion class, for simplicity this is public for now
 
         MidiPreview * myMidiPreview; // the object that will be handling the midi preview
+
+        MidiTrackView * myMidiTrackView;
 
         wxFrame *frame;
         BandView * bandview;
@@ -225,46 +229,7 @@ void Notepad::OnTranscode(wxCommandEvent &event)
     // 1st get a stringstream of the Notepad Text, then parse the mapping
     std::stringstream mappingstream(  std::string(this->text->GetValue().mb_str())  );
 
-    myBrute->ParseConfig(&mappingstream);
-
-    // Assuming the midi file is loaded we can do the transcoding
-
-    // in case it's wanted break up bended tones
-    if ( myBrute->m_Mapping.m_dopitchbends ) myBrute->PitchBends();
-
-    // this starts the tone quantization
-    myBrute->GenerateQuantizedNotes();
-
-    // this creates the reduced selection for the abctracks (alternate, split, durationsplit)
-    myBrute->GenerateNoteSelection();
-
-    // map the tones on the grid
-    myBrute->MapToRegister();
-
-    // break it into lists of chords with duration
-    myBrute->GenerateRoughChordLists();
-
-    // now we need to adjust Chords in time to get them to not have a missmatch if possible and also make sure they are
-    // long enough
-    myBrute->ChordJoinDurations();
-
-    // now that we joined equal chords, we have to transfer duration to make the starts fit
-    myBrute->CorrectMissmatch();
-
-    // Check for too short tones and try to correct them!
-    myBrute->CompensateEasy();
-
-    // Make sure we really have it all!
-    if (!myBrute->AllChordsOK()){
-                std::cout << " we didn't catch everything " << std::endl;
-                myBrute->CompensateEasy();
-                if (!myBrute->AllChordsOK()) std::cout << " we still didn't catch everything .. ABC is garbage " << std::endl;
-    }
-
-    myBrute->Check_for_too_long_tones();   // essentially break up chords that are too long into sustained ones
-
-    // Pre-Generate duration string names
-    myBrute->GenerateDurationNames();
+    myBrute->Transcode(&mappingstream);
 
     // Now we can export an ABC file
     char abcname[8] = "new.abc";
@@ -315,6 +280,7 @@ void Notepad::OnWavRender(wxCommandEvent &event)
        wxMessageDialog * edialog = new wxMessageDialog(NULL, message, wxT("Info"), wxOK);
        edialog->ShowModal();
     }
+    bandview->Refresh();
 }
 
 void Notepad::OnPlayDirectly(wxCommandEvent &event)
@@ -396,16 +362,18 @@ bool MainApp::OnInit() {
     main->myBrute = new Brute;
 
     main->myaudioplayer = new AudioPlayer(main->myBrute, main->myMidiPreview);
-
+    //main->myMidiTrackView =  new MidiTrackView(main->myBrute, 1);
 
     // Make the BandView Window
     wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
     main->frame = new wxFrame((wxFrame *)NULL, -1,  wxT("Hello wxDC"), wxPoint(200,50), wxSize(1050,700));
-    main->bandview = new BandView( (wxFrame*) main->frame, main->myBrute, main->myaudioplayer );
+    main->bandview = new BandView( (wxFrame*) main->frame, main->myBrute, main->myaudioplayer, main->myMidiPreview, main->myMidiTrackView );
     sizer->Add(main->bandview, 1, wxEXPAND);
     main->frame->SetSizer(sizer);
     main->frame->SetAutoLayout(true);
     main->frame->Show();
+
+
 
     return true;
 }
