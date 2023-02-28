@@ -11,6 +11,8 @@ public:
     int miditrack;          // the id of the miditrack in the BruTE midi tracklist
     int midiinstrument;     // the numeric value of the original midi instrument
     int pitch=0;
+    int delay=0;
+
     bool isdrum=false;
     bool isempty=false;
 

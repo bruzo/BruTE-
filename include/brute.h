@@ -54,6 +54,7 @@ public:
 
     void ExportABC(char * abcfilename);
     void GenerateABC();
+    void Transcode(std::stringstream * mapping);
 
 
     // config file ( out.config equivalent )
@@ -72,6 +73,12 @@ public:
     bool DoIHaveAMidi();
     bool DoIHaveAMap();
     bool DoIHaveAnABCFile();
+
+    int GetNumberOfTones(int miditrack);
+    double GetToneStart(int miditrack, int tone);
+    double GetToneEnd(int miditrack, int tone);
+    int GetTonePitch(int miditrack, int tone);
+    int GetGlobalMaxVel();
 
 private:
     // MidiFile instance to deal with the midi file
@@ -165,6 +172,71 @@ private:
     bool m_done;
 };
 
+int Brute::GetGlobalMaxVel()
+{
+    return m_globalmaxvel;
+}
+
+int Brute::GetNumberOfTones(int miditrack)
+{
+    return m_tonestarts[miditrack].size();
+}
+
+double Brute::GetToneStart(int miditrack, int tone)
+{
+    return m_tonestarts[miditrack][tone];
+}
+
+double Brute::GetToneEnd(int miditrack, int tone)
+{
+    return m_toneends[miditrack][tone];
+}
+
+int Brute::GetTonePitch(int miditrack, int tone)
+{
+    return m_pitches[miditrack][tone];
+}
+
+void Brute::Transcode(std::stringstream * mapping)
+{
+    if (DoIHaveAMidi())
+    {
+       // parse the mapping text into the configfile
+       ParseConfig(mapping);
+       // if we're about pitchbends. . then do them now
+       if ( m_Mapping.m_dopitchbends ) PitchBends();
+       // Tone Quantization
+       GenerateQuantizedNotes();
+       // Mark down tones to be selected
+       GenerateNoteSelection();
+       // Map the tones to the Register
+       MapToRegister();
+       // break it into lists of chords with duration
+       GenerateRoughChordLists();
+       // now we need to adjust Chords in time to get them to not have a missmatch if possible and also make sure they are long enough
+       ChordJoinDurations();
+
+       // now that we joined equal chords, we have to transfer duration to make the starts fit
+       CorrectMissmatch();
+
+       // Check for too short tones and try to correct them!
+       CompensateEasy();
+
+       // Make sure we really have it all!
+       if (!AllChordsOK()){
+                std::cout << " we didn't catch everything, trying one more time " << std::endl;
+                CompensateEasy();
+                if (!AllChordsOK()) std::cout << " we still didn't catch everything .. ABC is garbage!!! " << std::endl;
+       }
+
+       Check_for_too_long_tones();   // essentially break up chords that are too long into sustained ones
+
+       // Pre-Generate duration string names
+       GenerateDurationNames();
+       GenerateABC();
+    }
+}
+
 bool Brute::DoIHaveAMidi()
 {
     // we shouldn't have a midi if we have no instruments
@@ -251,7 +323,7 @@ void Brute::LoadMidi(char * mymidiname)
     m_bpm = 120; // initial default tempo
 
     double timetoticks = 0.6048204338;
-    timetoticks = 0.60476973728946;
+    timetoticks = 0.60476973728946;    // 0.60486318972   this should be: 16000 / 26460
 
     //MidiEvent * ptr;
     m_Midi.absoluteTicks();
@@ -1707,7 +1779,7 @@ void Brute::Check_for_too_long_tones()
 
         while (current != m_chordlists[abctrack].end())
         {
-            if (current->duration > 64)
+            if (current->duration > 64*4)
             {
                 // create a new chord that is only continued, make this one shorter and insert new chord
                 ChordL newchord;
@@ -1719,8 +1791,8 @@ void Brute::Check_for_too_long_tones()
                     newchord.cpitches.push_back(*tones);
                 newchord.is_rest = current->is_rest;
                 newchord.missmatch = 0;
-                newchord.duration = 32.0;
-                current->duration = current->duration - 32.0;
+                newchord.duration = 32.0*4;
+                current->duration = current->duration - 32.0*4;
                 newchord.velocity = current->velocity;
                 former = current;
                 former ++;
@@ -1922,7 +1994,7 @@ void Brute::GenerateDurationNames()
             current++;
         }
 
-        // now make sure we adhere to the polyphony!
+        // now make sure we adhere to the polyphony
         current = m_chordlists[abctrack].begin();
         // second run over to assure polyphony
         while ( current != m_chordlists[abctrack].end())
@@ -1932,8 +2004,10 @@ void Brute::GenerateDurationNames()
                 // new pitches are already too many, wiping all cpitches and important npitches
                 if ( current->npitches.size() >= static_cast<unsigned int>( m_Mapping.m_polymap[abctrack] ) )
                 {
+                    // remove all continued tones first
                     while (current->cpitches.size() > 0) current->cpitches.pop_back();
 
+                    // number of pitches to be removed from new pitches
                     int n = current->npitches.size() - m_Mapping.m_polymap[abctrack];
 
                     while (n > 0)
@@ -1944,7 +2018,7 @@ void Brute::GenerateDurationNames()
                         int value = *current->npitches.begin();
                         int direction = m_Mapping.m_polymapdir[abctrack];
 
-
+                        // pick lowest of highest pitch
                         for (gothrough = current->npitches.begin(); gothrough != current->npitches.end(); gothrough++)
                         {
                             if (( value < *gothrough )&&(direction==0))
@@ -1956,6 +2030,7 @@ void Brute::GenerateDurationNames()
                                 value = *gothrough;
                             }
                         }
+                        // delete that pitch
                         for (gothrough = current->npitches.begin(); gothrough != current->npitches.end(); gothrough++)
                         {
                             if (value == *gothrough)
@@ -1969,7 +2044,7 @@ void Brute::GenerateDurationNames()
                 }
                 else
                 {
-                    // cpitches are enough to cancel .. we can just through out cpitches first
+                    // continued pitches are enough to match this
                     int n = current->npitches.size() + current->cpitches.size() - m_Mapping.m_polymap[abctrack];
 
                     while (n > 0)

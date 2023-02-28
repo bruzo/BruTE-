@@ -5,12 +5,18 @@
 
 #include "wx/wx.h"
 #include "wx/sizer.h"
+#include "wx/bitmap.h"
 #include <algorithm>
 #include "miditrackdialogue.h"
 #include "abctrackdialogue.h"
 #include "bandviewabctrack.h"
 #include "bandviewmiditrack.h"
 #include "audioplayer.h"
+#include "midipreview.h"
+#include "audiencedialogue.h"
+#include "overloadpicture.h"
+#include "miditrackview.h"
+#include "abcheader.h"
 
 
 //#include "include/brute.h"
@@ -20,29 +26,32 @@ class BandView : public wxPanel
 {
 
 public:
-    BandView(wxFrame* parent, Brute * myBrute, AudioPlayer * myaudioplayer);
+    BandView(wxFrame* parent, Brute * myBrute, AudioPlayer * myaudioplayer, MidiPreview * myMidiPreview, MidiTrackView * myMidiTrackViewp);
 
     void paintEvent(wxPaintEvent & evt);
     void paintNow();
 
     void render(wxDC& dc);
     void DrawLotroInstruments(wxDC& dc);
-    void DrawOneInstrument(wxDC& dc, int x, int y, wxString mytext);
+    void DrawOneInstrument(wxDC& dc, int x, int y, wxString mytext, bool muted);
     void DrawMidiTracks(wxDC& dc);
     void DrawOneMidiTrack(wxDC& dc, int x, int y, int i, size_t midiinstrumentnumber);
     void DrawABCTracks(wxDC& dc);
 
     void AppendMapping();   // this will write the mapping info into the brute instance
     void GetMapping();
+    void GenerateConfigHeader();
 
     size_t LotroInstrumentPicked(int x, int y);
     size_t MidiTrackPicked(int x, int y);
     size_t ABCTrackPicked(int x, int y);
+    bool ABCTrackMuted(int x, int y);
     size_t MidiTrackInABCTrackPicked(int x, int y);
     size_t WhichMidiTrackInABCTrackPicked(int x, int y);
 
     Brute * myBrute;  // our instance of Brute
     AudioPlayer * myaudioplayer; // our instance of the AudioPlayer
+    MidiPreview * myMidiPreview;
 
     void mouseLeftDown(wxMouseEvent& event);
     void mouseLeftUp(wxMouseEvent& event);
@@ -64,6 +73,8 @@ public:
     BandViewMidiTrack MovingMidiTrack;
     int MovingMidiTrackNumber;
 
+    ABCHeader myABCHeader;
+
     int RelX(int m);
     int RelY(int m);
 
@@ -73,6 +84,11 @@ public:
     bool BetterUpdateYourABCfromBrute = false;
 
     void GenerateDefaultMapping();
+
+
+    wxBitmap * myOverLoadPic = new wxBitmap(690,50,-1);
+
+    MidiTrackView * myMidiTrackView;
 
     // some useful events
     /*
@@ -123,10 +139,7 @@ END_EVENT_TABLE()
  void BandView::keyReleased(wxKeyEvent& event) {}
  */
 
- void BandView::GenerateDefaultMapping()
- {
 
- }
 
  void BandView::AppendMapping()
  {
@@ -141,11 +154,18 @@ END_EVENT_TABLE()
 
      for (size_t m = 0; m < BVabctracks.size(); m++)
      {
-        size_t i = myneworder[m].second;
+        size_t i = myneworder[m].second; // write out the correct part based on the ordering
+        if (BVabctracks[i].muted ) bvmappingtext << "*" << std::endl;
         bvmappingtext << "abctrack begin" << std::endl;
         bvmappingtext << "%voladjust    %uncomment to try automatic compensation for U16.1 volumes (experimental!)" << std::endl;
-        bvmappingtext << "polyphony 6 top  % options: top removes tones from higher pitch first, bottom lower pitch first" << std::endl;
-        bvmappingtext << "duration 2" << std::endl;
+        std::string pdirection = "top";
+        if (BVabctracks[i].polydirection == 0) pdirection = "bottom";
+        bvmappingtext << "polyphony " << BVabctracks[i].polyphony  <<" " << pdirection << " % options: top removes tones from higher pitch first, bottom lower pitch first" << std::endl;
+
+        bvmappingtext << "duration " << BVabctracks[i].duration_min;
+        if (BVabctracks[i].duration_max > 2) bvmappingtext << " " << BVabctracks[i].duration_max;
+        bvmappingtext << std::endl;
+
         bvmappingtext << "panning " << 128 - int(  (BVabctracks[i].x-100)/590.0 * 128  ) << std::endl;
         if (BVabctracks[i].instrument != 8)
         {
@@ -167,9 +187,10 @@ END_EVENT_TABLE()
             bvmappingtext << "split " << BVabctracks[i].miditrackinfo[j].split << std::endl;
            if ((midioriginal >= 0)&&(midioriginal < 128))
             bvmappingtext << "% Miditrack original Instrument " << GMinstrument[ midioriginal ] << std::endl;
-           bvmappingtext << "miditrack " << BVabctracks[i].miditrackinfo[j].miditrack << " pitch " << BVabctracks[i].miditrackinfo[j].pitch << " volume " << BVabctracks[i].miditrackinfo[j].volume << " delay 0 prio 1" << std::endl;
+           bvmappingtext << "miditrack " << BVabctracks[i].miditrackinfo[j].miditrack << " pitch " << BVabctracks[i].miditrackinfo[j].pitch << " volume " << BVabctracks[i].miditrackinfo[j].volume << " delay " << BVabctracks[i].miditrackinfo[j].delay << " prio 1" << std::endl;
         }
         bvmappingtext << "abctrack end" << std::endl;
+        if (BVabctracks[i].muted) bvmappingtext << "*" << std::endl;
         bvmappingtext << std::endl;
         bvmappingtext << std::endl;
      }
@@ -197,6 +218,10 @@ void BandView::GetMapping()
         newabctrack.instrument = myBrute->m_Mapping.m_instrumap[i];
         newabctrack.x = myBrute->m_Mapping.abctrackpositions_x[i];
         newabctrack.y = myBrute->m_Mapping.abctrackpositions_y[i];
+        newabctrack.polyphony = myBrute->m_Mapping.m_polymap[i];
+        newabctrack.polydirection = myBrute->m_Mapping.m_polymapdir[i];
+        newabctrack.duration_min = myBrute->m_Mapping.m_durmap[i];
+        newabctrack.duration_max = myBrute->m_Mapping.m_durmaxmap[i];
 
         BVabctracks.push_back(newabctrack);
 
@@ -218,10 +243,18 @@ void BandView::GetMapping()
             newmiditrack.alternateparts = myBrute->m_Mapping.m_alternatemap[i][j];
             newmiditrack.alternatemypart = myBrute->m_Mapping.m_alternatepart[i][j];
             newmiditrack.split = myBrute->m_Mapping.m_splitvoicemap[i][j];
+            newmiditrack.delay = myBrute->m_Mapping.m_delaymap[i][j];
 
             BVabctracks[i].miditrackinfo.push_back(newmiditrack);
         }
     }
+
+    myABCHeader.globalpitch = myBrute->m_Mapping.m_generalpitch;
+    myABCHeader.globalvolume = myBrute->m_Mapping.m_globalvolume;
+    myABCHeader.speedup = myBrute->m_Mapping.m_minstepmod;
+    myABCHeader.Transcriber = myBrute->m_Mapping.m_transcribername;
+    myABCHeader.SongName = myBrute->m_Mapping.m_songname;
+
     this->Refresh();
 }
 
@@ -279,6 +312,17 @@ size_t BandView::ABCTrackPicked(int x, int y)
     {
        if (( x > BVabctracks[i].x )&&(x < BVabctracks[i].x+97) && ( y > BVabctracks[i].y ) && ( y < BVabctracks[i].y+18 ))
        retvalue = i;
+    }
+    return retvalue;
+}
+
+bool BandView::ABCTrackMuted(int x, int y)
+{
+    bool retvalue = false;
+    for (size_t i = 0; i < BVabctracks.size(); i++)
+    {
+       if (( x > BVabctracks[i].x+87 )&&(x < BVabctracks[i].x+97) && ( y > BVabctracks[i].y ) && ( y < BVabctracks[i].y+18 ))
+       retvalue = true;
     }
     return retvalue;
 }
@@ -343,10 +387,29 @@ void BandView::mouseRightDown(wxMouseEvent& event)
     size_t mypossibleABCTrack = ABCTrackPicked(mouseX, mouseY);
     if (mypossibleABCTrack != 1000)
     {
-        std::cout << "Right Click on ABCtrack " << mypossibleABCTrack << std::endl;
+        //std::cout << "Right Click on ABCtrack " << mypossibleABCTrack << std::endl;
         ABCTrackDialogue * custom = new ABCTrackDialogue( &BVabctracks[mypossibleABCTrack] );
         custom->Show(true);
+        this->Refresh();
     }
+
+    if (( mouseY > 545 ) && (mouseY < 570 ) && ( mouseX > 440) && (mouseX < 500))
+    {
+        // audience right clicked
+        AudienceDialogue * myaudience = new AudienceDialogue( &myMidiPreview->m_volume, &myMidiPreview->m_panning );
+    }
+
+         // check for miditrack picked
+     size_t mypossiblemiditrack = MidiTrackPicked(mouseX, mouseY);
+     if (mypossiblemiditrack != 1000)
+     {
+         std::cout << " Asking for Midi Track " << mypossiblemiditrack << std::endl;
+
+         MidiTrackView * newview = new MidiTrackView(myBrute, mypossiblemiditrack);
+        // this->SetCursor(wxCursor(wxCURSOR_HAND));
+        // miditrackclicked = true;
+        // miditrackclickednumber = mypossiblemiditrack;
+     }
 }
 
 void BandView::mouseLeftDown(wxMouseEvent& event)
@@ -379,17 +442,17 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
 
      // check for ABCTrack picked
      size_t mypossibleABCtrack = ABCTrackPicked(mouseX, mouseY);
+    // bool muter = ABCTrackMuted(mouseX, mouseY);
      if (mypossibleABCtrack !=1000)
      {
-        // std::cout << " Selected ABC Track " << mypossibleABCtrack << std::endl;
-         this->SetCursor(wxCursor(wxCURSOR_HAND));
-         MovingABCTrack = BVabctracks[mypossibleABCtrack];
-         click_relx = BVabctracks[mypossibleABCtrack].x - mouseX;
-         click_rely = BVabctracks[mypossibleABCtrack].y - mouseY;
-         BVabctracks.erase(BVabctracks.begin()+mypossibleABCtrack);
-         abctrackclicked = true;
-
-         this->Refresh();
+           // std::cout << " Selected ABC Track " << mypossibleABCtrack << std::endl;
+            this->SetCursor(wxCursor(wxCURSOR_HAND));
+            MovingABCTrack = BVabctracks[mypossibleABCtrack];
+            click_relx = BVabctracks[mypossibleABCtrack].x - mouseX;
+            click_rely = BVabctracks[mypossibleABCtrack].y - mouseY;
+            BVabctracks.erase(BVabctracks.begin()+mypossibleABCtrack);
+            abctrackclicked = true;
+            this->Refresh();
      }
 
      // check for Midi in ABC Track picked
@@ -400,7 +463,7 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
          size_t whichmidi = WhichMidiTrackInABCTrackPicked(mouseX, mouseY);
          if (whichmidi !=1000)
          {
-             std::cout <<"Someone Picked Miditrack " << whichmidi << " in ABC Track " << mypossibleMidiInABCTrack;
+             // std::cout <<"Someone Picked Miditrack " << whichmidi << " in ABC Track " << mypossibleMidiInABCTrack;
 
              this->SetCursor(wxCursor(wxCURSOR_HAND));
              MovingMidiTrack = BVabctracks[mypossibleMidiInABCTrack].miditrackinfo[whichmidi];
@@ -419,9 +482,156 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
     size_t abctrackclickednumber;
      */
 
-    if (( mouseY > 600 ) && (mouseY<620) && ( mouseX > 100 ) && ( mouseX < 790 ))
+    if (( mouseY > 580 ) && (mouseY<630) && ( mouseX > 100 ) && ( mouseX < 790 ))
     {
         myaudioplayer->Seek(  ((mouseX-100.0)/690.0) / 2  );
+    }
+
+    if (( mouseY > 545 ) && (mouseY < 570 ) && ( mouseX > 440) && (mouseX < 500))
+    {
+       //  std::cout << "Audience clicked" << std::endl;
+        if ( myaudioplayer->audio_playing > 0 )
+        {
+            myaudioplayer->Stop();
+            myaudioplayer->audio_playing = 0;
+            this->Refresh();
+        }
+        else
+        if (myBrute->DoIHaveAMidi())
+        {
+
+            myBrute->GenerateEmptyConfig();   // this is just a placeholder real deal should come from bandview
+            AppendMapping();
+
+            myBrute->Transcode(&myBrute->m_MappingText);
+
+//            myMidiPreview->GeneratePreviewMidi(&myBrute->m_ABCText, int64_t( myBrute->m_globalmaxtick/0.36) );
+            int64_t realduration;
+            myMidiPreview->GeneratePreviewMidi2(&myBrute->m_ABCText, &realduration );
+
+            myaudioplayer->Play();
+            myaudioplayer->audio_playing = 1;
+            this->Refresh();
+        }
+    }
+
+    // Open a Midifile
+    if (( mouseY > 25 ) && ( mouseY < 50 ) && (mouseX > 5) && (mouseX < 80))
+    {
+        // Miditracks clicked left -> Open File Open Menu
+        wxFileDialog *openDialog = new wxFileDialog(this, wxT("Select Midi File~"), wxT(""), wxT(""), wxT("Midi Files (*.mid)|*.mid"), wxFD_OPEN|wxFD_FILE_MUST_EXIST);
+        int response = openDialog->ShowModal();
+        if (response == wxID_OK)
+        {
+           // load this midi file
+           wxString MidiFileName = openDialog->GetPath();
+
+           char cstring[1024];
+           strncpy(cstring, (const char*)MidiFileName.mb_str(wxConvUTF8), 1023);
+
+          // delete(this->myBrute);
+          // this->myBrute = new(Brute);
+           myBrute->LoadMidi(cstring);  // this loads the midi into the Brute instance
+        }
+        myBrute->GenerateEmptyConfig();
+        Refresh();
+    }
+
+    if ((mouseX>100) && (mouseY > 505) && (mouseX < 135) && (mouseY < 540))
+    {
+        // clear arrangement
+        myBrute->GenerateEmptyConfig();
+        myBrute->ParseConfig(&myBrute->m_MappingText);
+        GetMapping();
+        Refresh();
+    }
+
+    if ((mouseX>740) && (mouseY > 505) && (mouseX < 790) && (mouseY < 540))
+    {
+        if (myBrute->DoIHaveAMidi())
+        {
+           myBrute->GenerateDefaultConfig();
+           myBrute->ParseConfig(&myBrute->m_MappingText);
+           GetMapping();
+           Refresh();
+        }
+    }
+
+    // clicking load map
+    if ((mouseX>157) && (mouseY > 505) && (mouseX < 257) && (mouseY < 540))    // 157 + 100
+    {
+        if (myBrute->DoIHaveAMidi())
+        {
+           wxFileDialog *openDialog = new wxFileDialog(this, wxT("Load Mapping~"), wxT(""), wxT(""), wxT("Mapping Files (*.txt)|*.txt"), wxFD_OPEN);
+           int response = openDialog->ShowModal();
+           if (response == wxID_OK)
+           {
+               myBrute->m_MappingText.str(  std::string() );
+               std::ifstream mappingfile;
+               mappingfile.open(openDialog->GetPath());
+               myBrute->m_MappingText << mappingfile.rdbuf();
+               mappingfile.close();
+               myBrute->ParseConfig(&myBrute->m_MappingText);
+               GetMapping();
+           }
+        }
+    }
+
+    // clicking save map
+    if ((mouseX>280) && (mouseY > 505) && (mouseX < 380) && (mouseY < 540))    // 157 + 100
+    {
+        if (myBrute->DoIHaveAMidi())
+        {
+
+           wxFileDialog *openDialog = new wxFileDialog(this, wxT("Save Mapping~"), wxT(""), wxT(""), wxT("Mapping Files (*.txt)|*.txt"), wxFD_SAVE);
+           int response = openDialog->ShowModal();
+           if (response == wxID_OK)
+           {
+               GenerateConfigHeader();   // this is just a placeholder real deal should come from bandview
+               AppendMapping();
+
+               std::ofstream mappingfile;
+               mappingfile.open(openDialog->GetPath());
+               mappingfile << myBrute->m_MappingText.rdbuf();
+               mappingfile.close();
+           }
+
+        }
+    }
+
+    // clicking ABC export
+    if ((mouseX>400) && (mouseY > 505) && (mouseX < 435) && (mouseY < 540))    // 157 + 100
+    {
+        if (myBrute->DoIHaveAMidi())
+        {
+            // std::cout << " ABC save clicked " << std::endl;
+           wxFileDialog *openDialog = new wxFileDialog(this, wxT("Export ABC File~"), wxT(""), wxT(""), wxT("ABC Files (*.abc)|*.abc"), wxFD_SAVE);
+           int response = openDialog->ShowModal();
+           if (response == wxID_OK)
+           {
+               // set the ABC output file name
+               GenerateConfigHeader();   // this is just a placeholder real deal should come from bandview
+               AppendMapping();
+
+               myBrute->Transcode(&myBrute->m_MappingText);
+            //   myBrute->GenerateABC();
+
+               std::ofstream abcoutfile;
+               abcoutfile.open(openDialog->GetPath());
+               abcoutfile << myBrute->m_ABCText.rdbuf();
+               abcoutfile.close();
+           }
+        }
+    }
+
+
+        // clicking ABC settings
+    if ((mouseX>450) && (mouseY > 530) && (mouseX < 435) && (mouseY < 540))    // 157 + 100
+    {
+        if (myBrute->DoIHaveAMidi())
+        {
+            // std::cout << " ABC save clicked " << std::endl;
+        }
     }
  }
 
@@ -515,13 +725,26 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
      miditrackclicked = false;
  }
 
-BandView::BandView(wxFrame* parent, Brute * myBrutep, AudioPlayer * myaudioplayerp) :
+BandView::BandView(wxFrame* parent, Brute * myBrutep, AudioPlayer * myaudioplayerp, MidiPreview * myMidiPreviewp, MidiTrackView * myMidiTrackViewp) :
 wxPanel(parent)
 {
     parent->SetLabel (wxT("Band View"));
     parent->EnableCloseButton(false);
     myBrute = myBrutep;
     myaudioplayer = myaudioplayerp;
+    myMidiPreview = myMidiPreviewp;
+    myMidiTrackView = myMidiTrackViewp;
+
+
+    // Paint the Sample Load Picture White
+    wxMemoryDC dc2;
+    dc2.SelectObject(myOverLoadPic[0]);
+    for (int i = 0; i < 690; i++)
+    {
+        dc2.SetPen( wxPen( wxColor(255,255,255), 1));
+        dc2.DrawLine(i, 0, i, 50);
+    }
+    //myOverLoadPicture = new OverLoadPicture(myMidiPreview);
 }
 
 /*
@@ -605,12 +828,18 @@ void BandView::DrawOneMidiTrack(wxDC& dc, int x, int y, int i, size_t midiinstru
    dc.DrawText(mytext.str(), x-4,y-6);
  }
 
- void BandView::DrawOneInstrument(wxDC& dc, int x, int y, wxString mytext)
+ void BandView::DrawOneInstrument(wxDC& dc, int x, int y, wxString mytext, bool muted)
  {
     dc.SetBrush(*wxWHITE_BRUSH); // blue filling
     dc.SetPen( wxPen( wxColor(255,175,175), 1 ) ); // 10-pixels-thick pink outline
     dc.DrawRectangle( x, y, 97, 18 );
     dc.DrawText(mytext, x+3, y+1);
+    if (muted)
+    {
+        dc.SetPen ( wxPen( wxColor(0,0,0), 2 ) );
+        dc.DrawLine( x,y, x+97, y+18  );
+        dc.DrawLine( x+97,y, x, y+18 );
+    }
  }
 
 
@@ -619,28 +848,28 @@ void BandView::DrawOneMidiTrack(wxDC& dc, int x, int y, int i, size_t midiinstru
     int x = 800;
     int x2 = x+100;
 
-    DrawOneInstrument(dc, x , 50,  lotroinstruments_formal[0] );
-    DrawOneInstrument(dc, x2, 50, lotroinstruments_formal[11]);
-    DrawOneInstrument(dc, x, 70, lotroinstruments_formal[1]);
-    DrawOneInstrument(dc, x2, 70, lotroinstruments_formal[12]);
-    DrawOneInstrument(dc, x, 90, lotroinstruments_formal[2]);
-    DrawOneInstrument(dc, x2, 90, lotroinstruments_formal[16]);
-    DrawOneInstrument(dc, x, 110, lotroinstruments_formal[5]);
-    DrawOneInstrument(dc, x2, 110, lotroinstruments_formal[7]);
-    DrawOneInstrument(dc, x, 130, lotroinstruments_formal[4]);
-    DrawOneInstrument(dc, x2, 130, lotroinstruments_formal[3]);
-    DrawOneInstrument(dc, x, 150, lotroinstruments_formal[6]);
-    DrawOneInstrument(dc, x2, 150, lotroinstruments_formal[19]);
-    DrawOneInstrument(dc, x, 170, lotroinstruments_formal[20]);
-    DrawOneInstrument(dc, x2, 170, lotroinstruments_formal[21]);
-    DrawOneInstrument(dc, x, 190, lotroinstruments_formal[18]);
-    DrawOneInstrument(dc, x2, 190, lotroinstruments_formal[13]);
-    DrawOneInstrument(dc, x, 210, lotroinstruments_formal[14]);
-    DrawOneInstrument(dc, x2, 210, lotroinstruments_formal[15]);
-    DrawOneInstrument(dc, x, 230, lotroinstruments_formal[8]);
-    DrawOneInstrument(dc, x2, 230, lotroinstruments_formal[9]);
-    DrawOneInstrument(dc, x, 250, lotroinstruments_formal[10]);
-    DrawOneInstrument(dc, x2, 250, lotroinstruments_formal[17]);
+    DrawOneInstrument(dc, x , 50,  lotroinstruments_formal[0], false );
+    DrawOneInstrument(dc, x2, 50, lotroinstruments_formal[11], false);
+    DrawOneInstrument(dc, x, 70, lotroinstruments_formal[1], false);
+    DrawOneInstrument(dc, x2, 70, lotroinstruments_formal[12], false);
+    DrawOneInstrument(dc, x, 90, lotroinstruments_formal[2], false);
+    DrawOneInstrument(dc, x2, 90, lotroinstruments_formal[16], false);
+    DrawOneInstrument(dc, x, 110, lotroinstruments_formal[5], false);
+    DrawOneInstrument(dc, x2, 110, lotroinstruments_formal[7], false);
+    DrawOneInstrument(dc, x, 130, lotroinstruments_formal[4], false);
+    DrawOneInstrument(dc, x2, 130, lotroinstruments_formal[3], false);
+    DrawOneInstrument(dc, x, 150, lotroinstruments_formal[6], false);
+    DrawOneInstrument(dc, x2, 150, lotroinstruments_formal[19], false);
+    DrawOneInstrument(dc, x, 170, lotroinstruments_formal[20], false);
+    DrawOneInstrument(dc, x2, 170, lotroinstruments_formal[21], false);
+    DrawOneInstrument(dc, x, 190, lotroinstruments_formal[18], false);
+    DrawOneInstrument(dc, x2, 190, lotroinstruments_formal[13], false);
+    DrawOneInstrument(dc, x, 210, lotroinstruments_formal[14], false);
+    DrawOneInstrument(dc, x2, 210, lotroinstruments_formal[15], false);
+    DrawOneInstrument(dc, x, 230, lotroinstruments_formal[8], false);
+    DrawOneInstrument(dc, x2, 230, lotroinstruments_formal[9], false);
+    DrawOneInstrument(dc, x, 250, lotroinstruments_formal[10], false);
+    DrawOneInstrument(dc, x2, 250, lotroinstruments_formal[17], false);
  }
 
 int BandView::RelX(int m)
@@ -660,7 +889,7 @@ void BandView::DrawABCTracks(wxDC& dc)
    for (size_t i = 0; i < BVabctracks.size(); i++)
    {
        int ABCinstrument = BVabctracks[i].instrument;
-       DrawOneInstrument(dc, BVabctracks[i].x, BVabctracks[i].y, lotroinstruments_formal[ABCinstrument]);
+       DrawOneInstrument(dc, BVabctracks[i].x, BVabctracks[i].y, lotroinstruments_formal[ABCinstrument], BVabctracks[i].muted );
 
        for (size_t m = 0; m < BVabctracks[i].miditrackinfo.size(); m++)
        {
@@ -672,10 +901,137 @@ void BandView::DrawABCTracks(wxDC& dc)
    }
 }
 
+
+void BandView::GenerateConfigHeader()
+{
+    myBrute->m_MappingText.str(std::string());
+
+    // default.config values
+    int drumtype = 0;
+    char defaultdrumhandling[127] = "nosplit";
+    char ABCstyle[127] = "Rocks";
+    char defaulttranscriber[127] = "Himbeertony";
+    char dummy[127];
+
+    // check for defaults file
+    std::ifstream defaultsfile;
+    defaultsfile.open("default.config");
+    if (!defaultsfile.fail() )
+    {
+        std::cout << "Using default.config" << std::endl;
+        defaultsfile >> dummy;
+        defaultsfile >> drumtype >> defaultdrumhandling;
+        defaultsfile >> dummy;
+        defaultsfile >> ABCstyle;
+        defaultsfile >> dummy;
+        defaultsfile >> defaulttranscriber;
+        defaultsfile.close();
+    }
+    else
+    {
+        std::cout << "No default.config, using intrinsic defaults" << std::endl;
+        std::ofstream newdefaultsfile;
+        newdefaultsfile.open("default.config");
+        newdefaultsfile << "Drums: 0 nosplit" << std::endl;
+        newdefaultsfile << "Style: Rocks" << std::endl;
+        newdefaultsfile << "Transcriber:" << std::endl;
+        newdefaultsfile << "Himbeertony" << std::endl;
+        newdefaultsfile.close();
+    }
+    bool drumsplitting = true;
+    if (strcmp("nosplit", defaultdrumhandling) >= 0)
+        drumsplitting = false;
+
+    myBrute->m_MappingText << "Name: " << myABCHeader.SongName << std::endl;
+    myBrute->m_MappingText << "Speedup: " << myABCHeader.speedup << std::endl;
+    myBrute->m_MappingText << "Pitch: " << myABCHeader.globalpitch << std::endl;
+
+    // remark .. think about adding compressor values!!!
+
+    myBrute->m_MappingText << "Style: " << ABCstyle << "  % Defaults for -a rock and a hard place-, others: TSO, Meisterbarden, Bara" << std::endl;
+    myBrute->m_MappingText << "Volume: " << myABCHeader.globalvolume << "       % scaled, midi volume was " << myBrute->GetGlobalMaxVel() - 254 << std::endl;
+
+    myBrute->m_MappingText << "Compress: 1.0" << "   % default : midi dynamics, between 0 and 1: smaller loudness differences, >1: increase loudness differences" << std::endl;
+    myBrute->m_MappingText << "%no pitch guessing   %uncomment to switch off guessing of default octaves" << std::endl;
+    myBrute->m_MappingText << "%no back folding     %uncomment to switch off folding of tone-pitches inside the playable region" << std::endl;
+    myBrute->m_MappingText << "fadeout length 0    %seconds before the end to start with fadeout (try something between 5 and 15)" << std::endl;
+    myBrute->m_MappingText << "Transcriber " << myABCHeader.Transcriber << std::endl;
+    myBrute->m_MappingText << std::endl;
+    myBrute->m_MappingText << std::endl;
+}
+
 void BandView::render(wxDC&  dc)
 {
     // draw some text
+    dc.SetPen( wxPen( wxColor(0,0,0), 1 ) ); // black line, 3 pixels thick
+    dc.DrawLine(5, 25, 80, 25);
+    dc.DrawLine(5, 50, 80, 50);
+    dc.DrawLine(5, 25, 5, 50);
+    dc.DrawLine(80, 25, 80, 50);
+
+    if (myBrute->DoIHaveAMidi())
+    {
+        dc.SetBrush( wxBrush(wxColor( 100,250,100 )) ); // light green
+    }
+    else
+    {
+        dc.SetBrush( wxBrush(wxColor( 200,100,100 )) ); // blue filling
+    }
+    dc.DrawRectangle(6, 26, 73 , 23);
     dc.DrawText(wxT("MIDI Tracks"), 10, 30);
+
+    int x = 105; int y = 510;
+
+    dc.DrawLine( x-5, y - 5, x + 5 + 30, y - 5 );
+    dc.DrawLine( x-5, y +20, x + 5 + 30, y +20 );
+    dc.DrawLine( x + 5 + 30, y-5, x + 5 + 30, y+20);
+    dc.DrawLine( x -5, y - 5, x - 5, y + 20);           // 100, 505, 135, 540
+    dc.DrawRectangle( x-4, y - 4, 38, 23);
+    dc.DrawText(wxT("Clear"), x, y);
+
+
+    x = 745;
+
+    dc.DrawLine( x-5, y - 5, x + 5 + 40, y - 5 );
+    dc.DrawLine( x-5, y+20 , x + 5 + 40, y + 20);
+    dc.DrawLine( x-5, y-5, x-5, y+20);
+    dc.DrawLine( x+45, y-5, x+45, y + 20);
+    dc.DrawRectangle( x-4, y-4, 48, 23 );           // 740, 505, 790, 540
+    dc.DrawText(wxT("Default"), x, y);
+
+    int sx = 100;
+    x = 157;
+    dc.DrawLine( x-5, y - 5, x + 5 + sx, y - 5 );
+    dc.DrawLine( x-5, y +20, x + 5 + sx, y +20 );
+    dc.DrawLine( x + 5 + sx, y-5, x + 5 + sx, y+20);
+    dc.DrawLine( x -5, y - 5, x - 5, y + 20);           // 100, 505, 135, 540
+    dc.DrawRectangle( x-4, y - 4, 8 + sx, 23);
+    dc.DrawText(wxT("Load Arrangement"), x, y);
+
+    x = 280; sx = 100;
+    dc.DrawLine( x-5, y - 5, x + 5 + sx, y - 5 );
+    dc.DrawLine( x-5, y +20, x + 5 + sx, y +20 );
+    dc.DrawLine( x + 5 + sx, y-5, x + 5 + 30, y+20);
+    dc.DrawLine( x -5, y - 5, x - 5, y + 20);           // 100, 505, 135, 540
+    dc.DrawRectangle( x-4, y - 4, 8 + sx, 23);
+    dc.DrawText(wxT("Save Arrangement"), x, y);
+
+
+    x = 400; sx = 35;
+    dc.DrawLine( x-5, y - 5, x + 5 + sx, y - 5 );
+    dc.DrawLine( x-5, y +20, x + 5 + sx, y +20 );
+    dc.DrawLine( x + 5 + sx, y-5, x + 5 + 30, y+20);
+    dc.DrawLine( x -5, y - 5, x - 5, y + 20);           // 100, 505, 135, 540
+    dc.DrawRectangle( x-4, y - 4, 8 + sx, 23);
+    dc.DrawText(wxT("ABC"), x, y);
+
+    x = 450; sx = 80;
+    dc.DrawLine( x-5, y - 5, x + 5 + sx, y - 5 );
+    dc.DrawLine( x-5, y +20, x + 5 + sx, y +20 );
+    dc.DrawLine( x + 5 + sx, y-5, x + 5 + 30, y+20);
+    dc.DrawLine( x -5, y - 5, x - 5, y + 20);           // 100, 505, 135, 540
+    dc.DrawRectangle( x-4, y - 4, 8 + sx, 23);
+    dc.DrawText(wxT("ABC Settings"), x, y);
 
     // draw a line
     dc.SetPen( wxPen( wxColor(0,0,0), 3 ) ); // black line, 3 pixels thick
@@ -688,15 +1044,59 @@ void BandView::render(wxDC&  dc)
     dc.DrawLine( 100,500, 790, 500 );
     dc.DrawLine( 100, 50, 790, 50);
 
+    dc.DrawLine( 440, 545, 500, 545);
+    dc.DrawLine( 440, 570, 500, 570);
+    dc.DrawLine( 440, 545, 440, 570);
+    dc.DrawLine( 500, 545, 500, 570);
+
+    if ( myaudioplayer->audio_playing > 0)
+    {
+        dc.SetPen( wxPen( wxColor(200,50,200) ) );
+        dc.SetBrush( wxBrush(wxColor( 50,200,50 )) ); // blue filling
+    }
+    else
+    {
+        dc.SetPen( wxPen( wxColor(180,180,180) ) );
+        dc.SetBrush( wxBrush(wxColor( 200,100,100 )) ); // blue filling
+
+    }
+    dc.DrawRectangle(441, 546, 58 , 23);
+
+    dc.SetPen( wxPen( wxColor(0,0,0), 3 ) );
     dc.DrawText(wxT("Audience"), 445, 550);
 
-    // Draw some kind of bar
-    dc.SetPen( wxPen( wxColor(50,50,50), 3));
-    dc.DrawLine( 100, 600, 790, 600);
-    dc.DrawLine( 100, 620, 790, 620);
-    dc.SetPen( wxPen( wxColor(100,100,100), 3));
-    for (int m = 0; m < 24; m++)
-         dc.DrawLine( 100 + m * 30, 601, 100+m*30, 619 );
+
+    // Draw Overloading Info at 100,600 - 790, 700
+
+    if (( myMidiPreview->AudioReady) && !(myMidiPreview->AudioRedrawn))
+    {
+       wxMemoryDC dc2;
+       dc2.SelectObject(myOverLoadPic[0]);
+
+       for (int i = 0; i < myMidiPreview->m_TotalToneCounts.size(); i++)
+       {
+           dc2.SetPen( wxPen( wxColor(0,0,0), 1));
+           if ( myMidiPreview->m_TotalToneCounts[i] > 64) dc2.SetPen( wxPen( wxColor(255,0,0), 1));
+           if ( myMidiPreview->m_TotalToneCounts[i] < 65) dc2.SetPen( wxPen( wxColor(0,255,0), 1));
+           dc2.DrawLine(i, 50, i, 50-myMidiPreview->m_TotalToneCounts[i]/2);
+           dc2.SetPen( wxPen( wxColor(255,255,255), 1));
+           dc2.DrawLine(i, 50-myMidiPreview->m_TotalToneCounts[i]/2, i, 0);
+       }
+       myMidiPreview->AudioRedrawn = true;
+    }
+
+
+
+    dc.DrawBitmap(myOverLoadPic[0], 100, 580, false);
+
+
+    //dc.SetPen( wxPen( wxColor(50,50,50), 3));
+    //dc.DrawLine( 100, 600, 790, 600);
+    //dc.DrawLine( 100, 620, 790, 620);
+    //dc.SetPen( wxPen( wxColor(100,100,100), 3));
+    //for (int m = 0; m < 24; m++)
+    //     dc.DrawLine( 100 + m * 30, 601, 100+m*30, 619 );
+
 
     DrawLotroInstruments(dc);
     DrawMidiTracks(dc);

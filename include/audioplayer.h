@@ -52,13 +52,13 @@ void AudioPlayer::Play()
     want.samples = 4096;
     want.callback = NULL;  // you wrote this function elsewhere.
 
-    Uint32 myposition = 0;
+  //  Uint32 myposition = 0;
 
     // are we already playing?
     if (audio_playing > 0)
     {
         // if yes then stop
-        myposition = SDL_GetQueuedAudioSize(myaudio);
+    //    myposition = SDL_GetQueuedAudioSize(myaudio);
         SDL_CloseAudioDevice(myaudio);
         SDL_ClearQueuedAudio(myaudio);
       //  SDL_FreeWAV(wav_buffer);
@@ -67,18 +67,18 @@ void AudioPlayer::Play()
     // and queue the current audio buffer
     audio_playing = 1;
     myaudio = SDL_OpenAudioDevice(NULL, 0,  &want, &have, 0);
-    SDL_QueueAudio(myaudio, &myMidiPreview->m_StereoStream[0]  , myMidiPreview->m_StereoStream.size() );
+    SDL_QueueAudio(myaudio, &myMidiPreview->m_StereoStream[0]  , myMidiPreview->m_StereoStream.size()*2 );
     SDL_PauseAudioDevice(myaudio, 0);
 }
 
 
 void AudioPlayer::Stop()
 {
-    Uint32 myposition = 0;
+ //   Uint32 myposition = 0;
     if (audio_playing > 0)
     {
         // if yes then stop
-        myposition = SDL_GetQueuedAudioSize(myaudio);
+   //     myposition = SDL_GetQueuedAudioSize(myaudio);
         SDL_CloseAudioDevice(myaudio);
         SDL_ClearQueuedAudio(myaudio);
       //  SDL_FreeWAV(wav_buffer);
@@ -101,12 +101,19 @@ void AudioPlayer::Seek(float f)
         SDL_CloseAudioDevice(myaudio);
         SDL_ClearQueuedAudio(myaudio);
 
+      //  std::cout << "Seek to " << f << std::endl;
+      //  std::cout << "Elements in Stereo " << myMidiPreview->m_StereoStream.size() << "  sizeof " << sizeof(myMidiPreview->m_StereoStream[0]) * myMidiPreview->m_StereoStream.size() << std::endl;
+
         uint64_t myposition = uint64_t((myMidiPreview->m_StereoStream.size() * f));
-        myposition = (myposition/2)*2;
+        // rounding position to be on stereo 0
+        myposition = ( myposition / 2 )*2*2;
 
         myaudio = SDL_OpenAudioDevice(NULL, 0,  &want, &have, 0);
 
-        SDL_QueueAudio(myaudio, &myMidiPreview->m_StereoStream[myposition], myMidiPreview->m_StereoStream.size()-myposition );
+       // std::cout << "Jumping to " << myposition << " which is " << (myposition*1.0)/myMidiPreview->m_StereoStream.size() << " of n_elements " << std::endl;
+       // std::cout << "Length " << myMidiPreview->m_StereoStream.size() - myposition << std::endl;
+      //  std::cout << "size of sample " << sizeof(myMidiPreview->m_StereoStream[0]) << std::endl;
+        SDL_QueueAudio(myaudio, &myMidiPreview->m_StereoStream[myposition], myMidiPreview->m_StereoStream.size()*2 - myposition*2 );
         SDL_PauseAudioDevice(myaudio, 0);
     }
 }

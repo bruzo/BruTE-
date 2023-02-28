@@ -25,6 +25,11 @@ public:
   wxStaticBox * splitbox;
   wxTextCtrl * splitnumber;
 
+  wxStaticBox * stdelay;
+  wxTextCtrl *tcdelay;
+
+
+
   BandViewMidiTrack * thisMiditrack;
 
   void OnButtonOK(wxCommandEvent& event);
@@ -76,6 +81,9 @@ MidiTrackDialogue::MidiTrackDialogue(BandViewMidiTrack * myMidiTrack)
   splitbox = new wxStaticBox(panel, -1, wxT("Split"), wxPoint(x,y), wxSize(sx,sy), wxTE_READONLY);
   splitnumber = new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->split ) , wxPoint(x+10, y+20), wxSize(45,20));
 
+  x = 170; y = 70; sx = 70; sy = 45;
+  stdelay = new wxStaticBox(panel, -1, wxT("Delay"), wxPoint(x,y), wxSize(sx,sy), wxTE_READONLY);
+  tcdelay = new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->delay ) , wxPoint(x+10, y+20), wxSize(45,20));
 
 
   okButton = new wxButton(this, wxID_OK, wxT("Ok"),wxDefaultPosition, wxSize(70, 30));
@@ -88,19 +96,21 @@ MidiTrackDialogue::MidiTrackDialogue(BandViewMidiTrack * myMidiTrack)
 
   Centre();
   ShowModal();
+
+  thisMiditrack->volume =  wxAtoi(tcvolume->GetValue());
+  thisMiditrack->pitch = wxAtoi(tcpitch->GetValue());
+  thisMiditrack->range_l = wxAtoi(tcrangel->GetValue());
+  thisMiditrack->range_h = wxAtoi(tcrangeh->GetValue());
+  thisMiditrack->alternatemypart = wxAtoi(alternatepart->GetValue());
+  thisMiditrack->alternateparts = wxAtoi(alternateparts->GetValue());
+  thisMiditrack->split = wxAtoi(splitnumber->GetValue());
+  thisMiditrack->delay = wxAtoi(tcdelay->GetValue());
+
   Destroy();
 }
 
 void MidiTrackDialogue::OnButtonOK(wxCommandEvent& event)
 {
-
-    thisMiditrack->volume =  wxAtoi(tcvolume->GetValue());
-    thisMiditrack->pitch = wxAtoi(tcpitch->GetValue());
-    thisMiditrack->range_l = wxAtoi(tcrangel->GetValue());
-    thisMiditrack->range_h = wxAtoi(tcrangeh->GetValue());
-    thisMiditrack->alternatemypart = wxAtoi(alternatepart->GetValue());
-    thisMiditrack->alternateparts = wxAtoi(alternateparts->GetValue());
-    thisMiditrack->split = wxAtoi(splitnumber->GetValue());
 
     this->Destroy();
 }
