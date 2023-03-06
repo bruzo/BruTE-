@@ -12,7 +12,7 @@
 				<Option type="1" />
 				<Option compiler="gcc" />
 				<Compiler>
-					<Add option="-fopenmp" />
+					<Add option="-std=gnu++11" />
 					<Add option="-g" />
 					<Add directory="midifile/include" />
 					<Add directory="include" />
@@ -21,8 +21,6 @@
 					<Add library="gomp" />
 					<Add library="midifile" />
 					<Add directory="midifile/visual-studio/DebugLib" />
-					<Add directory="fluidsynth/64bit/lib" />
-					<Add directory="fluidsynth/64bit/bin" />
 				</Linker>
 			</Target>
 			<Target title="Release">
@@ -31,10 +29,9 @@
 				<Option type="1" />
 				<Option compiler="gcc" />
 				<Compiler>
-					<Add option="-fopenmp" />
 					<Add option="-fexpensive-optimizations" />
 					<Add option="-O3" />
-					<Add option="-std=c++17" />
+					<Add option="-std=gnu++11" />
 					<Add directory="midifile/include" />
 					<Add directory="include" />
 				</Compiler>
@@ -43,21 +40,55 @@
 					<Add library="gomp" />
 					<Add library="midifile" />
 					<Add directory="midifile/visual-studio/ReleaseLib" />
-					<Add directory="fluidsynth/64bit/lib" />
-					<Add directory="fluidsynth/64bit/bin" />
 				</Linker>
 			</Target>
 		</Build>
 		<Compiler>
+			<Add option="-fopenmp" />
 			<Add option="-Wall" />
+			<Add option="-std=c++11" />
+			<Add directory="SDL2-2.0.16/x86_64-w64-mingw32/include/SDL2" />
+			<Add directory="openal-soft-1.21.1-bin/include" />
+			<Add directory="mingw64_vorbis/mingw64/include" />
+			<Add directory="mingw64_ogg/mingw64/include" />
 		</Compiler>
+		<Linker>
+			<Add library="SDL2" />
+			<Add library="wxexpat" />
+			<Add library="wxjpeg" />
+			<Add library="wxmsw30u" />
+			<Add library="wxpng" />
+			<Add library="wxregexu" />
+			<Add library="wxscintilla" />
+			<Add library="wxzlib" />
+			<Add library="wxtiff" />
+			<Add library="OpenAl32" />
+			<Add library="vorbis" />
+			<Add library="ogg" />
+			<Add library="vorbisfile" />
+			<Add library="winmm" />
+			<Add directory="SDL2-2.0.16/x86_64-w64-mingw32/libcodeblocks" />
+			<Add directory="../../../codeblocks/wxwidgets/lib/gcc_dll" />
+			<Add directory="mingw64_vorbis/mingw64/lib" />
+			<Add directory="mingw64_ogg/mingw64/lib" />
+			<Add directory="openal-soft-1.21.1-bin/libs/Win64" />
+		</Linker>
 		<Unit filename="brutepp.cpp" />
+		<Unit filename="include/abcheader.h" />
+		<Unit filename="include/abctrackdialogue.h" />
+		<Unit filename="include/audiencedialogue.h" />
+		<Unit filename="include/audioplayerAL.h" />
 		<Unit filename="include/bandview.h" />
+		<Unit filename="include/bandviewabctrack.h" />
+		<Unit filename="include/bandviewmiditrack.h" />
 		<Unit filename="include/brute.h" />
 		<Unit filename="include/brutedefinitions.h" />
 		<Unit filename="include/chord.h" />
 		<Unit filename="include/configfile.h" />
 		<Unit filename="include/midipreview.h" />
+		<Unit filename="include/miditrackdialogue.h" />
+		<Unit filename="include/miditrackview.h" />
+		<Unit filename="include/overloadpicture.h" />
 		<Unit filename="midifile/include/Binasc.h" />
 		<Unit filename="midifile/include/MidiEvent.h" />
 		<Unit filename="midifile/include/MidiEventList.h" />
