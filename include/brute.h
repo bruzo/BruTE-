@@ -1929,6 +1929,7 @@ bool Brute::AllChordsOK()
     int abctracks = static_cast<int> ( m_Mapping.m_instrumap.size());
 
     // Loop over ABC Tracks
+    #pragma omp parallel for
     for (int abctrack=0; abctrack < abctracks; abctrack++)
     {
         std::list<ChordL>::iterator current;
@@ -1937,7 +1938,11 @@ bool Brute::AllChordsOK()
         // first we do changes that don't affect starting times
         while ( current != m_chordlists[abctrack].end())
         {
-            if (current->duration < 2.0) returnvalue = false;
+            if (current->duration < 2.0)
+            {
+            //    #pragma omp atomic
+                returnvalue = false;
+            }
             current++;
         }
     }
@@ -2100,7 +2105,7 @@ void Brute::GenerateABC()
         // header
         m_ABCText << "X:" << abctrack+1 << std::endl;
         m_ABCText << "T: " << m_Mapping.m_songname  << " part " << abctrack+1 << "/" << abctracks << " [" << lotroinstruments[m_Mapping.m_instrumap[abctrack]] << "]" << std::endl;
-        m_ABCText << "Z: Transcribed with BruTE " << m_Mapping.m_panningmap[abctrack] << std::endl;
+        m_ABCText << "Z: Transcribed with BruTE " << m_Mapping.m_panningmap[abctrack] << "  " << m_Mapping.m_zpanningmap[abctrack] << "  " << m_Mapping.m_idmap[abctrack] << std::endl;
         m_ABCText << "L: 1/4" << std::endl;
         m_ABCText << "Q: 125" << std::endl;
         m_ABCText << "K: C" << std::endl;

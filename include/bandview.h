@@ -11,7 +11,8 @@
 #include "abctrackdialogue.h"
 #include "bandviewabctrack.h"
 #include "bandviewmiditrack.h"
-#include "audioplayer.h"
+// #include "audioplayer.h"
+#include "audioplayerAL.h"
 #include "midipreview.h"
 #include "audiencedialogue.h"
 #include "overloadpicture.h"
@@ -26,7 +27,7 @@ class BandView : public wxPanel
 {
 
 public:
-    BandView(wxFrame* parent, Brute * myBrute, AudioPlayer * myaudioplayer, MidiPreview * myMidiPreview, MidiTrackView * myMidiTrackViewp);
+    BandView(wxFrame* parent, Brute * myBrute, MidiPreview * myMidiPreview, MidiTrackView * myMidiTrackViewp, AudioPlayerAL * myAudioPlayerAL);
 
     void paintEvent(wxPaintEvent & evt);
     void paintNow();
@@ -50,7 +51,8 @@ public:
     size_t WhichMidiTrackInABCTrackPicked(int x, int y);
 
     Brute * myBrute;  // our instance of Brute
-    AudioPlayer * myaudioplayer; // our instance of the AudioPlayer
+   // AudioPlayer * myaudioplayer; // our instance of the AudioPlayer
+    AudioPlayerAL * myaudioplayerAL;
     MidiPreview * myMidiPreview;
 
     void mouseLeftDown(wxMouseEvent& event);
@@ -80,6 +82,8 @@ public:
 
     int click_relx;
     int click_rely;
+
+    int m_globalid = 0;
 
     bool BetterUpdateYourABCfromBrute = false;
 
@@ -154,6 +158,7 @@ END_EVENT_TABLE()
 
      for (size_t m = 0; m < BVabctracks.size(); m++)
      {
+        // size_t i = m; // In case we do not want to  reorder
         size_t i = myneworder[m].second; // write out the correct part based on the ordering
         if (BVabctracks[i].muted ) bvmappingtext << "*" << std::endl;
         bvmappingtext << "abctrack begin" << std::endl;
@@ -166,7 +171,7 @@ END_EVENT_TABLE()
         if (BVabctracks[i].duration_max > 2) bvmappingtext << " " << BVabctracks[i].duration_max;
         bvmappingtext << std::endl;
 
-        bvmappingtext << "panning " << 128 - int(  (BVabctracks[i].x-100)/590.0 * 128  ) << std::endl;
+        bvmappingtext << "panning " <<  -int( 100 * ((BVabctracks[i].x-100)/590.0 - 0.5)   ) << "  " << BVabctracks[i].y  << "  " << BVabctracks[i].id << std::endl;
         if (BVabctracks[i].instrument != 8)
         {
          bvmappingtext << "instrument " << lotroinstruments[BVabctracks[i].instrument] << std::endl;
@@ -222,6 +227,7 @@ void BandView::GetMapping()
         newabctrack.polydirection = myBrute->m_Mapping.m_polymapdir[i];
         newabctrack.duration_min = myBrute->m_Mapping.m_durmap[i];
         newabctrack.duration_max = myBrute->m_Mapping.m_durmaxmap[i];
+        newabctrack.id = m_globalid; m_globalid++;
 
         BVabctracks.push_back(newabctrack);
 
@@ -397,6 +403,8 @@ void BandView::mouseRightDown(wxMouseEvent& event)
     {
         // audience right clicked
         AudienceDialogue * myaudience = new AudienceDialogue( &myMidiPreview->m_volume, &myMidiPreview->m_panning );
+        myaudioplayerAL->SetVolume(myMidiPreview->m_volume);
+        myaudioplayerAL->SetGlobalPanning(myMidiPreview->m_panning);
     }
 
          // check for miditrack picked
@@ -484,16 +492,17 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
 
     if (( mouseY > 580 ) && (mouseY<630) && ( mouseX > 100 ) && ( mouseX < 790 ))
     {
-        myaudioplayer->Seek(  ((mouseX-100.0)/690.0) / 2  );
+        myaudioplayerAL->Seek( ((mouseX-100.0)/690.0)  );
     }
 
     if (( mouseY > 545 ) && (mouseY < 570 ) && ( mouseX > 440) && (mouseX < 500))
     {
        //  std::cout << "Audience clicked" << std::endl;
-        if ( myaudioplayer->audio_playing > 0 )
+        if ( myaudioplayerAL->audio_playing > 0 )
         {
-            myaudioplayer->Stop();
-            myaudioplayer->audio_playing = 0;
+            myaudioplayerAL->Stop();
+            myaudioplayerAL->audio_playing=0;
+
             this->Refresh();
         }
         else
@@ -509,8 +518,11 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
             int64_t realduration;
             myMidiPreview->GeneratePreviewMidi2(&myBrute->m_ABCText, &realduration );
 
-            myaudioplayer->Play();
-            myaudioplayer->audio_playing = 1;
+
+            myaudioplayerAL->SendABC(&myBrute->m_ABCText);
+            myaudioplayerAL->Play();
+            myaudioplayerAL->audio_playing = 1;
+
             this->Refresh();
         }
     }
@@ -671,6 +683,9 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
              BVabctracks[mypossibleABCtrack].instrument = lotroinstrumentclickednumber;
              lotroinstrumentclicked = false;
              this->Refresh();
+             // Are we currently playing stuff? If yes lets also update the instrument in the Audioplayer
+             if ( myaudioplayerAL->audio_playing > 0)
+                myaudioplayerAL->SetInstrument( BVabctracks[mypossibleABCtrack].id ,lotroinstrumentclickednumber);
          }
          else
          // check if we are in the band area
@@ -683,6 +698,7 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
              newplayer.y = mouseY-click_rely;
              click_relx = 0;
              click_rely = 0;
+             newplayer.id = m_globalid; m_globalid++;
              newplayer.instrument = lotroinstrumentclickednumber;
          //    newplayer.miditracks = {};
              BVabctracks.push_back(newplayer);
@@ -694,6 +710,7 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
      {
          if ((mouseX > 100)&&(mouseX<800)&&(mouseY>50)&&(mouseY<900))
          {
+             // we just dropped an already existing track, so we have to update the position
              MovingABCTrack.x = mouseX+click_relx;
              MovingABCTrack.y = mouseY+click_rely;
              click_relx = 0;
@@ -701,6 +718,7 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
              BVabctracks.push_back(MovingABCTrack);
              abctrackclicked=false;
              this->Refresh();
+             myaudioplayerAL->SetPanning(  BVabctracks[ BVabctracks.size()-1 ].id  , -int( myMidiPreview->m_panning * ((BVabctracks[BVabctracks.size()-1].x-100)/590.0 - 0.5)   ));
          }
      }
      // someone is dropping a miditrack that was picked up from an ABC Track
@@ -725,13 +743,14 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
      miditrackclicked = false;
  }
 
-BandView::BandView(wxFrame* parent, Brute * myBrutep, AudioPlayer * myaudioplayerp, MidiPreview * myMidiPreviewp, MidiTrackView * myMidiTrackViewp) :
+BandView::BandView(wxFrame* parent, Brute * myBrutep, MidiPreview * myMidiPreviewp, MidiTrackView * myMidiTrackViewp, AudioPlayerAL * myAudioPlayerAL) :
 wxPanel(parent)
 {
     parent->SetLabel (wxT("Band View"));
     parent->EnableCloseButton(false);
     myBrute = myBrutep;
-    myaudioplayer = myaudioplayerp;
+   // myaudioplayer = myaudioplayerp;
+    myaudioplayerAL = myAudioPlayerAL;
     myMidiPreview = myMidiPreviewp;
     myMidiTrackView = myMidiTrackViewp;
 
@@ -1049,7 +1068,7 @@ void BandView::render(wxDC&  dc)
     dc.DrawLine( 440, 545, 440, 570);
     dc.DrawLine( 500, 545, 500, 570);
 
-    if ( myaudioplayer->audio_playing > 0)
+    if ( myaudioplayerAL->audio_playing > 0)
     {
         dc.SetPen( wxPen( wxColor(200,50,200) ) );
         dc.SetBrush( wxBrush(wxColor( 50,200,50 )) ); // blue filling
