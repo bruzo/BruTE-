@@ -60,6 +60,7 @@ public:
     void Play();
     void Stop();
     void Seek(float f);
+    float Position();
     void PlayTestTones(int instrument, int pitch);
     void SendABC(std::stringstream * abctext);
     void ExportSamples();
@@ -69,11 +70,15 @@ public:
     void SetVolume(float value);
     void SetGlobalPanning(int panning);
 
+    void UpdateABC(std::stringstream * abctext);
+
+
 
     ~AudioPlayerAL();
 
     int audio_playing = 0;
     int m_stop = 0;
+    int m_mute = 0; // 0 is not muted
 
 private:
 
@@ -134,6 +139,17 @@ private:
     std::vector<float> m_envelope; // constains the envelop multiply function to be used for sending the tone
     void SetEnvelope(int Instrument, uint32_t duration, uint32_t samplesize);
 };
+
+void AudioPlayerAL::UpdateABC(std::stringstream * abctext)
+{
+    float position = Position();
+    Stop();
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    SendABC(abctext);
+    Play();
+    Seek(position);
+}
 
 void AudioPlayerAL::SetInstrument(int id, int instrument)
 {
@@ -219,7 +235,7 @@ void AudioPlayerAL::Seek(float f)
 {
    std::chrono::time_point<std::chrono::high_resolution_clock> thisisnow = std::chrono::high_resolution_clock::now();
    thisisnow -= std::chrono::milliseconds(static_cast<uint32_t>(f * m_durationseconds*1000));
-
+   m_mute = 1;
    // we want to jump to a time that corresponds to now - f * duration
    m_ABC_Play_Start = thisisnow;
    m_ABC_Play_LastUpdate = thisisnow + std::chrono::milliseconds(static_cast<uint32_t>(f * m_durationseconds*1000));
@@ -241,6 +257,20 @@ void AudioPlayerAL::Seek(float f)
          trackpositions[i]++;
       }
    }
+   m_mute = 0;
+}
+
+float AudioPlayerAL::Position()
+{
+    uint64_t position=0;
+    uint64_t ending=0;
+
+    for (size_t i = 0; i < trackpositions.size(); i++)
+    {
+        if (  std::get<0>(m_ABCTonesvector[i][trackpositions[i]]) > position ) position = std::get<0>(m_ABCTonesvector[i][trackpositions[i]]);
+        if (  std::get<0>(m_ABCTonesvector[i][m_ABCTonesvector[i].size()-1]) > ending ) ending = std::get<0>(m_ABCTonesvector[i][m_ABCTonesvector[i].size()-1]);
+    }
+    return (1.0f * position)/ending;
 }
 
 bool AudioPlayerAL::Finished()
@@ -302,45 +332,35 @@ void AudioPlayerAL::PlayLoop()
     while (m_stop == 0)
     {
 
-
+       // Get current time
        std::chrono::time_point<std::chrono::high_resolution_clock> updatetime = std::chrono::high_resolution_clock::now();
 
        // Delta Time from last update:
-
        std::chrono::duration<double> DT = updatetime - m_ABC_Play_LastUpdate;
        std::chrono::duration<double> ST = updatetime - m_ABC_Play_Start;
 
        uint64_t st = ST.count() * uint64_t(44100);  // Starting Time in samples
        uint64_t dt = DT.count() * uint64_t(44100);  // Delta Time in samples
 
-
-   //    std::cout << "ST " << st << "  DT  "<< dt << std::endl;
-
        for (size_t i = 0; i < m_Nabctracks; i++)
        {
            // find the tones we need to send per track
-          // if (std::get<0>(m_ABCTonesvector[i][trackpositions[i]]) >= st)
+           // if (std::get<0>(m_ABCTonesvector[i][trackpositions[i]]) >= st)
 
-           // we take the next couple of tones in this track that had to be played in the window we waited
+           // we take the next couple of tones in this track that had to be played
            while ((trackpositions[i] < m_ABCTonesvector[i].size()) && ( std::get<0>(m_ABCTonesvector[i][trackpositions[i]]) < st+dt  ))
            {
 
                int instrument = std::get<3>(m_ABCTonesvector[i][trackpositions[i]]);
                int pitch = std::get<4>(m_ABCTonesvector[i][trackpositions[i]]) - 36;
+               if (instrument == 10) pitch = 0;
+               if (instrument == 9) pitch = 0;
                int velocity = std::get<5>(m_ABCTonesvector[i][trackpositions[i]]);
                size_t duration = std::get<2>(m_ABCTonesvector[i][trackpositions[i]]);
 
-             //  std::cout << "Track " << i << " my starting time " <<  std::get<0>(m_ABCTonesvector[i][trackpositions[i]]) <<std::endl;
-               /*
-               std::cout << "Firing " << i << " Start:  " << std::get<0>(m_ABCTonesvector[i][trackpositions[i]])
-               << " Duration " << duration
-               << " Instrument " << instrument
-               << " Velocity " << velocity
-               << " Pitch "<< std::get<4>(m_ABCTonesvector[i][trackpositions[i]]) << std::endl;*/
-
                trackpositions[i]++;   // next tone
 
-               if (true)
+               if (m_mute == 0)
                {
                    // find first free slot
                    size_t ii = 0;
@@ -358,26 +378,37 @@ void AudioPlayerAL::PlayLoop()
                    if ( ii < 64)
                    {
                        std::vector<uint8_t> thissample;
+                       uint32_t fadesamples = static_cast<uint32_t>(fadeouts[instrument] * 44100);
                        size_t mysize = 0;
                        if ( fadeouttype[instrument] == 0) // constant duration gets send as a whole
                        {
-                           mysize = allsamples[instrument][pitch+36].size();
+                           mysize = allsamples[instrument][pitch+36].size();  // size is always in 8bit units even if singular samples are 2 byte
+                         //  std::cout << " Sample Size " << mysize << std::endl;
                        }
                        else
                        {
-                           mysize = duration * 2;
-                           if (mysize > allsamples[instrument][pitch+36].size() ) mysize = allsamples[instrument][pitch+36].size();  // still limit to the sample length .. even though thats wrong
+                           mysize = duration * 2 + fadesamples*2;  // size is memory for this sample in bytes
+                        //   std::cout << " Sample Size Asked " << mysize << std::endl;
+                           if (mysize > allsamples[instrument][pitch+36].size() ) mysize = allsamples[instrument][pitch+36].size();
+                         //  std::cout << "Sample Size Got " << mysize << std::endl;
+                             // if the sample is over then it is over
                        }
-                       thissample.resize(mysize);
+                       thissample.resize(mysize); // copy over all the data into thissample
                        for (int ij = 0; ij < mysize; ij++) thissample[ij] = allsamples[instrument][pitch+36][ij];
 
 
-                       // we got the sample, now make sure we set the envelope and apply it
-                       SetEnvelope(instrument, 1.0, allsamples[instrument][pitch+36].size()/2);
+                       // we got the sample, now make sure we do the fadeout
+                       // SetEnvelope(instrument, 1.0, allsamples[instrument][pitch+36].size()/2);
+
                        short * modulator = (short*)( &thissample[0] );
-                       for (size_t ij = 0; ij < thissample.size()/2; ij++)
+                       size_t fstart = thissample.size()/2-fadesamples;
+                       size_t fend = thissample.size()/2;
+
+                     //  std::cout << fadesamples << "   " << fstart << "   " << fend << std::endl;
+
+                       for (size_t ij = fstart; ij < fend; ij++)  // we move from the regular play time end till the fadeout end
                        {
-                           modulator[ij] = (short)(  (modulator[ij] * m_envelope[ij])+0.5 );
+                           modulator[ij] = (short)(  ( modulator[ij] * (  (fend-ij)/(1.0f*fadesamples)  ) )+0.5 );
                        }
 
 
@@ -394,7 +425,8 @@ void AudioPlayerAL::PlayLoop()
 	                   alSourcei(sources[ii], AL_BUFFER, buffers[ii]);
 	                   bufferbound[ii] = 1;
 
-	                   float mygain = fullvolumegains[instrument][velocity];
+	                  // float mygain = fullvolumegains[instrument][velocity];
+	                   float mygain = relativegain[instrument] * pitchgains[velocity] ;
                        alSourcef(sources[ii], AL_GAIN, mygain);
 
                        float myp = m_WavPannings[i]*0.01 * m_panning*0.01;

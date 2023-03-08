@@ -18,6 +18,7 @@
 #include "overloadpicture.h"
 #include "miditrackview.h"
 #include "abcheader.h"
+#include "gainsettingsdialogue.h"
 
 
 //#include "include/brute.h"
@@ -94,6 +95,10 @@ public:
 
     MidiTrackView * myMidiTrackView;
 
+    void OnDropFiles(wxDropFilesEvent& event);
+
+    void LiveUpdateAudio();
+
     // some useful events
     /*
      void mouseMoved(wxMouseEvent& event);
@@ -128,6 +133,9 @@ BEGIN_EVENT_TABLE(BandView, wxPanel)
 // catch paint events
 EVT_PAINT(BandView::paintEvent)
 
+// catch files dropped
+EVT_DROP_FILES(BandView::OnDropFiles)
+
 END_EVENT_TABLE()
 
 
@@ -143,7 +151,18 @@ END_EVENT_TABLE()
  void BandView::keyReleased(wxKeyEvent& event) {}
  */
 
-
+void BandView::LiveUpdateAudio()
+{
+   if ( myaudioplayerAL->audio_playing == 1 )   // check if we are playing
+   {
+      myBrute->GenerateEmptyConfig();
+      AppendMapping();
+      myBrute->Transcode(&myBrute->m_MappingText);
+      int64_t realduration;
+      myMidiPreview->GeneratePreviewMidi2(&myBrute->m_ABCText, &realduration );
+      myaudioplayerAL->UpdateABC(&myBrute->m_ABCText);
+   }
+}
 
  void BandView::AppendMapping()
  {
@@ -418,6 +437,19 @@ void BandView::mouseRightDown(wxMouseEvent& event)
         // miditrackclicked = true;
         // miditrackclickednumber = mypossiblemiditrack;
      }
+
+     size_t mypossiblelotroinstrument = LotroInstrumentPicked(mouseX, mouseY);
+     if (mypossiblelotroinstrument!=100)
+     {
+         // an instrument was picked, so put hand icon
+         this->SetCursor(wxCursor(wxCURSOR_HAND));
+         lotroinstrumentclicked = false;
+         lotroinstrumentclickednumber = mypossiblelotroinstrument;
+         click_relx = 50;
+         click_rely = 10;
+         float fadeout;
+         GainSettingsDialogue * newgains = new GainSettingsDialogue(lotroinstrumentclickednumber, &relativegain[lotroinstrumentclickednumber], &fadeouts[lotroinstrumentclickednumber] );
+     }
 }
 
 void BandView::mouseLeftDown(wxMouseEvent& event)
@@ -670,6 +702,7 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
              BVabctracks[mypossibleABCtrack].miditrackinfo.push_back(newtrack);
              miditrackclicked = false;
              this->Refresh();
+             //LiveUpdateAudio();
          }
      }
 
@@ -733,6 +766,7 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
              BVabctracks[mypossibleABCtrack].miditrackinfo.push_back(MovingMidiTrack);
              miditrackclicked = false;
              this->Refresh();
+             //LiveUpdateAudio();
          }
      }
 
@@ -764,6 +798,7 @@ wxPanel(parent)
         dc2.DrawLine(i, 0, i, 50);
     }
     //myOverLoadPicture = new OverLoadPicture(myMidiPreview);
+    DragAcceptFiles(true);
 }
 
 /*
@@ -1072,6 +1107,8 @@ void BandView::render(wxDC&  dc)
     {
         dc.SetPen( wxPen( wxColor(200,50,200) ) );
         dc.SetBrush( wxBrush(wxColor( 50,200,50 )) ); // blue filling
+       // float position = myaudioplayerAL->Position();
+
     }
     else
     {
@@ -1130,5 +1167,18 @@ void BandView::render(wxDC&  dc)
 
     // Look at the wxDC docs to learn how to draw other stuff
 }
+
+void BandView::OnDropFiles(wxDropFilesEvent& event) {
+    //wxArrayString * files;
+    auto files = event.GetFiles();
+    std::cout<< "Files dropped " << files[0] << std::endl;
+    // Do something with the files...
+    wxString MidiFileName = files[0];
+    char cstring[1024];
+    strncpy(cstring, (const char*)MidiFileName.mb_str(wxConvUTF8), 1023);
+    myBrute->LoadMidi(cstring);
+    Refresh();
+}
+
 
 #endif
