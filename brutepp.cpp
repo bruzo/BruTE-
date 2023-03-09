@@ -6,16 +6,19 @@
 #include "commctrl.h"
 
 #include "include/brute.h"
+#include "include/brutedefinitions.h"
 
 #include "include/midipreview.h"
 
 #include "include/bandview.h"
 
-#include "audioplayer.h"
+//#include "audioplayer.h"
 
-#include "miditrackview.h"
+#include "include/audioplayerAL.h"
 
-#include <SDL.h>
+#include "include/miditrackview.h"
+
+// #include <SDL.h>
 
 //#include "include/audioplayer.h"
 
@@ -35,12 +38,13 @@ class Notepad : public wxFrame {
 
         wxFrame *frame;
         BandView * bandview;
-        AudioPlayer * myaudioplayer;
+       // AudioPlayer * myaudioplayer;
+        AudioPlayerAL * myaudioplayerAL;
 
-        SDL_AudioDeviceID myaudio;
-        Uint32 wav_length;
-        Uint8 *wav_buffer;
-        SDL_AudioSpec audiowant, audiohave;
+//        SDL_AudioDeviceID myaudio;
+//        Uint32 wav_length;
+//        Uint8 *wav_buffer;
+//        SDL_AudioSpec audiowant, audiohave;
         int audio_playing = 0;   // 0 is not playing at the moment
 
     private:
@@ -270,7 +274,9 @@ void Notepad::OnWavRender(wxCommandEvent &event)
     {
        myBrute->GenerateABC();
        myMidiPreview->GeneratePreviewMidi(&myBrute->m_ABCText, int64_t( myBrute->m_globalmaxtick/0.36) );
-       myaudioplayer->Play();
+      // myaudioplayer->Play();
+      myaudioplayerAL->SendABC(&myBrute->m_ABCText);
+      myaudioplayerAL->Play();
     }
     else
     {
@@ -285,7 +291,8 @@ void Notepad::OnWavRender(wxCommandEvent &event)
 
 void Notepad::OnPlayDirectly(wxCommandEvent &event)
 {
-    myaudioplayer->Stop();
+ //   myaudioplayer->Stop();
+    myaudioplayerAL->Stop();
 }
 
 void Notepad::OnLogFile(wxCommandEvent &event)
@@ -361,13 +368,15 @@ bool MainApp::OnInit() {
     main->myMidiPreview = new MidiPreview();
     main->myBrute = new Brute;
 
-    main->myaudioplayer = new AudioPlayer(main->myBrute, main->myMidiPreview);
+   // main->myaudioplayer = new AudioPlayer(main->myBrute, main->myMidiPreview);
     //main->myMidiTrackView =  new MidiTrackView(main->myBrute, 1);
+    main->myaudioplayerAL = new AudioPlayerAL();
+    main->myaudioplayerAL->Initialize(100, 100);
 
     // Make the BandView Window
     wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
     main->frame = new wxFrame((wxFrame *)NULL, -1,  wxT("Hello wxDC"), wxPoint(200,50), wxSize(1050,700));
-    main->bandview = new BandView( (wxFrame*) main->frame, main->myBrute, main->myaudioplayer, main->myMidiPreview, main->myMidiTrackView );
+    main->bandview = new BandView( (wxFrame*) main->frame, main->myBrute, main->myMidiPreview, main->myMidiTrackView, main->myaudioplayerAL);
     sizer->Add(main->bandview, 1, wxEXPAND);
     main->frame->SetSizer(sizer);
     main->frame->SetAutoLayout(true);
