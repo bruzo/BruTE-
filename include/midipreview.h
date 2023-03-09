@@ -15,8 +15,8 @@
 
 #include "brutedefinitions.h"
 
-#define TSF_IMPLEMENTATION
-#include "tsf.h"
+// #define TSF_IMPLEMENTATION
+// #include "tsf.h"
 
 typedef std::tuple< int64_t, int64_t, int64_t, int, int, float > ToneTuple;
 
@@ -73,7 +73,7 @@ private:
    size_t Frequency_Substr(std::string strfull,std::string substring);
    std::vector<std::string> ABCTextArray( std::string input );
 
-   tsf* TinySoundFont;
+    // tsf* TinySoundFont;
 
 };
 
@@ -81,13 +81,13 @@ private:
 MidiPreview::MidiPreview()
 {
    // load the soundfont
-   std::cout << "Loading Soundfont" << std::endl;
-   TinySoundFont = tsf_load_filename("sfnew.sf2");
-   std::cout << "Soundfont loaded" << std::endl;
+   // std::cout << "Loading Soundfont" << std::endl;
+   // TinySoundFont = tsf_load_filename("sfnew.sf2");
+   // std::cout << "Soundfont loaded" << std::endl;
    //TinySoundFont = tsf_load_memory(MinimalSoundFont, sizeof(MinimalSoundFont));
 
    // set the render engine to 44kHz, Mono
-   tsf_set_output(TinySoundFont, TSF_MONO, 44100, 0); //sample rate
+   // tsf_set_output(TinySoundFont, TSF_MONO, 44100, 0); //sample rate
 
    /*
    tsf_note_on(TinySoundFont, 0, 60, 1.0f); //preset 0, middle C
@@ -180,7 +180,7 @@ void MidiPreview::GeneratePreviewMidi(std::stringstream * abctext, int64_t buffe
 
        // Parse Instrument String to ChannelNumber
        int MidiChannel = WhichInstrument(myinstrument);
-       int TinyMidiChannel = tsf_get_presetindex( TinySoundFont , 0, MidiChannel);
+      // int TinyMidiChannel = tsf_get_presetindex( TinySoundFont , 0, MidiChannel);
 
        std::cout << "Track: " << track << " \t " << myinstrument << "\t MidiChannel "<< MidiChannel  << " \t  Panning " << panning << std::endl;
 
@@ -238,7 +238,7 @@ void MidiPreview::GeneratePreviewMidi(std::stringstream * abctext, int64_t buffe
                        // PreviewMidiTracks[mytracknumber].addNoteOn(1, thistick,0, mypitch+36, currentvelocity);
 
                        // also switch on tone in tinysf
-                       tsf_note_on(TinySoundFont, TinyMidiChannel, mypitch+36, currentvelocity/128.0 ); //preset 0, middle C , MidiChannel!
+                 //      tsf_note_on(TinySoundFont, TinyMidiChannel, mypitch+36, currentvelocity/128.0 ); //preset 0, middle C , MidiChannel!
                    }
                    if (cont == -1)
                    {
@@ -268,7 +268,7 @@ void MidiPreview::GeneratePreviewMidi(std::stringstream * abctext, int64_t buffe
            {
 
 
-              tsf_render_short(TinySoundFont, myBuffer, int(currentbuffer), 0);  // render this duration
+          //    tsf_render_short(TinySoundFont, myBuffer, int(currentbuffer), 0);  // render this duration
 
               for (int64_t cp = 0; cp < currentbuffer; cp++){
                  // m_WavStreams[mytracknumber][currentsampleposition + cp] = myBuffer[cp];
@@ -292,7 +292,7 @@ void MidiPreview::GeneratePreviewMidi(std::stringstream * abctext, int64_t buffe
            // now take the tone end events and write them into tsf and our data structure
            for (std::list<int>::iterator ip=pitchends.begin(); ip!=pitchends.end(); ip++)
            {
-                tsf_note_off(TinySoundFont, TinyMidiChannel, *ip);  // Midichannel
+        //        tsf_note_off(TinySoundFont, TinyMidiChannel, *ip);  // Midichannel
            }
 
 
@@ -379,10 +379,10 @@ void MidiPreview::GeneratePreviewMidi2(std::stringstream * abctext, int64_t * bu
 
        // Parse Instrument String to ChannelNumber
        int MidiChannel = WhichInstrument(myinstrument);
-       int TinyMidiChannel = tsf_get_presetindex( TinySoundFont , 0, MidiChannel);
+       //int TinyMidiChannel = tsf_get_presetindex( TinySoundFont , 0, MidiChannel);
        myinstrumentnumber[ztrack] = WhichInstrumentNumber(myinstrument);
 
-       std::cout << "Track: " << track << " \t " << myinstrument << "\t MidiChannel "<< MidiChannel  << " \t  Panning " << panning << std::endl;
+       std::cout << "Track: " << track << " \t " << myinstrument << " \t  Panning " << panning << std::endl;
 
        // now the fun starts generating tones from the chords
        double currenttime = 0.;
@@ -439,7 +439,7 @@ void MidiPreview::GeneratePreviewMidi2(std::stringstream * abctext, int64_t * bu
                               myqduration+mypitch,
                               clavi[mypitch],
                               myqduration,
-                              TinyMidiChannel,
+                              0,
                               mypitch+36,
                               clavivel[mypitch]
                                      ));
@@ -461,8 +461,8 @@ void MidiPreview::GeneratePreviewMidi2(std::stringstream * abctext, int64_t * bu
 
 
    // now we know how much space we need for the WAV + 1 second of extra silence - this is stereo, so this is 2 times the size
-   m_StereoStream.resize(finalsample*2 + 88200*2);
-   std::fill(m_StereoStream.begin(), m_StereoStream.end(), short(0));  // wipe the audio preview
+   //m_StereoStream.resize(finalsample*2 + 88200*2);
+   //std::fill(m_StereoStream.begin(), m_StereoStream.end(), short(0));  // wipe the audio preview
 
    // Tone Count Statistics
    //                duration in seconds       in 50ms blocks
@@ -484,12 +484,13 @@ void MidiPreview::GeneratePreviewMidi2(std::stringstream * abctext, int64_t * bu
    }
 
    //
-   std::vector<short> AudioBuffer={};
+   //std::vector<short> AudioBuffer={};
    int64_t silence = 2*44100; // for now we add two seconds of silence after the release
+
 
    for (size_t i = 0; i < m_Nabctracks; i++)
    {
-      std::cout << "Rendering Audio Track " << i << std::endl;
+      std::cout << "Estimating Track " << i << std::endl;
       int64_t oldID = -1;
       for (size_t j= 0; j < m_ABCTonesvector[i].size(); j++)
       {
@@ -505,17 +506,17 @@ void MidiPreview::GeneratePreviewMidi2(std::stringstream * abctext, int64_t * bu
               int midichannel = std::get<3>(m_ABCTonesvector[i][j]);
               int tonepitch = std::get<4>(m_ABCTonesvector[i][j]);
 
-              if (AudioBuffer.size() < samplelength ) AudioBuffer.resize(samplelength);
+             // if (AudioBuffer.size() < samplelength ) AudioBuffer.resize(samplelength);
 
-              std::fill(AudioBuffer.begin(), AudioBuffer.end(), 0);  // wipe the audiobuffer to be certain, always better with STL than own loop :)
+             // std::fill(AudioBuffer.begin(), AudioBuffer.end(), 0);  // wipe the audiobuffer to be certain, always better with STL than own loop :)
 
-              tsf_reset(TinySoundFont);  // reset our synthesizer
+             // tsf_reset(TinySoundFont);  // reset our synthesizer
 
               // turn on the tone, render the duration, then turn of the tone, render the release sound
-              tsf_note_on(TinySoundFont, midichannel, tonepitch, 105.0/128.0 );
-              tsf_render_short(TinySoundFont, &AudioBuffer[0], toneduration, 0);
-              tsf_note_off(TinySoundFont, midichannel, tonepitch);
-              tsf_render_short(TinySoundFont, &AudioBuffer[toneduration], silence, 0);
+             // tsf_note_on(TinySoundFont, midichannel, tonepitch, 105.0/128.0 );
+             // tsf_render_short(TinySoundFont, &AudioBuffer[0], toneduration, 0);
+             // tsf_note_off(TinySoundFont, midichannel, tonepitch);
+             // tsf_render_short(TinySoundFont, &AudioBuffer[toneduration], silence, 0);
           }
 
           // now copy the sample into the right position of the stream
@@ -527,13 +528,14 @@ void MidiPreview::GeneratePreviewMidi2(std::stringstream * abctext, int64_t * bu
 
           weightleft = (weightleft * m_volume)/100.0;   // volume rescale
           weightright = (weightright * m_volume)/100.0;
-
+/*
           for (int64_t cp = 0; cp < samplelength; cp++)
           {
              m_StereoStream[ 2*cp + tonestart*2  ] += short( AudioBuffer[cp] * weightleft);
              m_StereoStream[2*cp + tonestart*2 +1] += short( AudioBuffer[cp] * weightright);
           }
-          oldID = newID;
+          */
+     //     oldID = newID;
 
           // now we gotta count tones for the tonecounting preview
 

@@ -13,6 +13,7 @@ public:
     int polydirection = 0;  // 0 is top, 1 is bottom
     int duration_min = 2;
     int duration_max = 0;
+    int id;
    // std::vector<int> miditracks = {};
     std::vector<BandViewMidiTrack> miditrackinfo = {};
     bool muted = false;

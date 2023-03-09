@@ -57,6 +57,8 @@ public:
    std::vector < int > m_mtdmap;       // list of humanizeroptions per itrack
 
    std::vector < int > m_panningmap;   // midi position of tracks
+   std::vector < int > m_zpanningmap;
+   std::vector < int > m_idmap;
 
    std::vector < int >m_ialternatemap;
    std::vector < int >m_ialternatepart;
@@ -148,6 +150,8 @@ private:
     int m_drumforcowbell;
     int m_voladjust;
     int m_panning;
+    int m_zpanning;
+    int m_id;
     int m_in_midi_drum;
     int m_malign;
     int m_alternatecount;
@@ -396,6 +400,8 @@ void ConfigFile::ParseConfigMapping(std::stringstream * mappingtext)
 
     // pannings map
     m_panningmap.resize(0);
+    m_zpanningmap.resize(0);
+    m_idmap.resize(0);
 
 
     // singular variables to default
@@ -414,6 +420,8 @@ void ConfigFile::ParseConfigMapping(std::stringstream * mappingtext)
     m_drumforcowbell = 0;
     m_voladjust = 0;
     m_panning = 64;
+    m_zpanning = 0;
+    m_id = 0;
     m_in_midi_drum = 0;
     m_malign = 0; // default is no align
 
@@ -484,6 +492,8 @@ if (thisline.size() > 0)
              m_trillerfreq = 0;
              m_voladjust = 0;
              m_panning = 64;
+             m_zpanning = 0;
+             m_id = 0;
              m_drumforcowbell = 0;
              m_in_midi_drum = 0;
              m_invertthis = 0; // default is not to invert
@@ -550,6 +560,8 @@ if (thisline.size() > 0)
              m_durmap = AppendI(m_durmap, m_mdur);
              m_durmaxmap = AppendI(m_durmaxmap ,m_maxdur);
              m_panningmap = AppendI(m_panningmap, m_panning);
+             m_zpanningmap = AppendI(m_zpanningmap, m_zpanning);
+             m_idmap = AppendI(m_idmap, m_id );
              m_drumforcowbellmap = AppendI(m_drumforcowbellmap, m_drumforcowbell);
              m_arpeggiomap = AppendI(m_arpeggiomap, m_arpeggioduration);
              m_arpeggioincmap = AppendI(m_arpeggioincmap, m_arpeggioinc);
@@ -622,8 +634,13 @@ if (thisline.size() > 0)
          if (thisline[0] == "panning")
          {
             m_panning = atoi(thisline[1].c_str());
-            if (m_panning < 0) m_panning = 0;
-            if (m_panning > 127) m_panning = 127;
+            if (thisline.size() > 2)
+            {
+               m_zpanning = atoi(thisline[2].c_str());
+               m_id = atoi(thisline[3].c_str());
+            }
+            //if (m_panning < 0) m_panning = 0;
+            //if (m_panning > 127) m_panning = 127;
          }
 
          if (thisline[0] == "miditrack")
