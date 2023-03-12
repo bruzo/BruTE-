@@ -6,6 +6,7 @@
 #include "commctrl.h"
 
 #include "include/brute.h"
+#include "include/brutedefinitions.h"
 
 #include "include/midipreview.h"
 
@@ -13,9 +14,9 @@
 
 //#include "audioplayer.h"
 
-#include "audioplayerAL.h"
+#include "include/audioplayerAL.h"
 
-#include "miditrackview.h"
+#include "include/miditrackview.h"
 
 // #include <SDL.h>
 
