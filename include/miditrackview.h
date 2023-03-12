@@ -1,7 +1,7 @@
 #ifndef MIDITRACKVIEW_H_INCLUDED
 #define MIDITRACKVIEW_H_INCLUDED
 
-#include <brute.h>
+#include "brute.h"
 #include <wx/wx.h>
 #include <string>
 

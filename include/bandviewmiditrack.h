@@ -12,6 +12,7 @@ public:
     int midiinstrument;     // the numeric value of the original midi instrument
     int pitch=0;
     int delay=0;
+    int drummapping = 0;
 
     bool isdrum=false;
     bool isempty=false;

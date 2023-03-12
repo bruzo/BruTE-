@@ -3,12 +3,13 @@
 
 #include <wx/wx.h>
 #include "bandviewmiditrack.h"
+#include "bandviewabctrack.h"
 #include "brutedefinitions.h"
 
 class MidiTrackDialogue : public wxDialog
 {
 public:
-  MidiTrackDialogue(BandViewMidiTrack * myMidiTrack);
+  MidiTrackDialogue(BandViewMidiTrack * myMidiTrack, BandViewABCTrack * myABCTrack);
 
   wxStaticBox * stvolume;
   wxTextCtrl *tcvolume;
@@ -27,6 +28,9 @@ public:
 
   wxStaticBox * stdelay;
   wxTextCtrl *tcdelay;
+
+  wxStaticBox * stdmap;
+  wxTextCtrl *tcdmap;
 
 
 
@@ -48,7 +52,7 @@ BEGIN_EVENT_TABLE(MidiTrackDialogue, wxDialog)
 EVT_BUTTON(wxID_OK, MidiTrackDialogue::OnButtonOK)
 END_EVENT_TABLE()
 
-MidiTrackDialogue::MidiTrackDialogue(BandViewMidiTrack * myMidiTrack)
+MidiTrackDialogue::MidiTrackDialogue(BandViewMidiTrack * myMidiTrack, BandViewABCTrack * myABCTrack)
        : wxDialog(NULL, -1, wxT("Midi Track Settings"), wxDefaultPosition, wxSize(350, 270))
 {
   thisMiditrack = myMidiTrack;
@@ -85,6 +89,13 @@ MidiTrackDialogue::MidiTrackDialogue(BandViewMidiTrack * myMidiTrack)
   stdelay = new wxStaticBox(panel, -1, wxT("Delay"), wxPoint(x,y), wxSize(sx,sy), wxTE_READONLY);
   tcdelay = new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->delay ) , wxPoint(x+10, y+20), wxSize(45,20));
 
+  if ( myABCTrack->instrument == 8 ) // this midi is associated to a drum, so we have to allow picking a drum map
+  {
+      x = 170; y = 120; sx = 70; sy = 45;
+      stdmap = new wxStaticBox(panel, -1, wxT("Drum Map"), wxPoint(x,y), wxSize(sx,sy), wxTE_READONLY);
+      tcdmap = new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->drummapping ) , wxPoint(x+10, y+20), wxSize(45,20));
+  }
+
 
   okButton = new wxButton(this, wxID_OK, wxT("Ok"),wxDefaultPosition, wxSize(70, 30));
 
@@ -105,6 +116,11 @@ MidiTrackDialogue::MidiTrackDialogue(BandViewMidiTrack * myMidiTrack)
   thisMiditrack->alternateparts = wxAtoi(alternateparts->GetValue());
   thisMiditrack->split = wxAtoi(splitnumber->GetValue());
   thisMiditrack->delay = wxAtoi(tcdelay->GetValue());
+
+  if ( myABCTrack->instrument == 8 ) // this midi is associated to a drum, so we have to allow picking a drum map
+  {
+     thisMiditrack->drummapping = wxAtoi(tcdmap->GetValue());
+  }
 
   Destroy();
 }

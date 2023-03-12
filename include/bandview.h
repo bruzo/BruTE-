@@ -87,6 +87,8 @@ public:
     int m_globalid = 0;
 
     bool BetterUpdateYourABCfromBrute = false;
+    bool CRTLIsDown = false;
+    bool ShiftIsDown = false;
 
     void GenerateDefaultMapping();
 
@@ -98,6 +100,12 @@ public:
     void OnDropFiles(wxDropFilesEvent& event);
 
     void LiveUpdateAudio();
+
+    void OnKeyDown(wxKeyEvent& event);
+    void OnKeyUp(wxKeyEvent& event);
+
+    bool m_ABCMODE = false;
+    bool m_MIDIMODE = true;
 
     // some useful events
     /*
@@ -122,6 +130,10 @@ BEGIN_EVENT_TABLE(BandView, wxPanel)
  EVT_LEFT_DOWN(BandView::mouseLeftDown)
  EVT_LEFT_UP(BandView::mouseLeftUp)
  EVT_RIGHT_DOWN(BandView::mouseRightDown)
+
+ // check for keys behind down
+ EVT_KEY_DOWN(BandView::OnKeyDown)
+ EVT_KEY_UP(BandView::OnKeyUp)
  /*
  EVT_RIGHT_DOWN(BandView::rightClick)
  EVT_LEAVE_WINDOW(BandView::mouseLeftWindow)
@@ -151,6 +163,34 @@ END_EVENT_TABLE()
  void BandView::keyReleased(wxKeyEvent& event) {}
  */
 
+void BandView::OnKeyDown(wxKeyEvent & event)
+{
+   int keycode = event.GetKeyCode();
+   if (keycode ==  WXK_CONTROL )
+   {
+      CRTLIsDown = true;
+   }
+   if (keycode == WXK_SHIFT)
+   {
+       ShiftIsDown = true;
+   }
+   event.Skip();
+}
+
+void BandView::OnKeyUp(wxKeyEvent & event)
+{
+   int keycode = event.GetKeyCode();
+   if (keycode ==  WXK_CONTROL )
+   {
+      CRTLIsDown = false;
+   }
+   if (keycode == WXK_SHIFT)
+   {
+       ShiftIsDown = false;
+   }
+   event.Skip();
+}
+
 void BandView::LiveUpdateAudio()
 {
    if ( myaudioplayerAL->audio_playing == 1 )   // check if we are playing
@@ -179,7 +219,7 @@ void BandView::LiveUpdateAudio()
      {
         // size_t i = m; // In case we do not want to  reorder
         size_t i = myneworder[m].second; // write out the correct part based on the ordering
-        if (BVabctracks[i].muted ) bvmappingtext << "*" << std::endl;
+        // if (BVabctracks[i].muted ) bvmappingtext << "*" << std::endl;
         bvmappingtext << "abctrack begin" << std::endl;
         bvmappingtext << "%voladjust    %uncomment to try automatic compensation for U16.1 volumes (experimental!)" << std::endl;
         std::string pdirection = "top";
@@ -191,16 +231,20 @@ void BandView::LiveUpdateAudio()
         bvmappingtext << std::endl;
 
         bvmappingtext << "panning " <<  -int( 100 * ((BVabctracks[i].x-100)/590.0 - 0.5)   ) << "  " << BVabctracks[i].y  << "  " << BVabctracks[i].id << std::endl;
-        if (BVabctracks[i].instrument != 8)
+        if (BVabctracks[i].instrument != 8) // for all instruments except drums we can just write the instrument
         {
          bvmappingtext << "instrument " << lotroinstruments[BVabctracks[i].instrument] << std::endl;
         }
-        else
-        {
-         bvmappingtext << "instrument drums 5" << std::endl;
-        }
+        //else
+        //{
+        // bvmappingtext << "instrument drums "  << std::endl;
+        //}
         for (size_t j = 0; j < BVabctracks[i].miditrackinfo.size(); j++)
         {
+           if (BVabctracks[i].instrument == 8) // for the drums we have to add the mapping used for the following midi track seperatly
+           {
+                bvmappingtext << "instrument drums " << BVabctracks[i].miditrackinfo[j].drummapping << std::endl;
+           }
            bvmappingtext << "%" << std::endl;
            int midioriginal = BVabctracks[i].miditrackinfo[j].midiinstrument;
            if (( BVabctracks[i].miditrackinfo[j].range_l > 0 ) || ( BVabctracks[i].miditrackinfo[j].range_h < 36))
@@ -214,7 +258,7 @@ void BandView::LiveUpdateAudio()
            bvmappingtext << "miditrack " << BVabctracks[i].miditrackinfo[j].miditrack << " pitch " << BVabctracks[i].miditrackinfo[j].pitch << " volume " << BVabctracks[i].miditrackinfo[j].volume << " delay " << BVabctracks[i].miditrackinfo[j].delay << " prio 1" << std::endl;
         }
         bvmappingtext << "abctrack end" << std::endl;
-        if (BVabctracks[i].muted) bvmappingtext << "*" << std::endl;
+       // if (BVabctracks[i].muted) bvmappingtext << "*" << std::endl;
         bvmappingtext << std::endl;
         bvmappingtext << std::endl;
      }
@@ -269,6 +313,7 @@ void BandView::GetMapping()
             newmiditrack.alternatemypart = myBrute->m_Mapping.m_alternatepart[i][j];
             newmiditrack.split = myBrute->m_Mapping.m_splitvoicemap[i][j];
             newmiditrack.delay = myBrute->m_Mapping.m_delaymap[i][j];
+            newmiditrack.drummapping = myBrute->m_Mapping.m_drumstylemap[i][j];
 
             BVabctracks[i].miditrackinfo.push_back(newmiditrack);
         }
@@ -397,20 +442,20 @@ void BandView::mouseRightDown(wxMouseEvent& event)
     int mouseY = pt.y - this->GetScreenPosition().y;
 
     size_t mypossibleMidiInABCTrack = MidiTrackInABCTrackPicked(mouseX, mouseY);
-    if (mypossibleMidiInABCTrack != 1000)
+    if ((mypossibleMidiInABCTrack != 1000) &&(m_ABCMODE == false))
     {
          // std::cout << "Someone Picked a MidiTrack in an ABC Track" << std::endl;
          size_t whichmidi = WhichMidiTrackInABCTrackPicked(mouseX, mouseY);
          if (whichmidi !=1000)
          {
              std::cout <<"Right Click on Miditrack " << whichmidi << " in ABC Track " << mypossibleMidiInABCTrack;
-             MidiTrackDialogue * custom = new MidiTrackDialogue( &BVabctracks[mypossibleMidiInABCTrack].miditrackinfo[whichmidi] );
+             MidiTrackDialogue * custom = new MidiTrackDialogue( &BVabctracks[mypossibleMidiInABCTrack].miditrackinfo[whichmidi], &BVabctracks[mypossibleMidiInABCTrack] );
              custom->Show(true);
          }
     }
 
     size_t mypossibleABCTrack = ABCTrackPicked(mouseX, mouseY);
-    if (mypossibleABCTrack != 1000)
+    if ((mypossibleABCTrack != 1000)  && (m_ABCMODE == false))
     {
         //std::cout << "Right Click on ABCtrack " << mypossibleABCTrack << std::endl;
         ABCTrackDialogue * custom = new ABCTrackDialogue( &BVabctracks[mypossibleABCTrack] );
@@ -450,6 +495,8 @@ void BandView::mouseRightDown(wxMouseEvent& event)
          float fadeout;
          GainSettingsDialogue * newgains = new GainSettingsDialogue(lotroinstrumentclickednumber, &relativegain[lotroinstrumentclickednumber], &fadeouts[lotroinstrumentclickednumber] );
      }
+
+
 }
 
 void BandView::mouseLeftDown(wxMouseEvent& event)
@@ -483,7 +530,7 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
      // check for ABCTrack picked
      size_t mypossibleABCtrack = ABCTrackPicked(mouseX, mouseY);
     // bool muter = ABCTrackMuted(mouseX, mouseY);
-     if (mypossibleABCtrack !=1000)
+     if ((mypossibleABCtrack !=1000)  && ( CRTLIsDown == false))
      {
            // std::cout << " Selected ABC Track " << mypossibleABCtrack << std::endl;
             this->SetCursor(wxCursor(wxCURSOR_HAND));
@@ -494,6 +541,29 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
             abctrackclicked = true;
             this->Refresh();
      }
+    //
+     if ((mypossibleABCtrack != 1000) && ( CRTLIsDown == true) && (ShiftIsDown == false) )  // ctrl + left mouse switch mute for single track
+     {
+            BVabctracks[mypossibleABCtrack].muted = !BVabctracks[mypossibleABCtrack].muted;
+            myaudioplayerAL->SetMute(BVabctracks[mypossibleABCtrack].id, BVabctracks[mypossibleABCtrack].muted);
+            this->Refresh();
+     }
+     if ((mypossibleABCtrack != 1000) && ( CRTLIsDown == true) && (ShiftIsDown == true) )  // ctrl + shift + left mouse  mute all other tracks
+     {
+         for (size_t i = 0; i < BVabctracks.size(); i++)
+         {
+             if (i!=mypossibleABCtrack)
+             {
+                 BVabctracks[i].muted = true;
+                 myaudioplayerAL->SetMute(BVabctracks[i].id, true);
+             }
+         }
+         myaudioplayerAL->SetMute(BVabctracks[mypossibleABCtrack].id, false);
+         BVabctracks[mypossibleABCtrack].muted = false;
+         this->Refresh();
+     }
+
+
 
      // check for Midi in ABC Track picked
      size_t mypossibleMidiInABCTrack = MidiTrackInABCTrackPicked(mouseX, mouseY);
@@ -799,6 +869,8 @@ wxPanel(parent)
     }
     //myOverLoadPicture = new OverLoadPicture(myMidiPreview);
     DragAcceptFiles(true);
+
+  //  Bind(wxEVT_KEY_DOWN, &BandView::OnKeyDown, this);
 }
 
 /*
@@ -869,7 +941,7 @@ void BandView::DrawOneMidiTrack(wxDC& dc, int x, int y, int i, size_t midiinstru
    if (( midiinstrumentnumber > 80) && ( midiinstrumentnumber < 97)) mycolor.Set("rgb(255,255,200)"); // green  for synth lead
    if (( midiinstrumentnumber > 96) && ( midiinstrumentnumber < 105)) mycolor.Set("rgb(255,255,150)"); // green  for synth
    if (( midiinstrumentnumber > 104) && ( midiinstrumentnumber < 113)) mycolor.Set("rgb(255,200,255)"); // green  for ethnic
-   if (midiinstrumentnumber == 201) mycolor.Set("rgb(50,50,50)"); // dark grey for Drums
+   if (midiinstrumentnumber == 201) mycolor.Set("rgb(150,150,150)"); // dark grey for Drums
 
 
    dc.SetBrush(mycolor);
@@ -1171,13 +1243,54 @@ void BandView::render(wxDC&  dc)
 void BandView::OnDropFiles(wxDropFilesEvent& event) {
     //wxArrayString * files;
     auto files = event.GetFiles();
-    std::cout<< "Files dropped " << files[0] << std::endl;
+    // std::cout<< "Files dropped " << files[0] << std::endl;
     // Do something with the files...
     wxString MidiFileName = files[0];
+    // is this actually a midi???
     char cstring[1024];
     strncpy(cstring, (const char*)MidiFileName.mb_str(wxConvUTF8), 1023);
-    myBrute->LoadMidi(cstring);
-    Refresh();
+
+
+    if ((MidiFileName.Find(".mid") != wxNOT_FOUND)||(MidiFileName.Find(".MID") != wxNOT_FOUND))
+    {
+       m_ABCMODE = false;
+       m_MIDIMODE = true;
+       myBrute->LoadMidi(cstring);
+       Refresh();
+    }
+
+    if ((MidiFileName.Find(".abc")!=wxNOT_FOUND)||(MidiFileName.Find(".ABC")!=wxNOT_FOUND))
+    {
+       m_ABCMODE = true;
+       m_MIDIMODE = false;
+       std::cout << " Switching to pure playback " << std::endl;
+
+       // this is a hack right now:
+       std::ifstream myabcfile;
+       myabcfile.open(MidiFileName);
+       myBrute->m_ABCText.str(std::string());
+       myBrute->m_ABCText << myabcfile.rdbuf();
+       myabcfile.close();
+       myBrute->DeleteMidi();
+       myaudioplayerAL->Stop();
+       myaudioplayerAL->SendABC(&myBrute->m_ABCText);
+       myaudioplayerAL->Play();
+       myaudioplayerAL->audio_playing = 1;
+       BVabctracks.resize(myaudioplayerAL->GetNumberOfTracks());
+       for (size_t i = 0; i < BVabctracks.size(); i++)
+       {
+           BVabctracks[i].miditrackinfo.resize(1);
+           BVabctracks[i].miditrackinfo[0].miditrack = myaudioplayerAL->GetXNumber(i);
+           BVabctracks[i].miditrackinfo[0].midiinstrument = 10;
+           BVabctracks[i].id = myaudioplayerAL->GetID(i);
+           BVabctracks[i].instrument = myaudioplayerAL->GetInstrument(i);
+           BVabctracks[i].x = int(100+590*(0.5 - myaudioplayerAL->GetPanning(i)*0.01));
+           BVabctracks[i].y = myaudioplayerAL->GetZPanning(i);
+
+       }
+       Refresh();
+    }
+
 }
 
 

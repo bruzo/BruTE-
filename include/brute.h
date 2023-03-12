@@ -80,9 +80,12 @@ public:
     int GetTonePitch(int miditrack, int tone);
     int GetGlobalMaxVel();
 
+    void DeleteMidi();
+
 private:
     // MidiFile instance to deal with the midi file
     smf::MidiFile m_Midi;
+
 
     // list of midi channel instruments
     std::vector<int> m_midiinstruments = {};
@@ -172,6 +175,10 @@ private:
     bool m_done;
 };
 
+void Brute::DeleteMidi()
+{
+    m_midiinstruments.resize(0);
+}
 int Brute::GetGlobalMaxVel()
 {
     return m_globalmaxvel;
@@ -295,6 +302,8 @@ void Brute::LoadMidi(char * mymidiname)
     // midi instruments of tracks
     m_midiinstruments.resize(m_Midi.size());
     for (int i = 0; i < m_Midi.size(); i++) m_midiinstruments[i] = 0;
+
+    int pitchbendrange = 2; // default pitchbendrange
 
     // number of tones per track
     m_tonecounts.resize(m_Midi.size());
@@ -451,20 +460,53 @@ void Brute::LoadMidi(char * mymidiname)
                 m_tonecounts[i] += 1;
             }
 
+        if (m_Midi[i][j][0] == 0xB0 && m_Midi[i][j][1] == 0x65 && m_Midi[i][j][2] == 0x00 )
+        {
+                //std::cout << " we are adjusting sensitivity " << i << std::endl;
+                int msb = m_Midi[i][j][1];
+                int lsb = m_Midi[i][j][2];
+                pitchbendrange = ((msb<<7)|lsb)/100;
+        }
+
             // check for pitch bend events
             if (m_Midi[i][j].isPitchbend() )
             {
 
-                double time =timetoticks* m_Midi.getTimeInSeconds(m_Midi[i][j].tick) ;
-                //int msb = m_Midi[i][j][3];
-                int msb = 0;
-                int lsb = m_Midi[i][j][2];
-                double pitchwheel = ((lsb * 128 + msb)-(64*128))/8192.0;
+                double time = timetoticks* m_Midi.getTimeInSeconds(m_Midi[i][j].tick) ;
 
-                m_pitchbendtimes[i][ m_pitchbendcounter[i] ] = time;
-                m_pitchbendvalues[i][ m_pitchbendcounter[i] ] = pitchwheel;
+                // Extract the least significant 7 bits of the pitch bend data
+                int lsb = m_Midi[i][j][3] & 0x7F;
+                // Extract the most significant 7 bits of the pitch bend data
+                int msb = m_Midi[i][j][2] & 0x7F;
+                int PitchBendData = (msb << 7) | lsb;
 
-                m_pitchbendcounter[i]++;
+                // Calculate the maximum pitch bend value
+                int maxPitchBendValue = (1 << 14) - 1;
+
+                // Calculate the pitch bend range in semitones
+                double pitchBendRangeSemitones = (PitchBendData - maxPitchBendValue/2.0) * pitchbendrange / (maxPitchBendValue/2.0);
+                // Assume that the relative pitch value is stored in a variable called relativePitch
+                double relativePitch = 0.5;
+
+                // Calculate the relative pitch in semitones
+                double relativePitchSemitones = pitchBendRangeSemitones * relativePitch;
+                //relativePitchSemitones = static_cast<int>(relativePitchSemitones+0.5);
+
+                // only act on stuff that actually does something
+                if (( relativePitchSemitones > 0.01) || ( relativePitchSemitones < -0.01))
+                {
+                   // only use events after time 0
+                   if (time > 0.00001)
+                   {
+
+                      m_pitchbendtimes[i][ m_pitchbendcounter[i] ] = time;
+                      m_pitchbendvalues[i][ m_pitchbendcounter[i] ] = relativePitchSemitones;
+
+                      // std::cout << "Pitchbend " << i << " at " << time << " Value " << relativePitchSemitones << std::endl;
+
+                      m_pitchbendcounter[i]++;
+                   }
+                }
             }
         }
         // collect samples used statistics
@@ -982,6 +1024,19 @@ void Brute::GenerateQuantizedNotes()
 void Brute::PitchBends()
 {
     // not done right now!
+
+    /* to be manipulated
+       m_tonestarts[miditrack][tone]
+       m_toneends
+       m_velocities
+       m_pitches
+       m_tonecounts[miditrack]
+    */
+    /*
+    for (int i = 0; i < m_Midi.size(); i++)
+    {
+        m_pitchbendtimes[i]
+    }*/
 }
 
 
@@ -1379,7 +1434,7 @@ void Brute::CorrectMissmatch()
 
         while ( current != m_chordlists[abctrack].end())
         {
-            // the current missmatch can be compensated by prolonging the preceeding tone and shortening the duration of this chord
+            // the initial missmatch of starting time is compensated by prolonging the preceeding tone and shortening the duration of this chord
             former->duration += current->missmatch;
             current->duration -= current->missmatch;
             current->missmatch = 0;

@@ -46,7 +46,7 @@
 
 #include <mmsystem.h>
 
-#include <brutedefinitions.h>
+#include "brutedefinitions.h"
 
 typedef std::tuple< int64_t, int64_t, int64_t, int, int, float > ToneTuple;
 
@@ -69,6 +69,13 @@ public:
     void SetPanning(int id, int panning);
     void SetVolume(float value);
     void SetGlobalPanning(int panning);
+    void SetMute(int id, bool value);
+    size_t GetNumberOfTracks();
+    int GetID(size_t track);
+    int GetInstrument(size_t track);
+    int GetXNumber(size_t track);
+    int GetPanning(size_t track);
+    int GetZPanning(size_t track);
 
     void UpdateABC(std::stringstream * abctext);
 
@@ -79,6 +86,7 @@ public:
     int audio_playing = 0;
     int m_stop = 0;
     int m_mute = 0; // 0 is not muted
+
 
 private:
 
@@ -117,10 +125,12 @@ private:
     std::vector< int > m_WavPannings; // traditional stereo position, will also be used for the 3D x-position
     std::vector< int > m_WavZPannings; // Distance of the track
     std::vector< int > m_id; // internal ID for this ABC Track
+    std::vector< int > m_mutes; // internal information about tracks being muted
 
     std::vector< std::list< ToneTuple > > m_ABCTones;
     std::vector< std::vector< ToneTuple > > m_ABCTonesvector; //
     std::vector<size_t> m_instrumentnumber;     // Instrument of the ABC tracks
+    std::vector<size_t> m_Xnumber;
 
 
     int m_volume = 100;  // listener volume
@@ -139,6 +149,36 @@ private:
     std::vector<float> m_envelope; // constains the envelop multiply function to be used for sending the tone
     void SetEnvelope(int Instrument, uint32_t duration, uint32_t samplesize);
 };
+
+size_t AudioPlayerAL::GetNumberOfTracks()
+{
+    return m_id.size();
+}
+
+int AudioPlayerAL::GetID(size_t track)
+{
+    return m_id[track];
+}
+
+int AudioPlayerAL::GetInstrument(size_t track)
+{
+    return m_instrumentnumber[track];
+}
+
+int AudioPlayerAL::GetXNumber(size_t track)
+{
+    return m_Xnumber[track];
+}
+
+int AudioPlayerAL::GetPanning(size_t track)
+{
+    return m_WavPannings[track];
+}
+
+int AudioPlayerAL::GetZPanning(size_t track)
+{
+    return m_WavZPannings[track];
+}
 
 void AudioPlayerAL::UpdateABC(std::stringstream * abctext)
 {
@@ -163,6 +203,19 @@ void AudioPlayerAL::SetInstrument(int id, int instrument)
             {
                std::get<3>(m_ABCTonesvector[i][j]) = instrument;
             }
+        }
+    }
+}
+
+void AudioPlayerAL::SetMute(int id, bool value)
+{
+    // search through tracks to find ID
+    for (int i = 0; i < m_id.size(); i++)
+    {
+        if (id == m_id[i])
+        {
+            // this is the one so we have to change all the instruments
+            m_mutes[i] = value;
         }
     }
 }
@@ -224,6 +277,7 @@ void AudioPlayerAL::Play()
 
     PlayThread = new std::thread(&PlayLoop, this);
     m_stop = 0;
+
 }
 
 void AudioPlayerAL::Stop()
@@ -360,7 +414,7 @@ void AudioPlayerAL::PlayLoop()
 
                trackpositions[i]++;   // next tone
 
-               if (m_mute == 0)
+               if ((m_mute == 0) && ( m_mutes[i] == 0))
                {
                    // find first free slot
                    size_t ii = 0;
@@ -877,10 +931,18 @@ double AudioPlayerAL::EvaluateDurationString(std::string input)
     if (input.length() == 0) return 1.0;
 
     // Now Check if this is a fraction
-    if (input.find('/') > 0)   // this is a fraction
+    if (input.find('/') >= 0)   // this is a fraction
     {
+
         std::vector<std::string> twovalues = split(input, '/');
-        return ( 1.0 * std::stoi(twovalues.at(0)) / (1.0 * std::stoi(twovalues.at(1))) );
+        if (twovalues.size()>1)
+        {
+            return ( 1.0 * std::stoi(twovalues.at(0)) / (1.0 * std::stoi(twovalues.at(1))) );
+        }
+        else
+        {
+            return (( 1.0 ) / (1.0 * std::stoi(twovalues.at(0))) );
+        }
     }
     else        // this is not a fraction
     {
@@ -1018,9 +1080,11 @@ void AudioPlayerAL::SendABC(std::stringstream * abctext)
    m_WavZPannings.resize(m_Nabctracks);
    std::fill(m_WavZPannings.begin(), m_WavZPannings.end(), 0); // fill with some position
    m_id.resize(m_Nabctracks);
+   m_mutes.resize(m_Nabctracks);
 
    // Allocate Space for Toneinformation
    m_ABCTones.resize(m_Nabctracks);
+   m_Xnumber.resize(m_Nabctracks);
 
    // Allocate Instrument Structure
    m_instrumentnumber.resize(m_Nabctracks);
@@ -1034,6 +1098,7 @@ void AudioPlayerAL::SendABC(std::stringstream * abctext)
    for (size_t track=1; track < m_Nabctracks+1; track++)
    {
        // empty the tonestart/toneend lists
+
        int ztrack = track -1 ;
        m_ABCTones[ztrack] = {};
        // make a string stream copy of the track
@@ -1048,7 +1113,12 @@ void AudioPlayerAL::SendABC(std::stringstream * abctext)
            mytracklines.push_back(line);
        }
        auto lineiterator = mytracklines.begin();
-       ++lineiterator; // first line is bogus
+       line = *lineiterator; auto xline = split(line, ':');
+       if ((xline[0]=='X')&&(xline.size()>1))
+       {
+           m_Xnumber[ztrack] = std::stoi(xline[1]);
+       }
+       ++lineiterator; // first line is X: one
 
        line = *lineiterator; // Instrument from T line
 
@@ -1061,11 +1131,48 @@ void AudioPlayerAL::SendABC(std::stringstream * abctext)
        ++lineiterator;
        line = *lineiterator;
        auto ps = split(line, ' ');
-       int panning = std::stoi( ps[ ps.size()-3 ] );  // last number
-       m_WavPannings[ztrack] = panning;  // keep this for later
-       int zpanning = std::stoi( ps[ ps.size()-2 ]);
-       m_WavZPannings[ztrack] = zpanning;
-       m_id[ztrack] = std::stoi( ps[ ps.size()-1 ] );
+       if (ps.size() > 2)
+       {
+         // for (int i = 0; i < ps.size(); i++) std::cout << ps[i] << std::endl;
+          int panning=0;
+          int notworking = 0;
+          try{
+             panning = std::stoi( ps[ ps.size()-3 ] );  // last number
+
+          } catch(const std::invalid_argument& e) {
+              panning =  (std::rand()%100)-50;
+              notworking = 1;
+          }
+          m_WavPannings[ztrack] = panning;  // keep this for later
+          int zpanning = 0;
+          try{
+             zpanning = std::stoi( ps[ ps.size()-2 ]);
+          }catch(const std::invalid_argument& e) {
+              zpanning = zpanning = 200 + (std::rand()%200);
+              notworking = 1;
+          }
+          m_WavZPannings[ztrack] = zpanning;
+          if (notworking == 1) {
+                m_id[ztrack] = ztrack;
+                panning =  (std::rand()%100)-50;
+                zpanning = zpanning = 200 + (std::rand()%200);
+          }
+          else
+          {
+             try{
+                m_id[ztrack] = std::stoi( ps[ ps.size()-1 ] );
+             } catch(const std::invalid_argument& e) {
+              m_id[ztrack] = ztrack;
+          }
+          }
+       }
+       else // we assume this is not holding any info
+       {
+           m_WavPannings[ztrack] = (std::rand()%100)-50;
+           m_WavZPannings[ztrack] = 200 + (std::rand()%200);
+           m_id[ztrack] = ztrack;
+       }
+       m_mutes[ztrack] = 0;
 
        // the next three line we ignore, as all the BruTE ABCs have identical timings and we do not make music with foreign ABC flavors yet
        ++lineiterator; ++ lineiterator; ++lineiterator;
@@ -1092,6 +1199,8 @@ void AudioPlayerAL::SendABC(std::stringstream * abctext)
            std::string myline = *lineiterator;
            double myduration = 0.;     // so far this line has a 0 duration
            std::list<int> pitchends = {}; // and so far this line has no ending pitches
+
+           // std::cout << myline << std::endl;
 
            // is this a velocity change?
            if (IsVelchange( myline )) currentvelocity = Velocity( myline );

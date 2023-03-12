@@ -60,10 +60,12 @@ ABCTrackDialogue::ABCTrackDialogue(BandViewABCTrack * myABCTrack)
   wxChoice * tcpolydir = new wxChoice(panel,-1, wxPoint(x+10, y+20), wxSize(sx-25,sy-25),str);
   tcpolydir->SetSelection( thisABCTrack->polydirection );
 
+  /*
   x = 200; y = 20; sx = 70; sy = 40;
   stmuted = new wxStaticBox(panel, -1, wxT("Mute"), wxPoint(x, y), wxSize(sx, sy), wxTE_READONLY);
   tcmuted = new wxCheckBox(panel, -1, wxT(""), wxPoint(x+15, y+15), wxSize(20, 20), 0, wxDefaultValidator  );
   tcmuted->SetValue( myABCTrack->muted );
+  */
 
   x = 5; y = 70; sx = 185; sy = 45;
   stduration = new wxStaticBox(panel, -1, wxT("Duration Limits ( min, max )"), wxPoint(x, y), wxSize(sx, sy), wxTE_READONLY);
@@ -87,7 +89,7 @@ ABCTrackDialogue::ABCTrackDialogue(BandViewABCTrack * myABCTrack)
   thisABCTrack->polydirection = tcpolydir->GetSelection();
   thisABCTrack->duration_min = wxAtoi(tcdmin->GetValue());
   thisABCTrack->duration_max = wxAtoi(tcdmax->GetValue());
-  thisABCTrack->muted = tcmuted->GetValue();
+//  thisABCTrack->muted = tcmuted->GetValue();
 
   Destroy();
 }
