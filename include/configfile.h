@@ -67,14 +67,16 @@ public:
    std::vector < int > m_irangemapl;
    std::vector < int > m_irangemaph;
 
-   std::vector < int > m_itrillermap;
+   std::vector < float > m_itrillermap;
+   std::vector < int > m_ipitchbendmap;  // pitchbend per itrack
+   std::vector < int > m_ipitchbendmethodmap;
    std::vector < int > m_idurationsplitmap;
    std::vector < int > m_idurationsplitpartmap;
 
    std::vector < int > m_tmap;
    std::vector < int > m_vmap;
    std::vector < int > m_pmap;
-   std::vector < int > m_dmap;
+   std::vector < float > m_dmap;
    std::vector < int > m_ipriomap;
    std::vector < int > m_imfmap;
    std::vector < int > m_imsmap;
@@ -90,11 +92,12 @@ public:
    std::vector < int > m_arpeggioincmap; // increment of the arpeggio
 
 
+
    // data structures for the miditrack line
    std::vector < std::vector < int > > m_trackmap;  // list of miditracks per itrack
    std::vector < std::vector < int > > m_volumemap; // list of volume modification of miditracks per itrack
    std::vector < std::vector < int > > m_pitchmap;  // pitch adjustments of miditrack in itrack
-   std::vector < std::vector < int > > m_delaymap;  // list of delays of miditracks in itrack
+   std::vector < std::vector < float > > m_delaymap;  // list of delays of miditracks in itrack
    std::vector < std::vector < int > > m_priomap;   // list of the priorities of miditracks in itrack
 
 
@@ -124,9 +127,13 @@ public:
    std::vector < std::vector<int> > m_alignmap;    // list of close range alignments per itrack
 
    // triller per miditrack of itrack
-   std::vector < std::vector<int> > m_trillermap;
+   std::vector < std::vector<float> > m_trillermap;
 
-    int m_DATA_maxdelay;
+   // pitchbendquantization per miditrack of itrack
+   std::vector < std::vector<int> > m_pitchbendmap;
+   std::vector < std::vector<int> > m_pitchbendmethodmap;
+
+   float m_DATA_maxdelay;
 
    std::vector< int > abctrackpositions_x;
    std::vector< int > abctrackpositions_y;
@@ -142,7 +149,7 @@ private:
     int m_mdivide;
     int m_mdur;
     int m_maxdur;
-    int m_mdelay;
+    float m_mdelay;
     int m_mprio;
     int m_mff;
     int m_msm;
@@ -161,7 +168,9 @@ private:
     int m_mtd;
 
     int m_go_on_parts;
-    int m_trillerfreq;
+    float m_trillerfreq;
+    int m_pitchbendfreq;
+    int m_pitchbendmethod;
     int m_invertthis;
     int m_arpeggioinc;
     int m_idurationsplit;
@@ -398,6 +407,10 @@ void ConfigFile::ParseConfigMapping(std::stringstream * mappingtext)
     // triller
     m_trillermap.resize(0);
 
+    // pitchbends
+    m_pitchbendmap.resize(0);
+    m_pitchbendmethodmap.resize(0);
+
     // pannings map
     m_panningmap.resize(0);
     m_zpanningmap.resize(0);
@@ -490,6 +503,8 @@ if (thisline.size() > 0)
              m_defaultrange[0] = 0; m_defaultrange[1] = 36;
 
              m_trillerfreq = 0;
+             m_pitchbendfreq = 0;
+             m_pitchbendmethod = 0;
              m_voladjust = 0;
              m_panning = 64;
              m_zpanning = 0;
@@ -516,6 +531,8 @@ if (thisline.size() > 0)
              m_irangemapl.resize(0);
              m_irangemaph.resize(0);
              m_itrillermap.resize(0);
+             m_ipitchbendmap.resize(0);
+             m_ipitchbendmethodmap.resize(0);
              m_idurationsplitmap.resize(0);
              m_idurationsplitpartmap.resize(0);
              m_tmap.resize(0);
@@ -539,7 +556,7 @@ if (thisline.size() > 0)
              m_trackmap = AppendIU(m_trackmap, m_tmap);
              m_volumemap = AppendIU(m_volumemap, m_vmap);
              m_pitchmap = AppendIU(m_pitchmap, m_pmap);
-             m_delaymap = AppendIU(m_delaymap, m_dmap);
+             m_delaymap = AppendFU(m_delaymap, m_dmap);
              m_priomap  = AppendIU(m_priomap, m_ipriomap);
              m_mfmap = AppendIU(m_mfmap, m_imfmap);
              m_msmap = AppendIU(m_msmap, m_imsmap);
@@ -553,7 +570,9 @@ if (thisline.size() > 0)
              m_splitvoicemap = AppendIU(m_splitvoicemap, m_itrackvoice);
              m_alternatemap = AppendIU(m_alternatemap, m_ialternatemap);
              m_alternatepart = AppendIU(m_alternatepart, m_ialternatepart);
-             m_trillermap = AppendIU(m_trillermap, m_itrillermap);
+             m_trillermap = AppendFU(m_trillermap, m_itrillermap);
+             m_pitchbendmap = AppendIU(m_pitchbendmap, m_ipitchbendmap);
+             m_pitchbendmethodmap = AppendIU(m_pitchbendmethodmap, m_ipitchbendmethodmap);
              m_polymap = AppendI(m_polymap, m_mpoly);
              m_instrumap = AppendI(m_instrumap, m_minstrument);
              m_polymapdir = AppendI(m_polymapdir, m_mpolyd);
@@ -627,8 +646,14 @@ if (thisline.size() > 0)
 
          if (thisline[0] == "triller")
          {
-            m_trillerfreq = atoi(thisline[1].c_str());
-            if (m_trillerfreq == 1) m_trillerfreq = 2;
+            m_trillerfreq = atof(thisline[1].c_str());
+            // if (m_trillerfreq == 1) m_trillerfreq = 2;  // the user should know what he does!
+         }
+
+         if (thisline[0] == "pitchbendinfo")
+         {
+             m_pitchbendfreq = atoi(thisline[1].c_str());
+             m_pitchbendmethod = atoi(thisline[2].c_str());
          }
 
          if (thisline[0] == "panning")
@@ -674,7 +699,9 @@ if (thisline.size() > 0)
              m_idrumsingleinstrument = AppendI(m_idrumsingleinstrument,m_in_midi_drum);
 
 
-             m_itrillermap = AppendI(m_itrillermap, m_trillerfreq);
+             m_itrillermap = AppendF(m_itrillermap, m_trillerfreq);
+             m_ipitchbendmap = AppendI(m_ipitchbendmap, m_pitchbendfreq);
+             m_ipitchbendmethodmap = AppendI(m_ipitchbendmethodmap, m_pitchbendmethod);
              m_ialignmap = AppendI(m_ialignmap, m_ialign);
 
              // after all this has been added we set the default per miditrack again
@@ -686,15 +713,17 @@ if (thisline.size() > 0)
              m_alternatecount = 1;
              m_alternatepartnumber = 1;
              m_trillerfreq = 0;
+             m_pitchbendfreq = 0;
+             m_pitchbendmethod = 0;
 
              if (thisline.size() > 6)
              {
-                 m_dmap = AppendI(m_dmap, atoi(thisline[7].c_str()));
-                 if (atoi(thisline[7].c_str()) > m_DATA_maxdelay) m_DATA_maxdelay = atoi(thisline[7].c_str());
+                 m_dmap = AppendF(m_dmap, atof(thisline[7].c_str()));
+                 if (atof(thisline[7].c_str()) > m_DATA_maxdelay) m_DATA_maxdelay = atof(thisline[7].c_str());
              }
              else
              {
-                 m_dmap = AppendI(m_dmap, 0);
+                 m_dmap = AppendF(m_dmap, 0);
              }
 
              if (thisline.size() > 8)
@@ -904,6 +933,10 @@ void ConfigFile::ImportConfigFile(char * infilename)
     // triller
     m_trillermap.resize(0);
 
+    // pitchbends
+    m_pitchbendmap.resize(0);
+    m_pitchbendmethodmap.resize(0);
+
     // pannings map
     m_panningmap.resize(0);
 
@@ -979,6 +1012,8 @@ if (thisline.size() > 0)
              m_defaultrange[0] = 0; m_defaultrange[1] = 36;
 
              m_trillerfreq = 0;
+             m_pitchbendfreq = 0;
+             m_pitchbendmethod = 0;
              m_voladjust = 0;
              m_panning = 64;
              m_drumforcowbell = 0;
@@ -1003,6 +1038,8 @@ if (thisline.size() > 0)
              m_irangemapl.resize(0);
              m_irangemaph.resize(0);
              m_itrillermap.resize(0);
+             m_ipitchbendmap.resize(0);
+             m_ipitchbendmethodmap.resize(0);
              m_idurationsplitmap.resize(0);
              m_idurationsplitpartmap.resize(0);
              m_tmap.resize(0);
@@ -1026,7 +1063,7 @@ if (thisline.size() > 0)
              m_trackmap = AppendIU(m_trackmap, m_tmap);
              m_volumemap = AppendIU(m_volumemap, m_vmap);
              m_pitchmap = AppendIU(m_pitchmap, m_pmap);
-             m_delaymap = AppendIU(m_delaymap, m_dmap);
+             m_delaymap = AppendFU(m_delaymap, m_dmap);
              m_priomap  = AppendIU(m_priomap, m_ipriomap);
              m_mfmap = AppendIU(m_mfmap, m_imfmap);
              m_msmap = AppendIU(m_msmap, m_imsmap);
@@ -1040,7 +1077,9 @@ if (thisline.size() > 0)
              m_splitvoicemap = AppendIU(m_splitvoicemap, m_itrackvoice);
              m_alternatemap = AppendIU(m_alternatemap, m_ialternatemap);
              m_alternatepart = AppendIU(m_alternatepart, m_ialternatepart);
-             m_trillermap = AppendIU(m_trillermap, m_itrillermap);
+             m_trillermap = AppendFU(m_trillermap, m_itrillermap);
+             m_pitchbendmap = AppendIU(m_pitchbendmap, m_ipitchbendmap);
+             m_pitchbendmethodmap = AppendIU(m_pitchbendmethodmap, m_ipitchbendmethodmap);
              m_polymap = AppendI(m_polymap, m_mpoly);
              m_instrumap = AppendI(m_instrumap, m_minstrument);
              m_polymapdir = AppendI(m_polymapdir, m_mpolyd);
@@ -1112,8 +1151,14 @@ if (thisline.size() > 0)
 
          if (thisline[0] == "triller")
          {
-            m_trillerfreq = atoi(thisline[1].c_str());
-            if (m_trillerfreq == 1) m_trillerfreq = 2;
+            m_trillerfreq = atof(thisline[1].c_str());
+         //   if (m_trillerfreq == 1) m_trillerfreq = 2;
+         }
+
+         if (thisline[0] == "pitchbendinfo")
+         {
+             m_pitchbendfreq = atoi(thisline[1].c_str());
+             m_pitchbendmethod = atoi(thisline[2].c_str());
          }
 
          if (thisline[0] == "panning")
@@ -1154,7 +1199,9 @@ if (thisline.size() > 0)
              m_idrumsingleinstrument = AppendI(m_idrumsingleinstrument,m_in_midi_drum);
 
 
-             m_itrillermap = AppendI(m_itrillermap, m_trillerfreq);
+             m_itrillermap = AppendF(m_itrillermap, m_trillerfreq);
+             m_ipitchbendmap = AppendI(m_ipitchbendmap, m_pitchbendfreq );
+             m_ipitchbendmethodmap = AppendI(m_ipitchbendmethodmap, m_pitchbendmethod);
              m_ialignmap = AppendI(m_ialignmap, m_ialign);
 
              // after all this has been added we set the default per miditrack again
@@ -1166,15 +1213,17 @@ if (thisline.size() > 0)
              m_alternatecount = 1;
              m_alternatepartnumber = 1;
              m_trillerfreq = 0;
+             m_pitchbendfreq = 0;
+             m_pitchbendmethod = 0;
 
              if (thisline.size() > 6)
              {
-                 m_dmap = AppendI(m_dmap, atoi(thisline[7].c_str()));
-                 if (atoi(thisline[7].c_str()) > m_DATA_maxdelay) m_DATA_maxdelay = atoi(thisline[7].c_str());
+                 m_dmap = AppendF(m_dmap, atof(thisline[7].c_str()));
+                 if (atof(thisline[7].c_str()) > m_DATA_maxdelay) m_DATA_maxdelay = atof(thisline[7].c_str());
              }
              else
              {
-                 m_dmap = AppendI(m_dmap, 0);
+                 m_dmap = AppendF(m_dmap, 0);
              }
 
              if (thisline.size() > 8)

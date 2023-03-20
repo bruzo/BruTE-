@@ -39,9 +39,13 @@ public:
     void ParseConfig(std::stringstream * text ); // Parses the internal config into the mapping information
 
     void PitchBends();
-    void GenerateQuantizedNotes();
+    void CopyMidiInfoToTracks();    // New method of handling midi events seperatly per ABCTrack
+    void GenerateQuantizedNotes();  // Old Quantization flatly processes only all the miditracks
+    void GenerateQuantizedNotes2(); // New Quantization uses Miditrack per ABCTRAck
     void GenerateNoteSelection();
+    void GenerateNoteSelection2();
     void MapToRegister();
+    void MapToRegister2();
     void GenerateRoughChordLists();
     void ChordJoinDurations();
     void CorrectMissmatch();
@@ -82,6 +86,8 @@ public:
 
     void DeleteMidi();
 
+    std::vector<int> m_pitchbendcounter;
+
 private:
     // MidiFile instance to deal with the midi file
     smf::MidiFile m_Midi;
@@ -96,19 +102,31 @@ private:
     // tones per track
     std::vector<int64_t> m_tonecounts;
 
-    // midi tone events
+    // Tone events of Midi
     std::vector< std::vector<double> > m_tonestarts;
     std::vector< std::vector<double> > m_toneends;
     std::vector< std::vector<int> > m_pitches;
     std::vector< std::vector<int> > m_velocities;
-
-    std::vector< std::vector < std::vector<bool> > > m_selected;
 
     // quantized midi events : [notestart, noteend, notestarterror, noteenderror]
     std::vector< std::vector < int64_t >> m_qnotestart;
     std::vector< std::vector < int64_t >> m_qnoteend;
     std::vector< std::vector < double >> m_qnotestarterror;
     std::vector< std::vector < double >> m_qnoteenderror;
+
+    // Midi Events per ABC track
+    std::vector< std::vector < std::vector < double > > > m_tonestarts2;
+    std::vector< std::vector < std::vector < double > > > m_toneends2;
+    std::vector< std::vector < std::vector < int > > > m_pitches2;
+    std::vector< std::vector < std::vector < int > > > m_velocities2;
+
+    std::vector< std::vector < std::vector < bool > > > m_selected;
+
+    // quantized midi events per ABC track
+    std::vector< std::vector < std::vector < int64_t > > > m_qnotestart2;
+    std::vector< std::vector < std::vector < int64_t > > > m_qnoteend2;
+    std::vector< std::vector < std::vector < double > > > m_qnotestarterror2;
+    std::vector< std::vector < std::vector < double > > > m_qnoteenderror2;
 
     // global max tick
 
@@ -141,9 +159,12 @@ private:
 
 
     // pitch bends info
-    std::vector<int> m_pitchbendcounter;
+//    std::vector<int> m_pitchbendcounter;
     std::vector< std::vector < double > > m_pitchbendtimes;
     std::vector< std::vector < double > > m_pitchbendvalues;
+
+    std::vector < std::vector < double >> m_pbt;
+    std::vector < std::vector < double >> m_pbv;
 
     // default polyphony
     int m_maxchordnotes;
@@ -210,14 +231,24 @@ void Brute::Transcode(std::stringstream * mapping)
     {
        // parse the mapping text into the configfile
        ParseConfig(mapping);
-       // if we're about pitchbends. . then do them now
-       if ( m_Mapping.m_dopitchbends ) PitchBends();
+
+       // Old Method:
+       // GenerateQuantizedNotes()
+       // GenerateNoteSelection()
+       // MapToRegister()
+
+       // Copy Tones into the Midi Event per ABC Track structures
+       CopyMidiInfoToTracks();
+
        // Tone Quantization
-       GenerateQuantizedNotes();
-       // Mark down tones to be selected
-       GenerateNoteSelection();
+       GenerateQuantizedNotes2();
+
+       // Mark down tones to be selected (split/alternate)
+       GenerateNoteSelection2();
+
        // Map the tones to the Register
-       MapToRegister();
+       MapToRegister2();
+
        // break it into lists of chords with duration
        GenerateRoughChordLists();
        // now we need to adjust Chords in time to get them to not have a missmatch if possible and also make sure they are long enough
@@ -236,11 +267,11 @@ void Brute::Transcode(std::stringstream * mapping)
                 if (!AllChordsOK()) std::cout << " we still didn't catch everything .. ABC is garbage!!! " << std::endl;
        }
 
-       Check_for_too_long_tones();   // essentially break up chords that are too long into sustained ones
+       Check_for_too_long_tones();   // Break up chords that are too long into sustained ones
 
        // Pre-Generate duration string names
        GenerateDurationNames();
-       GenerateABC();
+       GenerateABC(); // this is just the ABC in memory
     }
 }
 
@@ -331,8 +362,8 @@ void Brute::LoadMidi(char * mymidiname)
     //int ticksperbeat =  m_Midi.getTicksPerQuarterNote();
     m_bpm = 120; // initial default tempo
 
-    double timetoticks = 0.6048204338;
-    timetoticks = 0.60476973728946;    // 0.60486318972   this should be: 16000 / 26460
+//    double timetoticks = 0.6048204338;
+//    timetoticks = 0.60476973728946;    // 0.60486318972   this should be: 16000 / 26460, or : 800.0/(27*49)
 
     //MidiEvent * ptr;
     m_Midi.absoluteTicks();
@@ -462,7 +493,7 @@ void Brute::LoadMidi(char * mymidiname)
 
         if (m_Midi[i][j][0] == 0xB0 && m_Midi[i][j][1] == 0x65 && m_Midi[i][j][2] == 0x00 )
         {
-                //std::cout << " we are adjusting sensitivity " << i << std::endl;
+                std::cout << " we are adjusting sensitivity " << i << std::endl;
                 int msb = m_Midi[i][j][1];
                 int lsb = m_Midi[i][j][2];
                 pitchbendrange = ((msb<<7)|lsb)/100;
@@ -472,7 +503,7 @@ void Brute::LoadMidi(char * mymidiname)
             if (m_Midi[i][j].isPitchbend() )
             {
 
-                double time = timetoticks* m_Midi.getTimeInSeconds(m_Midi[i][j].tick) ;
+                double time = timetoticks * m_Midi.getTimeInSeconds(m_Midi[i][j].tick) ;
 
                 // Extract the least significant 7 bits of the pitch bend data
                 int lsb = m_Midi[i][j][3] & 0x7F;
@@ -483,30 +514,39 @@ void Brute::LoadMidi(char * mymidiname)
                 // Calculate the maximum pitch bend value
                 int maxPitchBendValue = (1 << 14) - 1;
 
+
                 // Calculate the pitch bend range in semitones
-                double pitchBendRangeSemitones = (PitchBendData - maxPitchBendValue/2.0) * pitchbendrange / (maxPitchBendValue/2.0);
+                double pitchBendRangeSemitones = (PitchBendData - maxPitchBendValue/2.0) * (1.0*pitchbendrange / (1.0*maxPitchBendValue));
                 // Assume that the relative pitch value is stored in a variable called relativePitch
-                double relativePitch = 0.5;
+
 
                 // Calculate the relative pitch in semitones
-                double relativePitchSemitones = pitchBendRangeSemitones * relativePitch;
+            //    double relativePitchSemitones = pitchBendRangeSemitones;
+
+                //if ((relativePitchSemitones < 0.97) && ( relativePitchSemitones > 0.49)) relativePitchSemitones = 0.4;
+                //if ((relativePitchSemitones > -0.97) && ( relativePitchSemitones < -0.49)) relativePitchSemitones = -0.4;
+
                 //relativePitchSemitones = static_cast<int>(relativePitchSemitones+0.5);
 
+             //   std::cout << "Pitchbend " << relativePitchSemitones << "  Amount from MidiFileLib " << m_Midi[i][j].getPitchbendAmount() << std::endl;
+
+
+
                 // only act on stuff that actually does something
-                if (( relativePitchSemitones > 0.01) || ( relativePitchSemitones < -0.01))
-                {
+
                    // only use events after time 0
                    if (time > 0.00001)
                    {
 
-                      m_pitchbendtimes[i][ m_pitchbendcounter[i] ] = time;
-                      m_pitchbendvalues[i][ m_pitchbendcounter[i] ] = relativePitchSemitones;
+                      m_pitchbendtimes[i][ m_pitchbendcounter[i] ] = time*26460.0;
+
+                      m_pitchbendvalues[i][ m_pitchbendcounter[i] ] = pitchBendRangeSemitones; // static_cast<int>(std::round(relativePitchSemitones*20))/20;
 
                       // std::cout << "Pitchbend " << i << " at " << time << " Value " << relativePitchSemitones << std::endl;
 
                       m_pitchbendcounter[i]++;
                    }
-                }
+
             }
         }
         // collect samples used statistics
@@ -531,6 +571,43 @@ void Brute::LoadMidi(char * mymidiname)
     for (int i = 0; i < m_Midi.size(); i++)
         for (unsigned int j = 0; j < m_velocities[i].size(); j++)
             m_velocities[i][j] = m_velocities[i][j] - m_globalmaxvel + 127;
+
+    // Prevent Issues with too large Data Structures
+    for (size_t i = 0; i < m_tonestarts.size(); i++)
+    {
+		m_tonestarts[i].resize(m_tonecounts[i]);
+		m_toneends[i].resize(m_tonecounts[i]);
+		m_velocities[i].resize(m_tonecounts[i]);
+		m_pitches[i].resize(m_tonecounts[i]);
+		m_pitchbendtimes[i].resize(m_pitchbendcounter[i]);
+		m_pitchbendvalues[i].resize(m_pitchbendcounter[i]);
+	}
+/*
+	for (size_t i = 0; i < m_tonestarts.size(); i++)
+      for ( size_t j = 0; j < m_pitchbendtimes[i].size(); j++)
+        std::cout << "PBend " << i << " " << j << " " << m_pitchbendtimes[i][j] << "  " << m_pitchbendvalues[i][j]  << std::endl;
+*/
+
+    m_pbt.resize( m_tonestarts.size());
+    m_pbv.resize( m_tonestarts.size());
+
+	for (size_t i = 0; i < m_tonestarts.size(); i++)
+    {
+       m_pbt[i].resize(0);
+       m_pbt[i].push_back(0.0);
+       m_pbv[i].resize(0);
+       m_pbv[i].push_back(0);
+       for ( size_t j = 0; j < m_pitchbendtimes[i].size(); j++)
+       {
+          // if (( m_pitchbendvalues[i][j] != m_pbv[i].back() ) )// || (m_pitchbendtimes[i][j] > m_pbt[i].back() + 0.05*timetoticks*26460.0))
+           {   // new pitch so record time
+               double mybendvalue = m_pitchbendvalues[i][j];
+
+               m_pbt[i].push_back(m_pitchbendtimes[i][j]);
+               m_pbv[i].push_back(mybendvalue );
+           }
+       }
+    }
 }
 
 // Export the out_all.txt file with tone information
@@ -924,6 +1001,321 @@ float myrandom()
     return myvalue;
 }
 
+void Brute::CopyMidiInfoToTracks()
+{
+	size_t nabctracks = m_Mapping.m_instrumap.size();
+	m_pitches2.resize(nabctracks);
+	m_velocities2.resize(nabctracks);
+	m_tonestarts2.resize(nabctracks);
+	m_toneends2.resize(nabctracks);
+	double dzminstep = m_minstep/m_Mapping.m_oversampling;
+	for (int abctrack = 0; abctrack < nabctracks; abctrack++)
+	{
+	   size_t miditracks = m_Mapping.m_trackmap[abctrack].size();
+       m_pitches2[abctrack].resize(miditracks);
+       m_velocities2[abctrack].resize(miditracks);
+       m_tonestarts2[abctrack].resize(miditracks);
+       m_toneends2[abctrack].resize(miditracks);
+       for ( int miditrack = 0; miditrack < miditracks; miditrack++)
+       {
+          int thismiditrack = m_Mapping.m_trackmap[abctrack][miditrack];
+          m_pitches2[abctrack][miditrack].resize(0);
+          m_velocities2[abctrack][miditrack].resize(0);
+          m_tonestarts2[abctrack][miditrack].resize(0);
+          m_toneends2[abctrack][miditrack].resize(0);
+          for ( size_t j = 0; j < m_tonestarts[thismiditrack].size(); j++)
+          {
+             int mypitch = m_pitches[thismiditrack][j];
+             int myvelocity = m_velocities[thismiditrack][j];
+             double tonestart = m_tonestarts[thismiditrack][j];
+             double toneend   = m_toneends[thismiditrack][j];
+              // at this stage we can split tones into Trillers and apply pitchbends, we may also may apply min/max tone duration here
+
+             if (m_Mapping.m_trillermap[abctrack][miditrack] > 0.01)
+             {
+			    // seems we have to act now
+			    double duration = toneend - tonestart;
+			    double oduration = duration;
+                int zminstep = m_minstep/m_Mapping.m_oversampling;
+	            double tdelta = m_Mapping.m_trillermap[abctrack][miditrack] * zminstep;
+			    while (duration - tdelta > 0.)
+			    {
+				   m_pitches2[abctrack][miditrack].push_back( mypitch );
+				   m_velocities2[abctrack][miditrack].push_back( myvelocity );
+				   m_tonestarts2[abctrack][miditrack].push_back( tonestart + oduration - duration );
+				   m_toneends2[abctrack][miditrack].push_back(tonestart + oduration - duration + tdelta);
+				   duration = duration - tdelta;
+				}
+			    if ( duration > 2.0*30/timetoticks )
+			    {
+				   m_pitches2[abctrack][miditrack].push_back( mypitch);
+				   m_velocities2[abctrack][miditrack].push_back(myvelocity);
+				   m_tonestarts2[abctrack][miditrack].push_back( tonestart + oduration - duration);
+				   m_toneends2[abctrack][miditrack].push_back( tonestart + oduration );
+                }
+		     } // triller overrides also Pitchbends
+		     else
+		     {
+                if ( m_Mapping.m_pitchbendmap[abctrack][miditrack] > 0.  )
+                {  // find first pitchbend that affects this tone .. or none
+                   // this is the delta time that the pitchbends act upon
+	               double tdelta =  dzminstep;
+                   int pbendevent = 0;
+                   double myptime = m_pbt[thismiditrack][pbendevent];
+                   size_t hits = 0;
+                   std::vector<double> mybends;
+                   std::vector<int> myvals;
+                   std::vector<double> mys;
+                   std::vector<int> myv;
+                   mybends.resize(0);
+                   myvals.resize(0);
+                   int method = m_Mapping.m_pitchbendmethodmap[abctrack][miditrack];
+                   int pmulti = m_Mapping.m_pitchbendmap[abctrack][miditrack];
+
+                   mys.resize(0); mys.push_back(tonestart);
+                   myv.resize(0); myv.push_back(mypitch);
+
+                   for (int i = 0; i < m_pbt[thismiditrack].size(); i++) // Check all the pitchbends
+                   {
+                      if (( tonestart <= m_pbt[thismiditrack][i] ) && ( toneend >= m_pbt[thismiditrack][i] ))
+                      {
+                         if (myvals.size() > 0)
+                         {
+                            if (true) //( myvals.back() != m_pbv[thismiditrack][i] )
+                            {
+                               mybends.push_back(m_pbt[thismiditrack][i]);
+                               int rpitch = static_cast<int>(std::round(   m_pbv[thismiditrack][i] * pmulti ))/pmulti;
+                               myvals.push_back( rpitch );
+
+                               mys.push_back(m_pbt[thismiditrack][i]);
+                               myv.push_back(rpitch + mypitch);
+                            }
+                         }
+                         else
+                         {
+                            int rpitch = static_cast<int>(std::round(   m_pbv[thismiditrack][i] * pmulti ))/pmulti;
+                            mybends.push_back(m_pbt[thismiditrack][i]);
+                            myvals.push_back(rpitch);
+
+                            mys.push_back(m_pbt[thismiditrack][i]);
+                            myv.push_back(rpitch + mypitch);
+                         }
+                     }
+                   }
+                   mys.push_back(toneend);
+                   myv.push_back(myv.back());
+
+                   if ( mybends.size() == 0)
+                   {
+                      m_pitches2[abctrack][miditrack].push_back(mypitch);
+                      m_velocities2[abctrack][miditrack].push_back(myvelocity);
+                      m_tonestarts2[abctrack][miditrack].push_back(tonestart);
+                      m_toneends2[abctrack][miditrack].push_back(toneend);
+                   }
+                   else
+                   {  // here is some bending going on
+                      if (method == 1)
+                      {
+                         // this deletes all events that don't change the pitch
+
+                         size_t k = 1;
+                         while ( k < mys.size()-1 )
+                         {
+                            if (myv[k] == myv[k-1])
+                               {
+                                  myv.erase(myv.begin()+k);
+                                  mys.erase(mys.begin()+k);
+                               }
+                               else {k++;}
+                         }
+
+                         //    std::cout << " second eletion " << std::endl;
+                         for (int k = 0; k < mys.size()-1; k++)
+                         {
+                             m_pitches2[abctrack][miditrack].push_back(myv[k]);
+                             m_velocities2[abctrack][miditrack].push_back(myvelocity);
+                             m_tonestarts2[abctrack][miditrack].push_back(mys[k]);
+                             m_toneends2[abctrack][miditrack].push_back(mys[k+1]);
+                         }
+
+                      }
+                      else{
+                         // Either we start bended or we don't, if we do we start with the first bend
+                         if (( mybends[0] < tonestart + dzminstep )) mybends[0] = tonestart;
+                         else
+                         {
+                          // we move the first bend back in time if need be
+                             if (( mybends[0] < tonestart + tdelta )) mybends[0] = tonestart+tdelta;
+
+                             m_pitches2[abctrack][miditrack].push_back(mypitch);
+                             m_velocities2[abctrack][miditrack].push_back(myvelocity);
+                             m_tonestarts2[abctrack][miditrack].push_back(tonestart);
+                             m_toneends2[abctrack][miditrack].push_back(mybends[0]);
+                          }
+                          // Pre-tone is handled now we space out the bends
+                          for ( int k = 0; k < mybends.size()-1; k++)
+                          {
+                             if ( mybends[k] + dzminstep/2 > mybends[k+1] )  // really too short so we skp this one
+                             {
+                                mybends[k] = mybends[k+1];
+                                myvals[k] = myvals[k+1];
+
+                                mybends.erase(mybends.begin()+k+1);
+                                myvals.erase(myvals.begin()+k+1);
+                             }
+                        // else   //  a little too short so we shift the next one a little back
+                        //    if ( mybends[k] + tdelta <= mybends[k+1]  ) mybends[k+1] = mybends[k] + tdelta;
+                          }
+
+
+                          if (mybends.back() < toneend + tdelta/20 )
+                          {
+                             mybends.back() = toneend;
+                          }
+                          else
+                          {
+                             if ( mybends.back() + tdelta < toneend) toneend = mybends.back()+tdelta;
+                          }
+
+                          for ( int k = 0; k < mybends.size()-1; k++)
+                          {
+                             if ( m_pitches2[abctrack][miditrack].size()>0)
+                             {
+                          // only push something if there is a new pitch
+                                if ( m_pitches2[abctrack][miditrack].back() == mypitch + myvals[k] )
+                                {
+                                 // just shift the end of the last tone
+                                   m_toneends2[abctrack][miditrack].back() = mybends[k+1];
+                                }
+                                else
+                        //                            else
+                                {
+                                   m_pitches2[abctrack][miditrack].push_back(mypitch+myvals[k]);
+                                   m_velocities2[abctrack][miditrack].push_back(myvelocity);
+                                   m_tonestarts2[abctrack][miditrack].push_back(mybends[k]);
+                                   m_toneends2[abctrack][miditrack].push_back(mybends[k+1]);
+                                }
+                             }
+                             else
+                             {
+                                m_pitches2[abctrack][miditrack].push_back(mypitch+myvals[k]);
+                                m_velocities2[abctrack][miditrack].push_back(myvelocity);
+                                m_tonestarts2[abctrack][miditrack].push_back(mybends[k]);
+                                m_toneends2[abctrack][miditrack].push_back(mybends[k+1]);
+                             }
+                          }
+                       // add final tone
+                       //if (toneend > mybends.back()+tdelta/20)
+                          {
+                            if (m_pitches2[abctrack][miditrack].size() > 0)
+                            {
+                               if ( m_pitches2[abctrack][miditrack].back() != mypitch + myvals.back() )
+                               {
+                                  m_pitches2[abctrack][miditrack].push_back(mypitch + myvals.back());
+                                  m_velocities2[abctrack][miditrack].push_back(myvelocity);
+                                  m_tonestarts2[abctrack][miditrack].push_back(mybends.back());
+                                  m_toneends2[abctrack][miditrack].push_back(toneend);
+                               }
+                               else{
+                                  m_toneends2[abctrack][miditrack].back() = toneend;
+                               }
+                            }
+                            else
+                            {
+                                m_pitches2[abctrack][miditrack].push_back(mypitch + myvals.back());
+                                m_velocities2[abctrack][miditrack].push_back(myvelocity);
+                                m_tonestarts2[abctrack][miditrack].push_back(mybends.back());
+                                m_toneends2[abctrack][miditrack].push_back(toneend);
+                            }
+                          }
+                       }
+                    }
+                 }
+                 else
+                 {
+		            // first simple version is to add all the tones
+		            m_pitches2[abctrack][miditrack].push_back( mypitch );
+		            m_velocities2[abctrack][miditrack].push_back( myvelocity);
+		            m_tonestarts2[abctrack][miditrack].push_back( tonestart );
+		            m_toneends2[abctrack][miditrack].push_back(toneend);
+                 }
+		      }
+		  }
+	   }
+	}
+}
+
+void Brute::GenerateQuantizedNotes2()
+{
+	// Quantization routine 2 to calculate the quantized tones for each abctrack-miditrack combination
+	m_maxduration = 0;
+	m_minnotestart = 0;
+	int zminstep = m_minstep/m_Mapping.m_oversampling;
+	m_qunits = 8 * zminstep;
+	double ziminstep = 1.0/zminstep;
+
+	m_verylasttone = 0;
+	m_verylasttonestart = 0;
+
+    size_t nabctracks = m_Mapping.m_instrumap.size();
+
+	// current cheap version of humanization .. will be changed!!!
+	std::vector< double > oldhuman(3,0);
+
+	// we need all abctracks of course
+	m_qnotestart2.resize( nabctracks);
+	m_qnoteend2.resize(nabctracks);
+	m_qnotestarterror2.resize(nabctracks);
+	m_qnoteenderror2.resize(nabctracks);
+	#pragma omp parallel for
+	for ( size_t abctrack = 0; abctrack < nabctracks; abctrack++)
+	{
+	   // every ABC track has different number of miditracks
+       size_t miditracks = m_Mapping.m_trackmap[abctrack].size();
+       m_qnotestart2[abctrack].resize(miditracks);
+       m_qnoteend2[abctrack].resize(miditracks);
+       m_qnotestarterror2[abctrack].resize(miditracks);
+       m_qnoteenderror2[abctrack].resize(miditracks);
+
+       // for each miditrack in the abctrack .. quantize the tones
+       for (size_t miditrack = 0; miditrack < miditracks; miditrack++)
+       {
+
+		  m_qnotestart2[abctrack][miditrack].resize( m_velocities2[abctrack][miditrack].size() );
+		  m_qnoteend2[abctrack][miditrack].resize(m_velocities2[abctrack][miditrack].size());
+		  m_qnotestarterror2[abctrack][miditrack].resize(m_velocities2[abctrack][miditrack].size());
+		  m_qnoteenderror2[abctrack][miditrack].resize(m_velocities2[abctrack][miditrack].size());
+
+          // loop over tones in this midi track
+          for (size_t j = 0; j < m_velocities2[abctrack][miditrack].size(); j++)
+          {
+
+            // keep track of final tone
+            if (m_toneends2[abctrack][miditrack][j] > m_verylasttone) m_verylasttone = m_toneends2[abctrack][miditrack][j];
+            if (m_tonestarts2[abctrack][miditrack][j] > m_verylasttonestart) m_verylasttonestart = m_tonestarts2[abctrack][miditrack][j];
+
+            // bin number in register grid for this tone
+            int64_t qstart = static_cast<int64_t>( m_tonestarts2[abctrack][miditrack][j] * ziminstep   + m_Mapping.m_delaymap[abctrack][miditrack]);
+            int64_t qend   = static_cast<int64_t>( m_toneends2[abctrack][miditrack][j] * ziminstep  + m_Mapping.m_delaymap[abctrack][miditrack]);
+
+
+            // keep track of rounding error
+            double qstarterror = (m_tonestarts2[abctrack][miditrack][j]*ziminstep + m_Mapping.m_delaymap[abctrack][miditrack]) - qstart ;
+            double qenderror   = (m_toneends2[abctrack][miditrack][j]*ziminstep+ m_Mapping.m_delaymap[abctrack][miditrack]) - qend;
+
+
+            // store in quantized vectors
+            m_qnotestarterror2[abctrack][miditrack][j]=qstarterror;
+            m_qnoteenderror2[abctrack][miditrack][j]=qenderror;
+            m_qnotestart2[abctrack][miditrack][j]=qstart;
+            m_qnoteend2[abctrack][miditrack][j]=qend;
+
+            if (qend > m_maxduration) m_maxduration = qend + m_Mapping.m_DATA_maxdelay;
+	      }
+	   }
+	}
+}
+
 void Brute::GenerateQuantizedNotes()
 {
     // this is where the quantization happens
@@ -1019,6 +1411,7 @@ void Brute::GenerateQuantizedNotes()
     // setting some constants
     m_minnotestart /= m_Mapping.m_oversampling;
     m_qunits *= m_Mapping.m_oversampling * m_Mapping.m_oversampling / 2;
+
 }
 
 void Brute::PitchBends()
@@ -1039,6 +1432,157 @@ void Brute::PitchBends()
     }*/
 }
 
+void Brute::MapToRegister2()
+{
+	// finally map the quantized tones to the register
+
+	// Allocate Register
+	m_registerlength = m_maxduration+1+100;
+	size_t nabctracks = m_Mapping.m_instrumap.size();
+	m_register.resize(nabctracks);
+	m_missmatch.resize(nabctracks);
+	m_velocity.resize(nabctracks);
+	m_priomap.resize(nabctracks);
+    m_projectedmissmatch.resize(nabctracks);
+    m_projectedvelocity.resize(nabctracks);
+
+    // allocate registers and set them to zero
+    #pragma omp parallel for
+    for (size_t i = 0; i < nabctracks; i++)
+    {
+		m_projectedmissmatch[i].resize(m_registerlength);
+        m_projectedvelocity[i].resize(m_registerlength);
+        std::fill(m_projectedmissmatch[i].begin(), m_projectedmissmatch[i].end(),0.);
+        std::fill(m_projectedvelocity[i].begin(), m_projectedvelocity[i].end(),0.);
+
+        m_register[i].resize(38);
+        m_missmatch[i].resize(38);
+        m_velocity[i].resize(38);
+        m_priomap[i].resize(38);
+
+        for (int pitch = 0; pitch < 38; pitch++)
+        {
+            m_register[i][pitch].resize(m_registerlength);
+            m_missmatch[i][pitch].resize(m_registerlength);
+            m_velocity[i][pitch].resize(m_registerlength);
+            m_priomap[i][pitch].resize(m_registerlength);
+
+			std::fill(m_register[i][pitch].begin(), m_register[i][pitch].end(), 0.);
+			std::fill(m_missmatch[i][pitch].begin(), m_missmatch[i][pitch].end(), -1.);
+			std::fill(m_velocity[i][pitch].begin(), m_velocity[i][pitch].end(), 0.);
+			std::fill(m_priomap[i][pitch].begin(), m_priomap[i][pitch].end(), 0.);
+	    }
+    }
+
+    // Now write all the tones in the register
+    // Loop over all abctracks
+    m_log << "Mapping Info " << std::endl;
+    // #pragma omp parallel for
+    for (size_t abctrack = 0; abctrack < nabctracks; abctrack++)
+    {
+        // Loop over the miditracks in this abctrack
+        for (size_t miditrack = 0; miditrack < m_Mapping.m_trackmap[abctrack].size(); miditrack++ )
+        {
+            int utrack = m_Mapping.m_trackmap[abctrack][miditrack]; // this is a reference to this miditrack in the original midi
+            m_log << "ABC Track: " << abctrack+1 << " Miditrack: " << utrack << std::endl;;
+            std::cout << "ABC Track " << abctrack +1 << " Miditrack: " << utrack << std::endl;
+
+            // take either no octaveshift or if the avpitch feature is used take the mean shift into account
+            int octavepitch = 0;
+            if (m_avpitchc[utrack]!=0)
+            {
+                octavepitch = int(double(m_avpitches[utrack])/double(m_avpitchc[utrack])/12 - 1);
+            }
+            if ( m_Mapping.m_nopitchguessing ) octavepitch = 0; // no pitch guessing overrides everything
+
+            // now go through all the tones of this miditrack
+            for (int toneid = 0; toneid < m_qnotestart2[abctrack][miditrack].size(); toneid++)
+            {
+                bool takethistone = true;
+                // velocity is the normalized velo from the midi reading
+                int velocity = m_velocities2[abctrack][miditrack][toneid] + m_Mapping.m_volumemap[abctrack][miditrack];
+
+                // pitch, adjusted by general pitch, per midi pitch and possible octave guessing
+                int pitch;
+
+                // now fold or not fold the pitch into playable region
+                if ( m_Mapping.m_instrumap[abctrack] != 8 )  // don't do this if this is a lotro drum
+                {
+                    pitch = m_pitches2[abctrack][miditrack][toneid] + m_Mapping.m_generalpitch + m_Mapping.m_pitchmap[abctrack][miditrack] - octavepitch * 12;
+                    while ( pitch < m_Mapping.m_rangemapl[abctrack][miditrack] ) pitch = pitch + 12;
+                    while ( pitch > m_Mapping.m_rangemaph[abctrack][miditrack] ) pitch = pitch - 12;
+
+                    // here could be the tonality conversion, but will come later!
+                }
+                else
+                {
+                    // drums use the mapping
+                    pitch = m_Mapping.m_drumsmapd[ m_Mapping.m_drumstylemap[abctrack][miditrack] ][m_pitches2[abctrack][miditrack][toneid]];
+
+                    // check for drum sample selection
+                    if (m_Mapping.m_drumsingleinstrument[abctrack][miditrack] > 0)
+                        if (m_pitches2[abctrack][miditrack][toneid]!=m_Mapping.m_drumsingleinstrument[abctrack][miditrack]) takethistone = false;
+                }
+
+                // we have the velocity and the pitch now
+                if ((takethistone)&&(m_selected[abctrack][miditrack][toneid]))
+                {
+                    double mystart = m_qnotestart2[abctrack][miditrack][toneid] - m_minnotestart;
+                    double myend   = m_qnoteend2[abctrack][miditrack][toneid]   - m_minnotestart;
+
+                    // assure minimum note and maximum note length
+                    while ( (myend - mystart) < m_Mapping.m_durmap[abctrack] )
+                    {
+                        myend = myend + 1;
+                    }
+                    while ( ((myend - mystart) > m_Mapping.m_durmaxmap[abctrack]) && (myend-mystart >= m_Mapping.m_durmap[abctrack]) ) myend = myend -1;
+
+                    // Linear 'note'-priority-decay from start to end (rather shorten a tone than miss out on a new start)
+                    // v(end-start) = x/(end-start)
+                    double m = 1.0 / (myend-mystart);
+                    double endp1 = myend + 1;
+
+                    // keep track of missmatch, if tone is already assigned, give a warning and use missmatch of first
+                    if ((pitch >= 0) && (pitch < 38))
+                    {
+
+                        if (m_missmatch[abctrack][pitch][mystart] >= 0.)
+                        {
+
+                            if ( !dequal( m_missmatch[abctrack][pitch][mystart], m_qnotestarterror2[abctrack][miditrack][toneid] ) )
+                            {
+                                m_log << "Identical pitch, start times aligned: " << utrack << " time: " << maketime(m_tonestarts2[abctrack][miditrack][toneid]) << "    Difference: "  << maketime( std::abs(m_qnotestarterror2[abctrack][miditrack][toneid] - m_missmatch[abctrack][pitch][mystart]) ) << std::endl;
+                            }
+                        }
+                        else
+                        {
+                            m_missmatch[abctrack][pitch][mystart] = m_qnotestarterror2[abctrack][miditrack][toneid];  // first tone in this register wins the race
+                        }
+
+
+                        if ( velocity > m_velocity[abctrack][pitch][mystart] )
+                        {
+                            if ( m_velocity[abctrack][pitch][mystart] > 0)
+                                std::cout <<"Identical pitch, taking highest velocity, Miditrack: " << utrack << " time: " << maketime(m_tonestarts2[abctrack][miditrack][toneid]) << std::endl;
+                            m_velocity[abctrack][pitch][mystart] = velocity;
+                        }
+                        // and mark the following slots till tone ends
+                        for (int j = mystart; j < myend; j++)
+                        {
+                            double gm_val = (endp1 - j) * m + m_Mapping.m_priomap[abctrack][miditrack];
+
+                            // if the value in the register is smaller than gm_val we overwrite it - branching version
+                            if (m_register[abctrack][pitch][j] < gm_val) m_register[abctrack][pitch][j] = gm_val;
+                        }
+
+
+                    }
+                }
+            }
+        }
+    }
+    m_log << "Mapped Tones to Register" << std::endl;
+}
 
 void Brute::MapToRegister()
 {
@@ -1114,6 +1658,8 @@ void Brute::MapToRegister()
                 octavepitch = int(double(m_avpitches[utrack])/double(m_avpitchc[utrack])/12 - 1);
             }
             if ( m_Mapping.m_nopitchguessing ) octavepitch = 0; // no pitch guessing overrides everything
+            // this is another good point to care about pitchbending .. this time midi track based
+
 
             // now go through all the tones
             for (int toneid = 0; toneid < m_tonecounts[utrack]; toneid++)
@@ -1147,7 +1693,6 @@ void Brute::MapToRegister()
                     if (m_Mapping.m_drumsingleinstrument[abctrack][miditrack] > 0)
                         if (m_pitches[utrack][toneid]!=m_Mapping.m_drumsingleinstrument[abctrack][miditrack]) takethistone = false;
                 }
-
 
 
                 if ((takethistone)&&(m_selected[abctrack][miditrack][toneid]))
@@ -1323,6 +1868,7 @@ void Brute::GenerateRoughChordLists()
             currentposition = currentposition+1;
         }
     }
+    //std::cout << m_chordlists[1][0].pitch << std::endl;
 }
 
 // this is the most harmless action that checks for purely continued elements
@@ -2248,6 +2794,75 @@ void Brute::ExportABC(char * abcfilename)
     myabcfile.close();
 }
 
+
+// This goes over the quantized tones and set the flags for tones to be selected or not for each abctrack/miditrack
+void Brute::GenerateNoteSelection2()
+{
+	size_t abctracks = m_Mapping.m_instrumap.size();
+	m_selected.resize(abctracks);
+	#pragma omp parallel for
+	for (size_t abctrack = 0; abctrack<abctracks; abctrack++)
+	{
+       size_t miditracks = m_Mapping.m_trackmap[abctrack].size();
+       m_selected[abctrack].resize(miditracks);
+
+       for (size_t miditrack = 0; miditrack < miditracks; miditrack++)
+       {
+            // set the size of the selected vector and initialize it with true
+            m_selected[abctrack][miditrack].resize( m_tonestarts2[abctrack][miditrack].size() );
+            std::fill(m_selected[abctrack][miditrack].begin(), m_selected[abctrack][miditrack].end(), true);
+	   }
+	}
+
+    // after we initialized it, we knock out tones we do not play
+    //#pragma omp parallel for
+    for (size_t abctrack = 0; abctrack < abctracks; abctrack++)
+    {
+        int miditracks = m_Mapping.m_trackmap[abctrack].size();
+        for (int miditrack = 0; miditrack < miditracks; miditrack++)
+        {
+            int thisoneisalternated = (m_Mapping.m_alternatemap[abctrack][miditrack] > 1);
+            int thisoneissplitted   = (m_Mapping.m_splitvoicemap[abctrack][miditrack]> 0);
+
+            // we only have to  go through this if this track is either alternated or a specific tone of each chord is picked
+            if (( m_Mapping.m_alternatemap[abctrack][miditrack] > 1) || (m_Mapping.m_splitvoicemap[abctrack][miditrack]>0))
+            {
+                // this track is alternated!
+                // int utrack = m_Mapping.m_trackmap[abctrack][miditrack];
+                int ntones = m_tonestarts2[abctrack][miditrack].size();
+                int eventcounter = 0;
+                int tonenumber = 0;
+                double currenttime = 0;
+                int thispart = 1;
+                int alternateparts = m_Mapping.m_alternatemap[abctrack][miditrack];
+                int alternatepart = m_Mapping.m_alternatepart[abctrack][miditrack];
+
+                while ( tonenumber < ntones)
+                {
+                    // Branchless Version of the chord finder
+
+                    // check if the new tone happens at a different time than the preceeding one
+                    int mm = (( m_tonestarts2[abctrack][miditrack][tonenumber] < currenttime   - 0.0000001 ) || (m_tonestarts2[abctrack][miditrack][tonenumber] > currenttime + 0.0000001 ));
+                    eventcounter += mm;    // if yes, add one to the number of events
+                    currenttime = ( 1 - mm ) * currenttime + mm * m_tonestarts2[abctrack][miditrack][tonenumber];   // and memorize the new time
+                    thispart =  mm + ( 1-mm ) * (thispart+1);  // this is either 1 in case it's true, or thispart+1 in case it's false, meaning it counts up the value in thispart to identify the n'th tone in the chord
+
+                    // Branchless version
+                    int acondition =  ( eventcounter % alternateparts != alternatepart );
+                    int scondition =  ( thispart != m_Mapping.m_splitvoicemap[abctrack][miditrack]);
+
+                    // default is true, if either this shouldn't be played by alternation or splitting it will be disabled
+                    m_selected[abctrack][miditrack][tonenumber] = true - (( thisoneisalternated * acondition ) || ( thisoneissplitted * scondition ));
+
+                    // move a tone further
+                    tonenumber++;
+                }
+			}
+	    }
+    }
+}
+
+
 // this goes over the quantized tones and sets the flags for tones to be selected or not for each abctrack/miditrack
 void Brute::GenerateNoteSelection()
 {
@@ -2297,49 +2912,17 @@ void Brute::GenerateNoteSelection()
                 while ( tonenumber < ntones)
                 {
 
-                    /*
-                    // Branching Version of the chord finder
-                    // first take the tone and see if the starting time changed
-                    if (( m_tonestarts[utrack][tonenumber] < currenttime   - 0.0000001 ) || (m_tonestarts[utrack][tonenumber] > currenttime + 0.0000001 ))
-                    {
-                        // time changed so increase the counter and take new time
-                        eventcounter += 1;
-                        currenttime = m_tonestarts[utrack][tonenumber];
-                        thispart = 1;
-                    }
-                    else
-                    {
-                        // time didn't change
-                        thispart++;
-                    }
-                    */
-
-
                     // Branchless Version of the chord finder
                     int mm = (( m_tonestarts[utrack][tonenumber] < currenttime   - 0.0000001 ) || (m_tonestarts[utrack][tonenumber] > currenttime + 0.0000001 )); // check if the new tone happens at a different time than the preceeding one
                     eventcounter += mm;    // if yes, add one to the number of events
                     currenttime = ( 1 - mm ) * currenttime + mm * m_tonestarts[utrack][tonenumber];   // and memorize the new time
                     thispart =  mm + ( 1-mm ) * (thispart+1);  // this is either 1 in case it's true, or thispart+1 in case it's false, meaning it counts up the value in thispart to identify the n'th tone in the chord
 
-                    // it seems a bit weird to check again if this is either alternated or splitted ...
-
-                    // see if this tone is picked
-                    // Branching version of the assignment
-                    /*
-                    if (m_Mapping.m_alternatemap[abctrack][miditrack]>1)
-                        if ( eventcounter % alternateparts != alternatepart )
-                            m_selected[abctrack][miditrack][tonenumber] = false;   // only stay on true if this part is supposed to be played
-
-                    if (m_Mapping.m_splitvoicemap[abctrack][miditrack]>0)
-                        if ( thispart != m_Mapping.m_splitvoicemap[abctrack][miditrack])
-                            m_selected[abctrack][miditrack][tonenumber] = false;
-*/
                     // Branchless version
                     int acondition =  ( eventcounter % alternateparts != alternatepart );
                     int scondition =  ( thispart != m_Mapping.m_splitvoicemap[abctrack][miditrack]);
                                                                 // default is true, if either this shouldn't be played by alternation or splitting it will be disabled
                     m_selected[abctrack][miditrack][tonenumber] = true - (( thisoneisalternated * acondition ) || ( thisoneissplitted * scondition ));
-
 
                     // move a tone further
                     tonenumber++;
@@ -2348,5 +2931,108 @@ void Brute::GenerateNoteSelection()
         }
     }
 }
+
+
+/*   interpolator!!
+double linear_interpolation(const std::vector<std::pair<double, double>>& points, double xq) {
+    // Find the index of the rightmost point with x-coordinate less than or equal to xq
+    size_t i = std::distance(points.begin(),
+        std::upper_bound(points.begin(), points.end(), std::make_pair(xq, -INFINITY)) - 1);
+
+    // Interpolate between the two points
+    const auto& p1 = points[i];
+    const auto& p2 = points[i + 1];
+    return linear_interpolation(p1.first, p1.second, p2.first, p2.second, xq);
+}
+
+*/
+
+
+
+/*
+
+                    // we go on till either the tone is all in or we run out of pitchbendevents
+                    while ((pbendevent < m_pbt[thismiditrack].size() ) && (tonestart < toneend))
+                    {
+                       if ( ( tonestart > myptime) || (toneend <= myptime ) )
+                       {
+                           // tone starts after the event or ends before/just with it .. so we are done here and check the next event
+                           pbendevent++;
+                           if ( pbendevent < m_pbt[thismiditrack].size() ) myptime = m_pbt[thismiditrack][pbendevent]*1000;
+                          // std::cout << " no bend " << tonestart << "  " << toneend << "  " << myptime << std::endl;
+                       }
+                       else
+                       {
+                          std::cout << " We found a tone that is bend "  << abctrack << "  " << myptime << std::endl;
+                          // the tone starts before the event, so play a short tone till the event happens
+                          if (( tonestart < myptime) && ( toneend >= myptime ))
+                          {
+                              // check if there is enough time
+                              if (tonestart + tdelta < myptime)
+                              {
+                               // the event happens long anough after the start  .. add a tone from tonestart to the pitchbendevent and continue
+                               m_pitches2[abctrack][miditrack].push_back(mypitch);  m_velocities2[abctrack][miditrack].push_back(myvelocity);
+                               m_tonestarts2[abctrack][miditrack].push_back(tonestart); m_toneends2[abctrack][miditrack].push_back(myptime);
+                               tonestart = myptime;
+                              }
+                              else
+                              {
+                               // there is not enough time, so we add a tone of the minimal duration
+                               m_pitches2[abctrack][miditrack].push_back(mypitch); m_velocities2[abctrack][miditrack].push_back(myvelocity);
+                               m_tonestarts2[abctrack][miditrack].push_back(tonestart); m_toneends2[abctrack][miditrack].push_back(tonestart+tdelta);
+                               tonestart = tonestart+tdelta;
+                               myptime = tonestart; // we need to jump ahead in time now .. also in the pbendevents if need be, but we keep the time of the event at the tonestart
+                               while (( pbendevent < m_pbt[thismiditrack].size()  ) && ( myptime > m_pbt[thismiditrack][pbendevent] )) pbendevent++;
+                              }
+                          }
+                          else
+                          {
+                             // the tone starts exactly at the pitchbendevent
+                             mypitch = m_pitches[thismiditrack][j] + std::round( m_pbv[thismiditrack][pbendevent]);
+
+                             // this could be the last event, or there could be another event following or the tone could end before the next event
+                             if ( pbendevent < m_pbt[thismiditrack].size()-1 )
+                             {
+                                 // the next event is too early again, so all we can do is put in the tdelta time with this event and continue
+                                 if ( m_pbt[thismiditrack][pbendevent+1] - myptime < tdelta)
+                                 {
+                                     m_pitches2[abctrack][miditrack].push_back(mypitch); m_velocities2[miditrack][abctrack].push_back(myvelocity);
+                                     m_tonestarts2[abctrack][miditrack].push_back(tonestart); m_toneends2[abctrack][miditrack].push_back(tonestart+tdelta);
+                                     tonestart = tonestart + tdelta;
+                                     myptime = tonestart;
+                                     while (( pbendevent < m_pbt[thismiditrack].size())&&(myptime > m_pbt[thismiditrack][pbendevent])) pbendevent++;
+                                 }
+                                 else
+                                 {
+                                     // there is more than deltatime till the next event, so either the tone ends before that or we can put in the time till the next event
+                                     if (toneend < m_pbt[thismiditrack][pbendevent+1])
+                                     {
+                                        m_pitches2[abctrack][miditrack].push_back(mypitch); m_velocities2[miditrack][abctrack].push_back(myvelocity);
+                                        m_tonestarts2[abctrack][miditrack].push_back(tonestart); m_toneends2[abctrack][miditrack].push_back(toneend);
+                                        toneend = tonestart;
+                                     }
+                                     else
+                                     {
+                                        m_pitches2[abctrack][miditrack].push_back(mypitch); m_velocities2[miditrack][abctrack].push_back(myvelocity);
+                                        m_tonestarts2[abctrack][miditrack].push_back(tonestart); m_toneends2[abctrack][miditrack].push_back(m_pbt[thismiditrack][pbendevent+1]);
+                                        tonestart = m_pbt[thismiditrack][pbendevent+1];
+                                        pbendevent++;
+                                        myptime = m_pbt[thismiditrack][pbendevent]*1000;
+                                     }
+                                 }
+                             }
+                             else
+                             { // this is the last event, so don't worry
+                                 m_pitches2[abctrack][miditrack].push_back(mypitch);
+                                 m_velocities2[abctrack][miditrack].push_back(myvelocity);
+                                 m_tonestarts2[abctrack][miditrack].push_back(tonestart);
+                                 if ( toneend - tonestart < tdelta) toneend = tonestart + tdelta;
+                                 m_toneends2[abctrack][miditrack].push_back(toneend);
+                                 toneend = tonestart;
+                             }
+                          }
+                       pbendevent++;
+                    }
+*/
 
 #endif

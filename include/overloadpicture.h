@@ -11,7 +11,7 @@ public:
 
    MidiPreview * myMidiPreview;
 
-   UpdateView();
+   void UpdateView();
 
 //   wxBitmap m_BitMap("well", 690,100, wxBITMAP_SCREEN_DEPTH);
 
@@ -22,7 +22,7 @@ OverLoadPicture::OverLoadPicture(MidiPreview * myMidiPreviewp)
     myMidiPreview = myMidiPreviewp;
 }
 
-OverLoadPicture::UpdateView()
+void OverLoadPicture::UpdateView()
 {
     wxMemoryDC dc;
 //    dc.SelectObject(m_BitMap);

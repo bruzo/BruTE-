@@ -32,19 +32,23 @@
 #include "vorbis/vorbisfile.h"
 #include "ogg/ogg.h"
 
-#include <io.h>
 #include <fcntl.h>
 
+#ifdef win32
+#include <io.h>
 #include <windows.h>
 #include <share.h>
 #include <io.h>
+#include <mmsystem.h>
+#endif // win32
+
 #include <sys/stat.h>
 
 #include <chrono>
 #include <thread>
 #include <tuple>
 
-#include <mmsystem.h>
+//
 
 #include "brutedefinitions.h"
 
@@ -92,8 +96,9 @@ private:
 
     std::vector< std::vector<  std::vector< uint8_t  >  > > allsamples;
 
-
+#ifdef win32
     FILE * fmemopen(void *buf, size_t len, const char *type);
+#endif // win32
     std::vector<uint8_t> snd_load_file(FILE * oggFile );
 
     // OpenAl Specifics
@@ -275,7 +280,7 @@ void AudioPlayerAL::Play()
     trackpositions.resize(m_Nabctracks);
     std::fill( trackpositions.begin(), trackpositions.end(), 0 );
 
-    PlayThread = new std::thread(&PlayLoop, this);
+    PlayThread = new std::thread(&AudioPlayerAL::PlayLoop, this);
     m_stop = 0;
 
 }
@@ -448,7 +453,7 @@ void AudioPlayerAL::PlayLoop()
                              // if the sample is over then it is over
                        }
                        thissample.resize(mysize); // copy over all the data into thissample
-                       for (int ij = 0; ij < mysize; ij++) thissample[ij] = allsamples[instrument][pitch+36][ij];
+                       for (size_t ij = 0; ij < mysize; ij++) thissample[ij] = allsamples[instrument][pitch+36][ij];
 
 
                        // we got the sample, now make sure we do the fadeout
@@ -529,7 +534,7 @@ void AudioPlayerAL::Initialize(float volume, int panning)
     allsamples.resize(oggpitchnumbers.size());
 	for (size_t i = 0; i < oggpitchnumbers.size(); i++)
 	{
-	    allsamples[i].resize(73);
+	    allsamples[i].resize(73); // yes we also allocate 0s for the pitches below the ones we actually use ...
 	    for (size_t j = 0; j < oggpitchnumbers[i].size(); j++)
         {
             int mypoint = oggpitchnumbers[i][j];
@@ -554,7 +559,8 @@ void AudioPlayerAL::Initialize(float volume, int panning)
         // std::cout << i << "  " << j << " " << allsamples[i][j].size() << std::endl;
         if (allsamples[i][j].size() > 0)
         {
-          fread(&filesize, sizeof(uint32_t), 1, mysoundsfile);
+          size_t readbyte = fread(&filesize, sizeof(uint32_t), 1, mysoundsfile);
+          if (readbyte == 0) { std::cout << "We have a file reading issue on the soundsfile." << std::endl;}
 
           datablock.resize(filesize);
           size_t actualread = fread(&datablock[0], filesize, 1, mysoundsfile);
@@ -635,7 +641,7 @@ void AudioPlayerAL::Initialize(float volume, int panning)
 }
 
 
-
+#ifdef win32
 FILE *  AudioPlayerAL::fmemopen(void *buf, size_t len, const char *type)
 {
 	int fd;
@@ -659,11 +665,12 @@ FILE *  AudioPlayerAL::fmemopen(void *buf, size_t len, const char *type)
 		_close(fd);
 		return NULL;
 	}
-	/*File descriptors passed into _fdopen are owned by the returned FILE * stream.If _fdopen is successful, do not call _close on the file descriptor.Calling fclose on the returned FILE * also closes the file descriptor.*/
+	// File descriptors passed into _fdopen are owned by the returned FILE * stream.If _fdopen is successful, do not call _close on the file descriptor.Calling fclose on the returned FILE * also closes the file descriptor.
 	fwrite(buf, len, 1, fp);
 	rewind(fp);
 	return fp;
 }
+#endif
 
 std::vector<uint8_t> AudioPlayerAL::snd_load_file(FILE * oggFile ){
 
@@ -1114,7 +1121,7 @@ void AudioPlayerAL::SendABC(std::stringstream * abctext)
        }
        auto lineiterator = mytracklines.begin();
        line = *lineiterator; auto xline = split(line, ':');
-       if ((xline[0]=='X')&&(xline.size()>1))
+       if ((xline.at(0)=='X')&&(xline.size()>1))
        {
            m_Xnumber[ztrack] = std::stoi(xline[1]);
        }
@@ -1243,7 +1250,7 @@ void AudioPlayerAL::SendABC(std::stringstream * abctext)
                                      ));
 
                                      // we will add the unique identifier here to make it possible to sort by the identifier and avoid multiple renderings
-                       if ( finalsample < clavi[mypitch] + myqduration )
+                       if ( finalsample < static_cast<uint64_t>(clavi[mypitch] + myqduration) )
                                    finalsample = clavi[mypitch] + myqduration;
                        clavi[mypitch] = -1;
                        clavivel[mypitch] = 0.;

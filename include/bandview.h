@@ -253,12 +253,15 @@ void BandView::LiveUpdateAudio()
             bvmappingtext << "alternate " << BVabctracks[i].miditrackinfo[j].alternateparts << " " << BVabctracks[i].miditrackinfo[j].alternatemypart << std::endl;
            if (BVabctracks[i].miditrackinfo[j].split > 0)
             bvmappingtext << "split " << BVabctracks[i].miditrackinfo[j].split << std::endl;
+           if (BVabctracks[i].miditrackinfo[j].triller > 0.01)
+            bvmappingtext << "triller " << BVabctracks[i].miditrackinfo[j].triller << std::endl;
+           if (BVabctracks[i].miditrackinfo[j].pitchbendqduration > 0)
+            bvmappingtext << "pitchbendinfo " << BVabctracks[i].miditrackinfo[j].pitchbendqduration  << "  "  << BVabctracks[i].miditrackinfo[j].pitchbendmethod << std::endl;
            if ((midioriginal >= 0)&&(midioriginal < 128))
             bvmappingtext << "% Miditrack original Instrument " << GMinstrument[ midioriginal ] << std::endl;
            bvmappingtext << "miditrack " << BVabctracks[i].miditrackinfo[j].miditrack << " pitch " << BVabctracks[i].miditrackinfo[j].pitch << " volume " << BVabctracks[i].miditrackinfo[j].volume << " delay " << BVabctracks[i].miditrackinfo[j].delay << " prio 1" << std::endl;
         }
         bvmappingtext << "abctrack end" << std::endl;
-       // if (BVabctracks[i].muted) bvmappingtext << "*" << std::endl;
         bvmappingtext << std::endl;
         bvmappingtext << std::endl;
      }
@@ -314,6 +317,11 @@ void BandView::GetMapping()
             newmiditrack.split = myBrute->m_Mapping.m_splitvoicemap[i][j];
             newmiditrack.delay = myBrute->m_Mapping.m_delaymap[i][j];
             newmiditrack.drummapping = myBrute->m_Mapping.m_drumstylemap[i][j];
+            newmiditrack.triller = myBrute->m_Mapping.m_trillermap[i][j];
+            newmiditrack.pitchbendqduration = myBrute->m_Mapping.m_pitchbendmap[i][j];
+            newmiditrack.pitchbendmethod = myBrute->m_Mapping.m_pitchbendmethodmap[i][j];
+
+            newmiditrack.haspitchbends = (myBrute->m_pitchbendcounter[newmiditrack.miditrack] > 0);
 
             BVabctracks[i].miditrackinfo.push_back(newmiditrack);
         }
@@ -466,7 +474,7 @@ void BandView::mouseRightDown(wxMouseEvent& event)
     if (( mouseY > 545 ) && (mouseY < 570 ) && ( mouseX > 440) && (mouseX < 500))
     {
         // audience right clicked
-        AudienceDialogue * myaudience = new AudienceDialogue( &myMidiPreview->m_volume, &myMidiPreview->m_panning );
+        AudienceDialogue * myaudience = new AudienceDialogue( &myMidiPreview->m_volume, &myMidiPreview->m_panning );         if (myaudience == NULL) {};
         myaudioplayerAL->SetVolume(myMidiPreview->m_volume);
         myaudioplayerAL->SetGlobalPanning(myMidiPreview->m_panning);
     }
@@ -477,7 +485,7 @@ void BandView::mouseRightDown(wxMouseEvent& event)
      {
          std::cout << " Asking for Midi Track " << mypossiblemiditrack << std::endl;
 
-         MidiTrackView * newview = new MidiTrackView(myBrute, mypossiblemiditrack);
+         MidiTrackView * newview = new MidiTrackView(myBrute, mypossiblemiditrack); if (newview == NULL) {}
         // this->SetCursor(wxCursor(wxCURSOR_HAND));
         // miditrackclicked = true;
         // miditrackclickednumber = mypossiblemiditrack;
@@ -492,8 +500,7 @@ void BandView::mouseRightDown(wxMouseEvent& event)
          lotroinstrumentclickednumber = mypossiblelotroinstrument;
          click_relx = 50;
          click_rely = 10;
-         float fadeout;
-         GainSettingsDialogue * newgains = new GainSettingsDialogue(lotroinstrumentclickednumber, &relativegain[lotroinstrumentclickednumber], &fadeouts[lotroinstrumentclickednumber] );
+         GainSettingsDialogue * newgains = new GainSettingsDialogue(lotroinstrumentclickednumber, &relativegain[lotroinstrumentclickednumber], &fadeouts[lotroinstrumentclickednumber] ); if (newgains == NULL) {}
      }
 
 
@@ -770,6 +777,7 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
              newtrack.midiinstrument = myBrute->GetMidiInstrument(miditrackclickednumber);
              newtrack.isdrum = myBrute->GetMidiIsDrum(miditrackclickednumber);
              BVabctracks[mypossibleABCtrack].miditrackinfo.push_back(newtrack);
+             newtrack.haspitchbends = (myBrute->m_pitchbendcounter[newtrack.miditrack] > 0);
              miditrackclicked = false;
              this->Refresh();
              //LiveUpdateAudio();
@@ -1201,7 +1209,7 @@ void BandView::render(wxDC&  dc)
        wxMemoryDC dc2;
        dc2.SelectObject(myOverLoadPic[0]);
 
-       for (int i = 0; i < myMidiPreview->m_TotalToneCounts.size(); i++)
+       for (size_t i = 0; i < myMidiPreview->m_TotalToneCounts.size(); i++)
        {
            dc2.SetPen( wxPen( wxColor(0,0,0), 1));
            if ( myMidiPreview->m_TotalToneCounts[i] > 64) dc2.SetPen( wxPen( wxColor(255,0,0), 1));

@@ -32,7 +32,13 @@ public:
   wxStaticBox * stdmap;
   wxTextCtrl *tcdmap;
 
+  wxStaticBox * pitchbend;
+  wxTextCtrl * pitchbendqduration;
+  wxStaticBox * pitchbendmethod;
+  wxTextCtrl * pitchbendmethodvalue;
 
+  wxStaticBox * triller;
+  wxTextCtrl * trillerfreq;
 
   BandViewMidiTrack * thisMiditrack;
 
@@ -53,7 +59,7 @@ EVT_BUTTON(wxID_OK, MidiTrackDialogue::OnButtonOK)
 END_EVENT_TABLE()
 
 MidiTrackDialogue::MidiTrackDialogue(BandViewMidiTrack * myMidiTrack, BandViewABCTrack * myABCTrack)
-       : wxDialog(NULL, -1, wxT("Midi Track Settings"), wxDefaultPosition, wxSize(350, 270))
+       : wxDialog(NULL, -1, wxT("Midi Track Settings"), wxDefaultPosition, wxSize(350, 350))
 {
   thisMiditrack = myMidiTrack;
   wxPanel *panel = new wxPanel(this, -1);
@@ -87,7 +93,8 @@ MidiTrackDialogue::MidiTrackDialogue(BandViewMidiTrack * myMidiTrack, BandViewAB
 
   x = 170; y = 70; sx = 70; sy = 45;
   stdelay = new wxStaticBox(panel, -1, wxT("Delay"), wxPoint(x,y), wxSize(sx,sy), wxTE_READONLY);
-  tcdelay = new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->delay ) , wxPoint(x+10, y+20), wxSize(45,20));
+  wxString delvalue; delvalue.Printf("%.2f", myMidiTrack->delay);
+  tcdelay = new wxTextCtrl(panel, -1, delvalue , wxPoint(x+10, y+20), wxSize(45,20));
 
   if ( myABCTrack->instrument == 8 ) // this midi is associated to a drum, so we have to allow picking a drum map
   {
@@ -96,6 +103,22 @@ MidiTrackDialogue::MidiTrackDialogue(BandViewMidiTrack * myMidiTrack, BandViewAB
       tcdmap = new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->drummapping ) , wxPoint(x+10, y+20), wxSize(45,20));
   }
 
+  // Pitchbends only make sense for non-drum tracks so we use the same space
+  if (( myMidiTrack->haspitchbends )&&(myABCTrack->instrument != 8))
+  {
+	  x = 5; y = 170; sx = 155; sy = 45;
+	  pitchbend = new wxStaticBox(panel, -1, wxT("Pitchbend Rounding"), wxPoint(x,y), wxSize(sx,sy), wxTE_READONLY);
+	  pitchbendqduration = new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->pitchbendqduration) , wxPoint(x+10, y+20), wxSize(45,20));
+      x = 170; y = 170; sx = 70; sy = 45;
+	  pitchbendmethod = new wxStaticBox(panel, -1, wxT("Method"), wxPoint(x,y), wxSize(sx,sy), wxTE_READONLY);
+	  pitchbendmethodvalue = new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->pitchbendmethod) , wxPoint(x+10, y+20), wxSize(45,20));
+  }
+
+  x = 5; y = 220; sx = 100; sy = 45;
+  triller = new wxStaticBox(panel, -1, wxT("Triller"), wxPoint(x,y), wxSize(sx,sy), wxTE_READONLY);
+  wxString tvalue;
+  tvalue.Printf("%.2f",myMidiTrack->triller);
+  trillerfreq = new wxTextCtrl(panel, -1, tvalue , wxPoint(x+10, y+20), wxSize(45,20));
 
   okButton = new wxButton(this, wxID_OK, wxT("Ok"),wxDefaultPosition, wxSize(70, 30));
 
@@ -115,13 +138,18 @@ MidiTrackDialogue::MidiTrackDialogue(BandViewMidiTrack * myMidiTrack, BandViewAB
   thisMiditrack->alternatemypart = wxAtoi(alternatepart->GetValue());
   thisMiditrack->alternateparts = wxAtoi(alternateparts->GetValue());
   thisMiditrack->split = wxAtoi(splitnumber->GetValue());
-  thisMiditrack->delay = wxAtoi(tcdelay->GetValue());
+  thisMiditrack->delay = wxAtof(tcdelay->GetValue());
 
   if ( myABCTrack->instrument == 8 ) // this midi is associated to a drum, so we have to allow picking a drum map
   {
      thisMiditrack->drummapping = wxAtoi(tcdmap->GetValue());
   }
-
+  if (( myMidiTrack->haspitchbends )&&(myABCTrack->instrument != 8))
+  {
+      thisMiditrack->pitchbendqduration = wxAtoi(pitchbendqduration->GetValue());
+      thisMiditrack->pitchbendmethod = wxAtoi(pitchbendmethodvalue->GetValue());
+  }
+  thisMiditrack->triller = wxAtof(trillerfreq->GetValue());
   Destroy();
 }
 

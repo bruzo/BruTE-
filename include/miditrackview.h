@@ -32,9 +32,9 @@ END_EVENT_TABLE()
 
 void PictureFrame::OnPaint(wxPaintEvent&)
 {
-	wxPaintDC PaintDC(this);	// muss immer erstellt werden - egal ob du's brauchst oder nicht
+	wxPaintDC PaintDC(this);	// needs to be called
 	if (m_Bitmap->IsOk())
-		PaintDC.DrawBitmap(m_Bitmap[0], 0, 0);	// zeige Bitmap, wenn es erfolgrecih geladen wurde
+		PaintDC.DrawBitmap(m_Bitmap[0], 0, 0);	// show bitmap if successfull
 }
 
 
@@ -42,15 +42,10 @@ void PictureFrame::OnPaint(wxPaintEvent&)
 class MidiTrackView
 {
 public:
-
    MidiTrackView(Brute * myBrute, int miditrack);
 
    Brute * myBrute;
    int myMidiTrack;
-
-
-//   wxBitmap m_BitMap("well", 690,100, wxBITMAP_SCREEN_DEPTH);
-
 };
 
 MidiTrackView::MidiTrackView(Brute * myBrutep, int miditrack)
@@ -67,6 +62,10 @@ MidiTrackView::MidiTrackView(Brute * myBrutep, int miditrack)
     wxMemoryDC dc;
     dc.SelectObject(mybitmap[0]);
 
+    dc.SetPen( wxPen( wxColor(0,0,0),1));
+    for (int i = 0; i < 128; i++)
+       dc.DrawLine(0, i, 799, i);
+
     double timerange = myBrute->m_globalmaxtick;
 
     dc.SetPen( wxPen( wxColor(255,255,255), 1 ) );
@@ -78,10 +77,8 @@ MidiTrackView::MidiTrackView(Brute * myBrutep, int miditrack)
         int tonestart = int(myBrute->GetToneStart(miditrack,i) * timetopixel);
         int toneend   = int(myBrute->GetToneEnd(miditrack, i) * timetopixel);
         int pitch     = myBrute->GetTonePitch(miditrack, i);
-        if ( toneend == tonestart ) toneend = tonestart+1;
-     //   std::cout << tonestart << " " << toneend << " " << pitch << std::endl;
 
-    //    std::cout << myBrute->GetToneStart(miditrack,i) << "  " << myBrute->GetToneEnd(miditrack, i) << std::endl;
+        if ( toneend == tonestart ) toneend = tonestart+1;
         if (pitch > 127) pitch = 127;
         if (pitch < 0) pitch = 0;
         if (tonestart < 0) tonestart = 0;
@@ -95,14 +92,6 @@ MidiTrackView::MidiTrackView(Brute * myBrutep, int miditrack)
     PictureFrame * myframe = new PictureFrame(mybitmap, miditrack, name);
 
     myframe->Show();
-
-   // wxPaintDC dc( myframe );
-
-    //dc.DrawBitmap(mybitmap[0], 100, 580, false);
-
-   // wxMessageBox( wxT("Hello World!") );
-
-
 }
 
 #endif // MIDITRACKVIEW_H_INCLUDED
