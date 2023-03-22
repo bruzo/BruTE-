@@ -690,6 +690,7 @@ std::vector<uint8_t> AudioPlayerAL::snd_load_file(FILE * oggFile ){
 		format = AL_FORMAT_MONO16;
 	else
 		format = AL_FORMAT_STEREO16;
+    if (format == AL_FORMAT_MONO16) std::cout << "For some reason we can only use MONO Sound .. not recommended" << std::endl;
 
 //	char * dyn_data = NULL;
 	int  mysize = 0;
@@ -1155,14 +1156,14 @@ void AudioPlayerAL::SendABC(std::stringstream * abctext)
           try{
              zpanning = std::stoi( ps[ ps.size()-2 ]);
           }catch(const std::invalid_argument& e) {
-              zpanning = zpanning = 200 + (std::rand()%200);
+              zpanning = 200 + (std::rand()%200);
               notworking = 1;
           }
           m_WavZPannings[ztrack] = zpanning;
           if (notworking == 1) {
                 m_id[ztrack] = ztrack;
                 panning =  (std::rand()%100)-50;
-                zpanning = zpanning = 200 + (std::rand()%200);
+                zpanning = 200 + (std::rand()%200);
           }
           else
           {

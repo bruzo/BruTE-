@@ -26,6 +26,9 @@ public:
     int pitchbendqduration = 0;
     int pitchbendmethod = 0;
     float triller = 0;
+
+    int durationsplitlength = 0;
+    int durationsplitpart = 0;
 };
 
 #endif

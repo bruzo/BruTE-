@@ -257,6 +257,8 @@ void BandView::LiveUpdateAudio()
             bvmappingtext << "triller " << BVabctracks[i].miditrackinfo[j].triller << std::endl;
            if (BVabctracks[i].miditrackinfo[j].pitchbendqduration > 0)
             bvmappingtext << "pitchbendinfo " << BVabctracks[i].miditrackinfo[j].pitchbendqduration  << "  "  << BVabctracks[i].miditrackinfo[j].pitchbendmethod << std::endl;
+           if (BVabctracks[i].miditrackinfo[j].durationsplitlength > 0)
+            bvmappingtext << "durationsplit " << BVabctracks[i].miditrackinfo[j].durationsplitlength << "  "  << BVabctracks[i].miditrackinfo[j].durationsplitpart << std::endl;
            if ((midioriginal >= 0)&&(midioriginal < 128))
             bvmappingtext << "% Miditrack original Instrument " << GMinstrument[ midioriginal ] << std::endl;
            bvmappingtext << "miditrack " << BVabctracks[i].miditrackinfo[j].miditrack << " pitch " << BVabctracks[i].miditrackinfo[j].pitch << " volume " << BVabctracks[i].miditrackinfo[j].volume << " delay " << BVabctracks[i].miditrackinfo[j].delay << " prio 1" << std::endl;
@@ -320,6 +322,8 @@ void BandView::GetMapping()
             newmiditrack.triller = myBrute->m_Mapping.m_trillermap[i][j];
             newmiditrack.pitchbendqduration = myBrute->m_Mapping.m_pitchbendmap[i][j];
             newmiditrack.pitchbendmethod = myBrute->m_Mapping.m_pitchbendmethodmap[i][j];
+            newmiditrack.durationsplitlength = myBrute->m_Mapping.m_durationsplitmap[i][j];
+            newmiditrack.durationsplitpart = myBrute->m_Mapping.m_durationsplitpartmap[i][j];
 
             newmiditrack.haspitchbends = (myBrute->m_pitchbendcounter[newmiditrack.miditrack] > 0);
 

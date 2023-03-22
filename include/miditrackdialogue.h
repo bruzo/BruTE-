@@ -40,6 +40,10 @@ public:
   wxStaticBox * triller;
   wxTextCtrl * trillerfreq;
 
+  wxStaticBox * dusplit;
+  wxTextCtrl * durationsplitl;
+  wxTextCtrl * durationsplitp;
+
   BandViewMidiTrack * thisMiditrack;
 
   void OnButtonOK(wxCommandEvent& event);
@@ -107,18 +111,23 @@ MidiTrackDialogue::MidiTrackDialogue(BandViewMidiTrack * myMidiTrack, BandViewAB
   if (( myMidiTrack->haspitchbends )&&(myABCTrack->instrument != 8))
   {
 	  x = 5; y = 170; sx = 155; sy = 45;
-	  pitchbend = new wxStaticBox(panel, -1, wxT("Pitchbend Rounding"), wxPoint(x,y), wxSize(sx,sy), wxTE_READONLY);
+	  pitchbend = new wxStaticBox(panel, -1, wxT("Pitchbend Round/Method"), wxPoint(x,y), wxSize(sx,sy), wxTE_READONLY);
 	  pitchbendqduration = new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->pitchbendqduration) , wxPoint(x+10, y+20), wxSize(45,20));
-      x = 170; y = 170; sx = 70; sy = 45;
-	  pitchbendmethod = new wxStaticBox(panel, -1, wxT("Method"), wxPoint(x,y), wxSize(sx,sy), wxTE_READONLY);
+      x = x+85; y = 170; sx = 70; sy = 45;
 	  pitchbendmethodvalue = new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->pitchbendmethod) , wxPoint(x+10, y+20), wxSize(45,20));
   }
 
-  x = 5; y = 220; sx = 100; sy = 45;
+  x = 5; y = 220; sx = 70; sy = 45;
   triller = new wxStaticBox(panel, -1, wxT("Triller"), wxPoint(x,y), wxSize(sx,sy), wxTE_READONLY);
   wxString tvalue;
   tvalue.Printf("%.2f",myMidiTrack->triller);
   trillerfreq = new wxTextCtrl(panel, -1, tvalue , wxPoint(x+10, y+20), wxSize(45,20));
+
+  x = 90; y = 220; sx = 155; sy = 45;
+  dusplit = new wxStaticBox(panel, -1, wxT("Duration Split time/part"), wxPoint(x,y), wxSize(sx,sy), wxTE_READONLY);
+  durationsplitl = new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->durationsplitlength), wxPoint(x+10, y+20), wxSize(45,sy-25));
+  durationsplitp = new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->durationsplitpart), wxPoint(x+95, y+20), wxSize(45,sy-25));
+
 
   okButton = new wxButton(this, wxID_OK, wxT("Ok"),wxDefaultPosition, wxSize(70, 30));
 
@@ -150,6 +159,9 @@ MidiTrackDialogue::MidiTrackDialogue(BandViewMidiTrack * myMidiTrack, BandViewAB
       thisMiditrack->pitchbendmethod = wxAtoi(pitchbendmethodvalue->GetValue());
   }
   thisMiditrack->triller = wxAtof(trillerfreq->GetValue());
+  thisMiditrack->durationsplitlength = wxAtoi(durationsplitl->GetValue());
+  thisMiditrack->durationsplitpart = wxAtoi(durationsplitp->GetValue());
+
   Destroy();
 }
 

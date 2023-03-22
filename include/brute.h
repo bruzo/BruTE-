@@ -88,10 +88,13 @@ public:
 
     std::vector<int> m_pitchbendcounter;
 
+    std::vector<uint16_t> m_tonality;
+    int timechunksize = 5;
+    std::vector< std::vector < uint32_t > > m_histogram;
+
 private:
     // MidiFile instance to deal with the midi file
     smf::MidiFile m_Midi;
-
 
     // list of midi channel instruments
     std::vector<int> m_midiinstruments = {};
@@ -608,6 +611,52 @@ void Brute::LoadMidi(char * mymidiname)
            }
        }
     }
+
+    // Tonality analysis, first find last time event
+    double mylasttone = 0;
+    for (size_t i = 0; i < m_tonestarts.size(); i++)
+       if ( mylasttone < m_toneends[i].back()) mylasttone = m_toneends[i].back();
+
+    // Determine granularity of the tone histogram and reserve the space
+    int chunks = static_cast<int>(( mylasttone / timetoticks / 26460)) / timechunksize ;
+    m_histogram.resize( chunks );
+    for (size_t i = 0; i < m_histogram.size(); i++) m_histogram[i].resize(12);
+
+     // calculate the histogram
+    for (size_t i=0; i < m_tonestarts.size(); i++)
+    {
+        if (!m_isdrumtrack[i])
+        {
+            for (size_t j = 0; j < m_tonestarts[i].size(); j++)
+            {
+                size_t mpos = static_cast<int>(  m_tonestarts[i][j] / mylasttone  * chunks );
+                size_t mpitch = m_pitches[i][j] % 12;
+                m_histogram[mpos][mpitch]++;
+            }
+        }
+    }
+    // Analyze for most probable tonality
+    m_tonality.resize(chunks);
+    for (size_t i = 0; i < m_histogram.size(); i++)
+    {
+        int besttonality = 0;
+        int bestmatch = 0;
+        for (size_t tonality = 0; tonality < 12; tonality++)
+        {
+           int thismatch = 0;
+           for (size_t j = 0; j < 12; j++)
+           {
+               thismatch += m_histogram[i][j] * cmajor[(j+tonality)%12];
+           }
+           if ( thismatch > bestmatch)
+           {
+               besttonality = tonality;
+               bestmatch = thismatch;
+           }
+        }
+        m_tonality[i]=besttonality;
+    }
+    // Now we have the tonality of the piece save in m_tonality which can be used for pitchbends and tonality conversion
 }
 
 // Export the out_all.txt file with tone information
@@ -2854,6 +2903,45 @@ void Brute::GenerateNoteSelection2()
                     // default is true, if either this shouldn't be played by alternation or splitting it will be disabled
                     m_selected[abctrack][miditrack][tonenumber] = true - (( thisoneisalternated * acondition ) || ( thisoneissplitted * scondition ));
 
+                    // move a tone further
+                    tonenumber++;
+                }
+			}
+	    }
+    }
+
+    // second run for the duration split
+    for (size_t abctrack = 0; abctrack < abctracks; abctrack++)
+    {
+        int zminstep = m_minstep/m_Mapping.m_oversampling;
+     //   double ziminstep = 1.0/zminstep;
+
+        int miditracks = m_Mapping.m_trackmap[abctrack].size();
+        for (int miditrack = 0; miditrack < miditracks; miditrack++)
+        {
+            int splitduration = m_Mapping.m_durationsplitmap[abctrack][miditrack] * zminstep ;
+
+            // we only have to  go through this if this track is either alternated or a specific tone of each chord is picked
+            if (splitduration > 0)
+            {
+                // this track is split by tone duration
+                int ntones = m_tonestarts2[abctrack][miditrack].size();
+                int eventcounter = 0;
+                int tonenumber = 0;
+                double currenttime = 0;
+                int thispart = m_Mapping.m_durationsplitpartmap[abctrack][miditrack];
+
+                while ( tonenumber < ntones)
+                {
+                    bool mm = (m_toneends2[abctrack][miditrack][tonenumber] - m_tonestarts2[abctrack][miditrack][tonenumber]  < splitduration);
+                    if ( mm && (thispart == 1) )
+                    {   // this one is smaller than the duration split length, but this track is for the bigger ones
+                        m_selected[abctrack][miditrack][tonenumber] = false;
+                    }
+                    else if ( !mm && (thispart == 0))
+                    {  // this one is larger than the duration, but this track is for the shorter one
+                        m_selected[abctrack][miditrack][tonenumber] = false;
+                    }
                     // move a tone further
                     tonenumber++;
                 }
