@@ -199,12 +199,12 @@ void AudioPlayerAL::UpdateABC(std::stringstream * abctext)
 void AudioPlayerAL::SetInstrument(int id, int instrument)
 {
     // search through tracks to find ID
-    for (int i = 0; i < m_id.size(); i++)
+    for (size_t i = 0; i < m_id.size(); i++)
     {
         if (id == m_id[i])
         {
             // this is the one so we have to change all the instruments
-            for (int j = 0; j < m_ABCTonesvector[i].size(); j++)
+            for (size_t j = 0; j < m_ABCTonesvector[i].size(); j++)
             {
                std::get<3>(m_ABCTonesvector[i][j]) = instrument;
             }
@@ -215,7 +215,7 @@ void AudioPlayerAL::SetInstrument(int id, int instrument)
 void AudioPlayerAL::SetMute(int id, bool value)
 {
     // search through tracks to find ID
-    for (int i = 0; i < m_id.size(); i++)
+    for (size_t i = 0; i < m_id.size(); i++)
     {
         if (id == m_id[i])
         {
@@ -228,7 +228,7 @@ void AudioPlayerAL::SetMute(int id, bool value)
 void AudioPlayerAL::SetPanning(int id, int panning)
 {
     // search through tracks to find ID
-    for (int i = 0; i < m_id.size(); i++)
+    for (size_t i = 0; i < m_id.size(); i++)
     {
         if (id == m_id[i])
         {
@@ -311,7 +311,7 @@ void AudioPlayerAL::Seek(float f)
    {
       trackpositions[i]=0;
       // we skip ahead in time
-      while (( trackpositions[i] < m_ABCTonesvector[i].size()  ) && ( std::get<0>(m_ABCTonesvector[i][trackpositions[i]]) < st  ))
+      while (( trackpositions[i] < static_cast<int>(m_ABCTonesvector[i].size())  ) && ( std::get<0>(m_ABCTonesvector[i][trackpositions[i]]) < st  ))
       {
          trackpositions[i]++;
       }
@@ -357,7 +357,7 @@ void AudioPlayerAL::SetEnvelope(int Instrument, uint32_t duration, uint32_t samp
     std::fill(m_envelope.begin(), m_envelope.end(), 1.);
 
 
-    if ( Instrument < adsr.size() )
+    if ( Instrument < static_cast<int>(adsr.size()) )
     {
 
         for (size_t segment = 0; segment <  adsr[Instrument].size()-1; segment++ )
@@ -407,7 +407,7 @@ void AudioPlayerAL::PlayLoop()
            // if (std::get<0>(m_ABCTonesvector[i][trackpositions[i]]) >= st)
 
            // we take the next couple of tones in this track that had to be played
-           while ((trackpositions[i] < m_ABCTonesvector[i].size()) && ( std::get<0>(m_ABCTonesvector[i][trackpositions[i]]) < st+dt  ))
+           while ((trackpositions[i] < static_cast<int>(m_ABCTonesvector[i].size())) && ( std::get<0>(m_ABCTonesvector[i][trackpositions[i]]) < static_cast<int64_t>(st+dt)  ))
            {
 
                int instrument = std::get<3>(m_ABCTonesvector[i][trackpositions[i]]);
@@ -690,7 +690,7 @@ std::vector<uint8_t> AudioPlayerAL::snd_load_file(FILE * oggFile ){
 		format = AL_FORMAT_MONO16;
 	else
 		format = AL_FORMAT_STEREO16;
-    if (format == AL_FORMAT_MONO16) std::cout << "For some reason we can only use MONO Sound .. not recommended" << std::endl;
+    if (format == AL_FORMAT_MONO16) {};
 
 //	char * dyn_data = NULL;
 	int  mysize = 0;

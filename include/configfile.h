@@ -84,6 +84,7 @@ public:
    std::vector < int > m_itrackdividepart;
    std::vector < int > m_idrumstylemap;
    std::vector < int > m_idrumsingleinstrument;
+   std::vector < int > m_idirectmapping;
    std::vector < int > m_itrackvoices;
    std::vector < int > m_itrackvoice;
    std::vector < int > m_ialignmap;
@@ -112,6 +113,7 @@ public:
 
    std::vector < std::vector<int> > m_drumstylemap; // drum style per miditrack in itrack
    std::vector < std::vector<int> > m_drumsingleinstrument; // pick just this midi drum per miditrack in itrack
+   std::vector < std::vector<int> > m_directmapping;
    std::vector < std::vector<int> > m_rangemapl;    //  list of the ranges of the miditracks per itrack
    std::vector < std::vector<int> > m_rangemaph;    //  list of the ranges of the miditracks per itrack
 
@@ -160,6 +162,7 @@ private:
     int m_zpanning;
     int m_id;
     int m_in_midi_drum;
+    int m_direct;
     int m_malign;
     int m_alternatecount;
     int m_alternatepartnumber;
@@ -387,6 +390,7 @@ void ConfigFile::ParseConfigMapping(std::stringstream * mappingtext)
     m_durmaxmap.resize(0);      //   maximal note duration per itrack
     m_drumstylemap.resize(0);   //   drum style per miditrack in itrack
     m_drumsingleinstrument.resize(0);// pick just this midi drum per miditrack in itrack
+    m_directmapping.resize(0); // for direct mapping
     m_drumforcowbellmap.resize(0);// changes the name in the abc for tracks with value 1 to cowbell instead of drums (for easier cowbells)
     m_voladjustmap.resize(0);   //   Map to specify if this track will be U15.3 volume adjusted
     m_invertmap.resize(0);      // is this an inverted itrack?
@@ -436,6 +440,7 @@ void ConfigFile::ParseConfigMapping(std::stringstream * mappingtext)
     m_zpanning = 0;
     m_id = 0;
     m_in_midi_drum = 0;
+    m_direct = -1;
     m_malign = 0; // default is no align
 
     m_alternatecount = 1;
@@ -511,6 +516,7 @@ if (thisline.size() > 0)
              m_id = 0;
              m_drumforcowbell = 0;
              m_in_midi_drum = 0;
+             m_direct = -1;
              m_invertthis = 0; // default is not to invert
              m_arpeggioduration = 0;
              m_arpeggioinc = 1;
@@ -546,6 +552,7 @@ if (thisline.size() > 0)
              m_itrackdividepart.resize(0);
              m_idrumstylemap.resize(0);
              m_idrumsingleinstrument.resize(0);
+             m_idirectmapping.resize(0);
              m_itrackvoices.resize(0);
              m_itrackvoice.resize(0);
              m_ialignmap.resize(0);
@@ -566,6 +573,7 @@ if (thisline.size() > 0)
              m_trackdividepart = AppendIU(m_trackdividepart, m_itrackdividepart);
              m_drumstylemap = AppendIU(m_drumstylemap, m_idrumstylemap);
              m_drumsingleinstrument = AppendIU(m_drumsingleinstrument, m_idrumsingleinstrument);
+             m_directmapping = AppendIU(m_directmapping, m_idirectmapping);
              m_splitvoicesmap = AppendIU(m_splitvoicesmap, m_itrackvoices);
              m_splitvoicemap = AppendIU(m_splitvoicemap, m_itrackvoice);
              m_alternatemap = AppendIU(m_alternatemap, m_ialternatemap);
@@ -599,7 +607,7 @@ if (thisline.size() > 0)
              if (thisline[2] == "top") m_mpolyd = 1;
              if (thisline[2] == "bottom") m_mpolyd = 0;
          }
-         if (thisline[0] == "instrument")
+         if (thisline[0] == "instrument")  // instrument <name> <drumstyle> <c/insample> <outsample?>
          {
              for (int j = 0; j < nInstruments; j++) if ( thisline[1] == lotroinstruments[j])
                 m_minstrument = j;
@@ -617,6 +625,16 @@ if (thisline.size() > 0)
                    if ( thisline[3] == "c" ) { m_drumforcowbell = 1; }
                    else {
                       m_in_midi_drum = atoi(thisline[3].c_str());
+                   }
+                }
+                else{
+                   if ( thisline.size() > 4 )
+                   {
+                       if ( thisline[2]=="d")
+                       {
+                          m_direct = atoi(thisline[4].c_str());
+                          m_in_midi_drum = atoi(thisline[3].c_str());
+                       }
                    }
                 }
          }
@@ -697,6 +715,7 @@ if (thisline.size() > 0)
 
              m_idrumstylemap = AppendI(m_idrumstylemap, m_drumstyle);
              m_idrumsingleinstrument = AppendI(m_idrumsingleinstrument,m_in_midi_drum);
+             m_idirectmapping = AppendI(m_idirectmapping, m_direct);
 
 
              m_itrillermap = AppendF(m_itrillermap, m_trillerfreq);
@@ -913,6 +932,7 @@ void ConfigFile::ImportConfigFile(char * infilename)
     m_durmaxmap.resize(0);      //   maximal note duration per itrack
     m_drumstylemap.resize(0);   //   drum style per miditrack in itrack
     m_drumsingleinstrument.resize(0);// pick just this midi drum per miditrack in itrack
+    m_directmapping.resize(0);
     m_drumforcowbellmap.resize(0);// changes the name in the abc for tracks with value 1 to cowbell instead of drums (for easier cowbells)
     m_voladjustmap.resize(0);   //   Map to specify if this track will be U15.3 volume adjusted
     m_invertmap.resize(0);      // is this an inverted itrack?
@@ -958,6 +978,7 @@ void ConfigFile::ImportConfigFile(char * infilename)
     m_voladjust = 0;
     m_panning = 64;
     m_in_midi_drum = 0;
+    m_direct = -1;
     m_malign = 0; // default is no align
 
     m_alternatecount = 1;
@@ -1018,6 +1039,7 @@ if (thisline.size() > 0)
              m_panning = 64;
              m_drumforcowbell = 0;
              m_in_midi_drum = 0;
+             m_direct = -1;
              m_invertthis = 0; // default is not to invert
              m_arpeggioduration = 0;
              m_arpeggioinc = 1;
@@ -1053,6 +1075,7 @@ if (thisline.size() > 0)
              m_itrackdividepart.resize(0);
              m_idrumstylemap.resize(0);
              m_idrumsingleinstrument.resize(0);
+             m_idirectmapping.resize(0);
              m_itrackvoices.resize(0);
              m_itrackvoice.resize(0);
              m_ialignmap.resize(0);
@@ -1073,6 +1096,7 @@ if (thisline.size() > 0)
              m_trackdividepart = AppendIU(m_trackdividepart, m_itrackdividepart);
              m_drumstylemap = AppendIU(m_drumstylemap, m_idrumstylemap);
              m_drumsingleinstrument = AppendIU(m_drumsingleinstrument, m_idrumsingleinstrument);
+             m_directmapping = AppendIU(m_directmapping, m_idirectmapping);
              m_splitvoicesmap = AppendIU(m_splitvoicesmap, m_itrackvoices);
              m_splitvoicemap = AppendIU(m_splitvoicemap, m_itrackvoice);
              m_alternatemap = AppendIU(m_alternatemap, m_ialternatemap);
@@ -1122,6 +1146,16 @@ if (thisline.size() > 0)
                    if ( thisline[3] == "c" ) { m_drumforcowbell = 1; }
                    else {
                       m_in_midi_drum = atoi(thisline[3].c_str());
+                   }
+                }
+                else{
+                   if ( thisline.size() > 4 )
+                   {
+                       if ( thisline[2]=="d")
+                       {
+                          m_direct = atoi(thisline[4].c_str());
+                          m_in_midi_drum = atoi(thisline[3].c_str());
+                       }
                    }
                 }
          }
@@ -1197,6 +1231,7 @@ if (thisline.size() > 0)
 
              m_idrumstylemap = AppendI(m_idrumstylemap, m_drumstyle);
              m_idrumsingleinstrument = AppendI(m_idrumsingleinstrument,m_in_midi_drum);
+             m_idirectmapping = AppendI(m_idirectmapping, m_direct);
 
 
              m_itrillermap = AppendF(m_itrillermap, m_trillerfreq);

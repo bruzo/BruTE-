@@ -11,7 +11,6 @@
 #include "abctrackdialogue.h"
 #include "bandviewabctrack.h"
 #include "bandviewmiditrack.h"
-// #include "audioplayer.h"
 #include "audioplayerAL.h"
 #include "midipreview.h"
 #include "audiencedialogue.h"
@@ -21,7 +20,7 @@
 #include "gainsettingsdialogue.h"
 
 
-//#include "include/brute.h"
+/* m_directmapping  .. to map one input pitch to one specific output pitch .. for cowbell, student fiddle and very custom drum mapping */
 
 
 class BandView : public wxPanel

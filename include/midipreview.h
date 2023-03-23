@@ -191,7 +191,7 @@ void MidiPreview::GeneratePreviewMidi(std::stringstream * abctext, int64_t buffe
 
        // now the fun starts generating tones from the chords
        double currenttime = 0.;
-       int currentvelocity = 127;
+    //   int currentvelocity = 127;
 
        // to keep track of registers on and off
        std::vector<bool> claviature;
@@ -208,7 +208,7 @@ void MidiPreview::GeneratePreviewMidi(std::stringstream * abctext, int64_t buffe
            // is this a velocity change?
            if (IsVelchange( myline ))
            {
-                currentvelocity = Velocity( myline );
+              //  currentvelocity = Velocity( myline );
            }
 
            // is this a break?
@@ -378,7 +378,7 @@ void MidiPreview::GeneratePreviewMidi2(std::stringstream * abctext, int64_t * bu
        ++lineiterator; ++ lineiterator; ++lineiterator;
 
        // Parse Instrument String to ChannelNumber
-       int MidiChannel = WhichInstrument(myinstrument);
+     //  int MidiChannel = WhichInstrument(myinstrument);
        //int TinyMidiChannel = tsf_get_presetindex( TinySoundFont , 0, MidiChannel);
        myinstrumentnumber[ztrack] = WhichInstrumentNumber(myinstrument);
 
@@ -445,7 +445,7 @@ void MidiPreview::GeneratePreviewMidi2(std::stringstream * abctext, int64_t * bu
                                      ));
 
                                      // we will add the unique identifier here to make it possible to sort by the identifier and avoid multiple renderings
-                       if ( finalsample < clavi[mypitch] + myqduration )
+                       if ( finalsample < static_cast<uint64_t>(  clavi[mypitch] + myqduration ))
                                    finalsample = clavi[mypitch] + myqduration;
                        clavi[mypitch] = -1;
                        clavivel[mypitch] = 0.;
@@ -485,7 +485,7 @@ void MidiPreview::GeneratePreviewMidi2(std::stringstream * abctext, int64_t * bu
 
    //
    //std::vector<short> AudioBuffer={};
-   int64_t silence = 2*44100; // for now we add two seconds of silence after the release
+  // int64_t silence = 2*44100; // for now we add two seconds of silence after the release
 
 
    for (size_t i = 0; i < m_Nabctracks; i++)
@@ -498,13 +498,13 @@ void MidiPreview::GeneratePreviewMidi2(std::stringstream * abctext, int64_t * bu
 
           int64_t tonestart = std::get<1>(m_ABCTonesvector[i][j]);
           int64_t toneduration = std::get<2>(m_ABCTonesvector[i][j]);
-          int64_t samplelength = toneduration + silence;
+      //    int64_t samplelength = toneduration + silence;
           float tonevelocity = std::get<5>(m_ABCTonesvector[i][j]);
 
           if ( newID != oldID) // this is a new tone so we have to render it
           {
-              int midichannel = std::get<3>(m_ABCTonesvector[i][j]);
-              int tonepitch = std::get<4>(m_ABCTonesvector[i][j]);
+         //     int midichannel = std::get<3>(m_ABCTonesvector[i][j]);
+          //    int tonepitch = std::get<4>(m_ABCTonesvector[i][j]);
 
              // if (AudioBuffer.size() < samplelength ) AudioBuffer.resize(samplelength);
 
