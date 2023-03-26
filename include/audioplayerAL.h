@@ -311,7 +311,7 @@ void AudioPlayerAL::Seek(float f)
    {
       trackpositions[i]=0;
       // we skip ahead in time
-      while (( trackpositions[i] < static_cast<int>(m_ABCTonesvector[i].size())  ) && ( std::get<0>(m_ABCTonesvector[i][trackpositions[i]]) < st  ))
+      while (( trackpositions[i] < m_ABCTonesvector[i].size()  ) && ( static_cast<uint64_t>(std::get<0>(m_ABCTonesvector[i][trackpositions[i]])) < st  ))
       {
          trackpositions[i]++;
       }
@@ -326,8 +326,8 @@ float AudioPlayerAL::Position()
 
     for (size_t i = 0; i < trackpositions.size(); i++)
     {
-        if (  std::get<0>(m_ABCTonesvector[i][trackpositions[i]]) > position ) position = std::get<0>(m_ABCTonesvector[i][trackpositions[i]]);
-        if (  std::get<0>(m_ABCTonesvector[i][m_ABCTonesvector[i].size()-1]) > ending ) ending = std::get<0>(m_ABCTonesvector[i][m_ABCTonesvector[i].size()-1]);
+        if (  static_cast<uint64_t>(std::get<0>(m_ABCTonesvector[i][trackpositions[i]])) > position ) position = std::get<0>(m_ABCTonesvector[i][trackpositions[i]]);
+        if (  static_cast<uint64_t>(std::get<0>(m_ABCTonesvector[i][m_ABCTonesvector[i].size()-1])) > ending ) ending = std::get<0>(m_ABCTonesvector[i][m_ABCTonesvector[i].size()-1]);
     }
     return (1.0f * position)/ending;
 }
@@ -407,7 +407,7 @@ void AudioPlayerAL::PlayLoop()
            // if (std::get<0>(m_ABCTonesvector[i][trackpositions[i]]) >= st)
 
            // we take the next couple of tones in this track that had to be played
-           while ((trackpositions[i] < static_cast<int>(m_ABCTonesvector[i].size())) && ( std::get<0>(m_ABCTonesvector[i][trackpositions[i]]) < static_cast<int64_t>(st+dt)  ))
+           while ((trackpositions[i] < m_ABCTonesvector[i].size()) && ( std::get<0>(m_ABCTonesvector[i][trackpositions[i]]) < static_cast<int64_t>(st+dt)  ))
            {
 
                int instrument = std::get<3>(m_ABCTonesvector[i][trackpositions[i]]);
@@ -526,6 +526,8 @@ AudioPlayerAL::~AudioPlayerAL()
 	alcMakeContextCurrent(NULL);
 	alcDestroyContext(context);
 	alcCloseDevice(device);
+    if ( &OV_CALLBACKS_DEFAULT == &OV_CALLBACKS_NOCLOSE ) {};
+    if ( &OV_CALLBACKS_STREAMONLY_NOCLOSE == &OV_CALLBACKS_STREAMONLY ) {};
 }
 
 void AudioPlayerAL::Initialize(float volume, int panning)
@@ -677,14 +679,16 @@ std::vector<uint8_t> AudioPlayerAL::snd_load_file(FILE * oggFile ){
 	//FILE*           oggFile;
 	OggVorbis_File  oggStream;
 	vorbis_info*    vorbisInfo;
-	vorbis_comment* vorbisComment;
+
+	//vorbis_comment* vorbisComment;
+
 	ALenum format;
-	uint32_t BUFFER_SIZE = 4096;
+	uint32_t BUFFER_SIZE = 8*4096;
 
 	int result = ov_open(oggFile, &oggStream, NULL, 0);
 
 	vorbisInfo = ov_info(&oggStream, -1);
-	vorbisComment = ov_comment(&oggStream, -1);
+	//vorbisComment = ov_comment(&oggStream, -1);
 
 	if(vorbisInfo->channels == 1)
 		format = AL_FORMAT_MONO16;

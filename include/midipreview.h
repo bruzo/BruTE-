@@ -126,7 +126,7 @@ void MidiPreview::GeneratePreviewMidi(std::stringstream * abctext, int64_t buffe
    for (size_t i = 0; i < m_WavPannings.size(); i++)
        m_WavPannings[i]=64;
 
-   short myBuffer[ 44100*3 ]; //synthesize buffer for 3 seconds
+//   short myBuffer[ 44100*3 ]; //synthesize buffer for 3 seconds
 
 
    std::vector<std::string> ABCTracks = ABCTextArray(ABCString); // Cut down the text into ABC parts
@@ -260,7 +260,7 @@ void MidiPreview::GeneratePreviewMidi(std::stringstream * abctext, int64_t buffe
            //     (currenttime / 2) * 44100 in samples
 
 
-           int64_t currentsampleposition = int64_t(currenttime*0.5 * 44100);
+         //  int64_t currentsampleposition = int64_t(currenttime*0.5 * 44100);
            int64_t currentbuffer = int64_t(myduration * 0.5 * 44100);
 
            // we only render if this had a duration
@@ -269,7 +269,7 @@ void MidiPreview::GeneratePreviewMidi(std::stringstream * abctext, int64_t buffe
 
 
           //    tsf_render_short(TinySoundFont, myBuffer, int(currentbuffer), 0);  // render this duration
-
+/*
               for (int64_t cp = 0; cp < currentbuffer; cp++){
                  // m_WavStreams[mytracknumber][currentsampleposition + cp] = myBuffer[cp];
 
@@ -284,7 +284,7 @@ void MidiPreview::GeneratePreviewMidi(std::stringstream * abctext, int64_t buffe
                  m_StereoStream[2*cp   +currentsampleposition*2] += int( myBuffer[cp] * weightleft);            // left channel
                  m_StereoStream[2*cp+1 +currentsampleposition*2] += int( myBuffer[cp] * weightright);
 
-              }
+              }*/
            }
 
            currenttime = currenttime + myduration;

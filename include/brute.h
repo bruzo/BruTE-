@@ -97,6 +97,8 @@ public:
 
     void Tonality();
 
+    // list of the pitches used in a track
+    std::vector< std::vector < bool > > m_samplesused;
 
 private:
     // MidiFile instance to deal with the midi file
@@ -163,8 +165,7 @@ private:
     std::vector<int64_t> m_avpitches;
     std::vector<int64_t> m_avpitchc;
 
-    // list of the pitches used in a track
-    std::vector< std::vector < bool > > m_samplesused;
+
 
 
     // pitch bends info
@@ -616,9 +617,11 @@ void Brute::LoadMidi(char * mymidiname)
 
     // Set volumes to normalized max
     for (int i = 0; i < m_Midi.size(); i++)
-        for (unsigned int j = 0; j < m_velocities[i].size(); j++)
+    {
+        #pragma omp simd
+        for (size_t j = 0; j < m_velocities[i].size(); j++)
             m_velocities[i][j] = m_velocities[i][j] - m_globalmaxvel + 127;
-
+    }
     // Prevent Issues with too large Data Structures
     for (size_t i = 0; i < m_tonestarts.size(); i++)
     {
@@ -708,7 +711,7 @@ void Brute::LoadMidi(char * mymidiname)
         lastbest = besttonality;
     }
     // Now we have the tonality of the piece save in m_tonality which can be used for pitchbends and tonality conversion
-    for (size_t i = 0; i < m_tonality.size(); i++) std::cout << "Ton " << i << "  " << m_tonality[i] << std::endl;
+    // for (size_t i = 0; i < m_tonality.size(); i++) std::cout << "Ton " << i << "  " << m_tonality[i] << std::endl;
 }
 
 // Export the out_all.txt file with tone information
@@ -887,7 +890,7 @@ void Brute::GenerateEmptyConfig()
     std::cout << "ABC Style: " << ABCstyle << std::endl;
     std::cout << "Transcriber Name: " << defaulttranscriber << std::endl;
 
-    bool drumsplitting = true;
+    bool drumsplitting = true; if (!drumsplitting) {};
     if (strcmp("nosplit", defaultdrumhandling) >= 0)
         drumsplitting = false;
 
@@ -1111,11 +1114,12 @@ int Brute::Tonality_Pitch_Rounded(int mypitch, double rpitch, double timep)
 
     int roundedpitch = static_cast<int>(std::round(mypitch+rpitch));
 
-    if ( cmajor[ (roundedpitch+12)%12 ] == 0 )
+    if ( cmajor[ (roundedpitch+12+tonality)%12 ] == 0 )
     {
         if ( rpitch > 0 ) roundedpitch=roundedpitch+1;
         if ( rpitch <= 0  ) roundedpitch=roundedpitch-1;
     }
+
     return roundedpitch;
 }
 
@@ -1192,7 +1196,7 @@ void Brute::CopyMidiInfoToTracks()
 		     } // triller overrides also Pitchbends
 		     else
 		     {
-                if ( m_Mapping.m_pitchbendmap[abctrack][miditrack] > 0.  )
+                if ( m_Mapping.m_pitchbendmethodmap[abctrack][miditrack] > 0  )
                 {  // find first pitchbend that affects this tone .. or none
                    // this is the delta time that the pitchbends act upon
 	               double tdelta =  dzminstep;
@@ -1213,6 +1217,7 @@ void Brute::CopyMidiInfoToTracks()
 
                    mys.resize(0); mys.push_back(tonestart);
                    myv.resize(0); myv.push_back(mypitch);
+                   myvals.push_back(mypitch);
                    myv_ton_round.resize(0); myv_ton_round.push_back(mypitch);
                    myv_ton_trunc.resize(0); myv_ton_trunc.push_back(mypitch);
 
@@ -1221,8 +1226,9 @@ void Brute::CopyMidiInfoToTracks()
                       if (( tonestart <= m_pbt[thismiditrack][i] ) && ( toneend >= m_pbt[thismiditrack][i] ))  // is anything happening while this tone is up?
                       {
                                mybends.push_back(m_pbt[thismiditrack][i]);
-                               int rpitch = static_cast<int>(std::round(   m_pbv[thismiditrack][i] * pmulti ))/pmulti;
-                               myvals.push_back( rpitch );
+                               int rpitch = static_cast<int>(std::round(   m_pbv[thismiditrack][i] ));
+
+                               myvals.push_back( mypitch + static_cast<int>(std::trunc(m_pbv[thismiditrack][i]) ) );
 
                                mys.push_back(m_pbt[thismiditrack][i]);
                                myv.push_back(rpitch + mypitch);
@@ -1233,7 +1239,7 @@ void Brute::CopyMidiInfoToTracks()
                    mys.push_back(toneend);
                    myv.push_back(myv.back());
 
-                   if ( mybends.size() == 0)
+                   if ( mybends.size() == 0) // no bend in this tone, so all is fine
                    {
                       m_pitches2[abctrack][miditrack].push_back(mypitch);
                       m_velocities2[abctrack][miditrack].push_back(myvelocity);
@@ -1242,10 +1248,9 @@ void Brute::CopyMidiInfoToTracks()
                    }
                    else
                    {  // here is some bending going on
-                      if (method == 1)
+                      if (method == 2)
                       {
                          // this deletes all events that don't change the pitch
-
                          size_t k = 1;
                          while ( k < mys.size()-1 )
                          {
@@ -1257,6 +1262,19 @@ void Brute::CopyMidiInfoToTracks()
                                else {k++;}
                          }
 
+                                                  // kick out too short bends
+                         k = 0;
+                         while ( k < mys.size()-1)
+                         {   // if this one is too short we kick it out and shift the next event earlier in time
+                             if ( mys[k+1] - mys[k] < tdelta * pmulti )
+                             {
+                                 myv.erase(myv.begin()+k);
+                                 mys[k+1] = mys[k];
+                                 mys.erase(mys.begin()+k);
+                             }
+                             k++;
+                         }
+
                          //    std::cout << " second eletion " << std::endl;
                          for (size_t k = 0; k+1 < mys.size(); k++)
                          {
@@ -1265,12 +1283,10 @@ void Brute::CopyMidiInfoToTracks()
                              m_tonestarts2[abctrack][miditrack].push_back(mys[k]);
                              m_toneends2[abctrack][miditrack].push_back(mys[k+1]);
                          }
-
                       }
-                      if (method == 2)
+                      if (method == 3)
                       {
                          // this deletes all events that don't change the pitch
-
                          size_t k = 1;
                          while ( k < mys.size()-1 )
                          {
@@ -1280,6 +1296,19 @@ void Brute::CopyMidiInfoToTracks()
                                   mys.erase(mys.begin()+k);
                                }
                                else {k++;}
+                         }
+
+                                                  // kick out too short bends
+                         k = 0;
+                         while ( k < mys.size()-1)
+                         {   // if this one is too short we kick it out and shift the next event earlier in time
+                             if ( mys[k+1] - mys[k] < tdelta * pmulti )
+                             {
+                                 myv_ton_trunc.erase(myv_ton_trunc.begin()+k);
+                                 mys[k+1] = mys[k];
+                                 mys.erase(mys.begin()+k);
+                             }
+                             k++;
                          }
 
                          //    std::cout << " second eletion " << std::endl;
@@ -1292,11 +1321,9 @@ void Brute::CopyMidiInfoToTracks()
                          }
 
                       }
-
-                      if (method == 3)
+                      if (method == 1)
                       {
                          // this deletes all events that don't change the pitch
-
                          size_t k = 1;
                          while ( k < mys.size()-1 )
                          {
@@ -1306,6 +1333,18 @@ void Brute::CopyMidiInfoToTracks()
                                   mys.erase(mys.begin()+k);
                                }
                                else {k++;}
+                         }
+                         // kick out too short bends
+                         k = 0;
+                         while ( k < mys.size()-1)
+                         {   // if this one is too short we kick it out and shift the next event earlier in time
+                             if ( mys[k+1] - mys[k] < tdelta * pmulti )
+                             {
+                                 myv_ton_round.erase(myv_ton_round.begin()+k);
+                                 mys[k+1] = mys[k];
+                                 mys.erase(mys.begin()+k);
+                             }
+                             k++;
                          }
 
                          //    std::cout << " second eletion " << std::endl;
@@ -1319,96 +1358,42 @@ void Brute::CopyMidiInfoToTracks()
 
                       }
 
-                      if (method==0){
-                         // Either we start bended or we don't, if we do we start with the first bend
-                         if (( mybends[0] < tonestart + dzminstep )) mybends[0] = tonestart;
-                         else
+                      if (method == 4)
+                      {
+                         // this deletes all events that don't change the pitch
+                         size_t k = 1;
+                         while ( k < mys.size()-1 )
                          {
-                          // we move the first bend back in time if need be
-                             if (( mybends[0] < tonestart + tdelta )) mybends[0] = tonestart+tdelta;
-
-                             m_pitches2[abctrack][miditrack].push_back(mypitch);
-                             m_velocities2[abctrack][miditrack].push_back(myvelocity);
-                             m_tonestarts2[abctrack][miditrack].push_back(tonestart);
-                             m_toneends2[abctrack][miditrack].push_back(mybends[0]);
-                          }
-                          // Pre-tone is handled now we space out the bends
-                          for ( size_t k = 0; k+1 < mybends.size(); k++)
-                          {
-                             if ( mybends[k] + dzminstep/2 > mybends[k+1] )  // really too short so we skp this one
-                             {
-                                mybends[k] = mybends[k+1];
-                                myvals[k] = myvals[k+1];
-
-                                mybends.erase(mybends.begin()+k+1);
-                                myvals.erase(myvals.begin()+k+1);
-                             }
-                        // else   //  a little too short so we shift the next one a little back
-                        //    if ( mybends[k] + tdelta <= mybends[k+1]  ) mybends[k+1] = mybends[k] + tdelta;
-                          }
-
-
-                          if (mybends.back() < toneend + tdelta/20 )
-                          {
-                             mybends.back() = toneend;
-                          }
-                          else
-                          {
-                             if ( mybends.back() + tdelta < toneend) toneend = mybends.back()+tdelta;
-                          }
-
-                          for ( size_t k = 0; k+1 < mybends.size(); k++)
-                          {
-                             if ( m_pitches2[abctrack][miditrack].size()>0)
-                             {
-                          // only push something if there is a new pitch
-                                if ( m_pitches2[abctrack][miditrack].back() == mypitch + myvals[k] )
-                                {
-                                 // just shift the end of the last tone
-                                   m_toneends2[abctrack][miditrack].back() = mybends[k+1];
-                                }
-                                else
-                        //                            else
-                                {
-                                   m_pitches2[abctrack][miditrack].push_back(mypitch+myvals[k]);
-                                   m_velocities2[abctrack][miditrack].push_back(myvelocity);
-                                   m_tonestarts2[abctrack][miditrack].push_back(mybends[k]);
-                                   m_toneends2[abctrack][miditrack].push_back(mybends[k+1]);
-                                }
-                             }
-                             else
-                             {
-                                m_pitches2[abctrack][miditrack].push_back(mypitch+myvals[k]);
-                                m_velocities2[abctrack][miditrack].push_back(myvelocity);
-                                m_tonestarts2[abctrack][miditrack].push_back(mybends[k]);
-                                m_toneends2[abctrack][miditrack].push_back(mybends[k+1]);
-                             }
-                          }
-                       // add final tone
-                       //if (toneend > mybends.back()+tdelta/20)
-                          {
-                            if (m_pitches2[abctrack][miditrack].size() > 0)
-                            {
-                               if ( m_pitches2[abctrack][miditrack].back() != mypitch + myvals.back() )
+                            if (myvals[k] == myvals[k-1])
                                {
-                                  m_pitches2[abctrack][miditrack].push_back(mypitch + myvals.back());
-                                  m_velocities2[abctrack][miditrack].push_back(myvelocity);
-                                  m_tonestarts2[abctrack][miditrack].push_back(mybends.back());
-                                  m_toneends2[abctrack][miditrack].push_back(toneend);
+                                  myvals.erase(myvals.begin()+k);
+                                  mys.erase(mys.begin()+k);
                                }
-                               else{
-                                  m_toneends2[abctrack][miditrack].back() = toneend;
-                               }
-                            }
-                            else
-                            {
-                                m_pitches2[abctrack][miditrack].push_back(mypitch + myvals.back());
-                                m_velocities2[abctrack][miditrack].push_back(myvelocity);
-                                m_tonestarts2[abctrack][miditrack].push_back(mybends.back());
-                                m_toneends2[abctrack][miditrack].push_back(toneend);
-                            }
-                          }
-                       }
+                               else {k++;}
+                         }
+
+                                                  // kick out too short bends
+                         k = 0;
+                         while ( k < mys.size()-1)
+                         {   // if this one is too short we kick it out and shift the next event earlier in time
+                             if ( mys[k+1] - mys[k] < tdelta * pmulti )
+                             {
+                                 myvals.erase(myvals.begin()+k);
+                                 mys[k+1] = mys[k];
+                                 mys.erase(mys.begin()+k);
+                             }
+                             k++;
+                         }
+
+                         //    std::cout << " second eletion " << std::endl;
+                         for (size_t k = 0; k+1 < mys.size(); k++)
+                         {
+                             m_pitches2[abctrack][miditrack].push_back(myvals[k]);
+                             m_velocities2[abctrack][miditrack].push_back(myvelocity);
+                             m_tonestarts2[abctrack][miditrack].push_back(mys[k]);
+                             m_toneends2[abctrack][miditrack].push_back(mys[k+1]);
+                         }
+                      }
                     }
                  }
                  else
@@ -1686,22 +1671,36 @@ void Brute::MapToRegister2()
                 int pitch;
 
                 // now fold or not fold the pitch into playable region
-                if ( m_Mapping.m_instrumap[abctrack] != 8 )  // don't do this if this is a lotro drum
+                if (m_Mapping.m_directmapping[abctrack][miditrack]>-1)   // now we bypass everything
                 {
+                    if ( m_pitches2[abctrack][miditrack][toneid] == m_Mapping.m_drumsingleinstrument[abctrack][miditrack])
+                    {
+                       pitch = m_Mapping.m_directmapping[abctrack][miditrack];
+                    }
+                    else
+                    {
+                        takethistone = false;
+                    }
+                }
+                else
+                {
+                   if ( m_Mapping.m_instrumap[abctrack] != 8 )  // don't do this if this is a lotro drum
+                   {
                     pitch = m_pitches2[abctrack][miditrack][toneid] + m_Mapping.m_generalpitch + m_Mapping.m_pitchmap[abctrack][miditrack] - octavepitch * 12;
                     while ( pitch < m_Mapping.m_rangemapl[abctrack][miditrack] ) pitch = pitch + 12;
                     while ( pitch > m_Mapping.m_rangemaph[abctrack][miditrack] ) pitch = pitch - 12;
 
                     // here could be the tonality conversion, but will come later!
-                }
-                else
-                {
+                   }
+                   else
+                   {
                     // drums use the mapping
                     pitch = m_Mapping.m_drumsmapd[ m_Mapping.m_drumstylemap[abctrack][miditrack] ][m_pitches2[abctrack][miditrack][toneid]];
 
                     // check for drum sample selection
                     if (m_Mapping.m_drumsingleinstrument[abctrack][miditrack] > 0)
                         if (m_pitches2[abctrack][miditrack][toneid]!=m_Mapping.m_drumsingleinstrument[abctrack][miditrack]) takethistone = false;
+                   }
                 }
 
                 // we have the velocity and the pitch now
@@ -3032,7 +3031,8 @@ void Brute::GenerateNoteSelection2()
                     int scondition =  ( thispart != m_Mapping.m_splitvoicemap[abctrack][miditrack]);
 
                     // default is true, if either this shouldn't be played by alternation or splitting it will be disabled
-                    m_selected[abctrack][miditrack][tonenumber] = true - (( thisoneisalternated * acondition ) || ( thisoneissplitted * scondition ));
+//                    m_selected[abctrack][miditrack][tonenumber] = true - (( thisoneisalternated * acondition ) || ( thisoneissplitted * scondition ));
+                    m_selected[abctrack][miditrack][tonenumber] = true - (( thisoneisalternated && acondition ) || ( thisoneissplitted && scondition ));
 
                     // move a tone further
                     tonenumber++;
@@ -3141,7 +3141,7 @@ void Brute::GenerateNoteSelection()
                     int acondition =  ( eventcounter % alternateparts != alternatepart );
                     int scondition =  ( thispart != m_Mapping.m_splitvoicemap[abctrack][miditrack]);
                                                                 // default is true, if either this shouldn't be played by alternation or splitting it will be disabled
-                    m_selected[abctrack][miditrack][tonenumber] = true - (( thisoneisalternated * acondition ) || ( thisoneissplitted * scondition ));
+                    m_selected[abctrack][miditrack][tonenumber] = true - (( thisoneisalternated && acondition ) || ( thisoneissplitted && scondition ));
 
                     // move a tone further
                     tonenumber++;

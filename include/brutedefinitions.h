@@ -48,6 +48,28 @@
       "no idea","no idea","no idea","no idea","no idea","no idea"
       };
 
+      // C, = 36   C = 48  c = 60      // C-D = 2 // C-E = 4 // C-F = 5 // C-G = 7 // C-A = 9 // C-B =11
+
+      // C, = 0   C = 12 c = 24
+      std::vector<std::string> LotroDrumSampleNames =
+      {
+          "Bass (^G)\t20", "Bass Open (^A)\t22", "Bass Slap 1 (^C)\t13", "Bass Slap 2 (D)\t14", "Bend High Up (f)\t29",
+          "Bend Low Up (d)\t26", "Bend Mid Down (e)\t28", "Bongo High (D,)\t2", "Bongo Low (a)\t33",
+          "Conga High 1 (C,)\t0", "Conga High 2 (^a)\t34", "Conga Low (g)\t31", "Conga Mid (b)\t35",
+          "Muted 1 (F,)\t7", "Muted 2 (^c)\t25", "Muted Mid (C)\t12", "Rattle 1 (G)\t19",
+          "Rattle 2 (B)\t23", "Rattle 3 (c)\t24", "Rattle Long (A)\t21", "Rattle Short 1 (^C,)\t1",
+          "Rattle Short 2 (^F,)\t6", "Rattle Short 3 (^G,)\t8", "Rim Shot 1 (^D)\t15", "Rim Shot 2 (F)\t17",
+          "Slap 1 (^D,)\t3", "Slap 2 (E,)\t4", "Slap 3 (E)\t14", "Slap 4 (^F)\t 18",
+          "Slap 5 (^f)\t30", "Slap 6 (^g)\t32", "Slap 7 (c')\t36",
+          "Tambourine (^A,)\t10", "Tom High 1 (G,)\t7", "Tom High 2 (A,)\t9", "Tom Mid 1 (B,)\t11", "Tom Mid 2 (^d)\t27"
+      };
+
+      std::vector<std::string> ABCStyleNames =
+      {
+          "rocks",
+          "TSO"
+      };
+
     // Default Mapping of Midi Instruments to Lotro Instruments
     unsigned int miditolotro[128] = {
     /* Pianos  0 - 8 */  0,1,0,1,0,0,1,1, /* Chromatic Percussion 9-16 */ 1,1,1,1,1,1,1,1, /* Organ  17-24   */ 4,4,4,6,6,6,6,6,
@@ -57,6 +79,31 @@
     /* Synth   97-104*/  1,0,1,1,1,1,1,1, /* Ethnic 105-112            */ 1,0,0,0,1,6,6,6, /* Perc. 113-120  */ 0,0,0,0,2,2,2,1,
     /* Sound effects 121-128 */ 9,9,10,9,9,9,9,9};
     const int nInstruments = 22;
+
+    std::vector<std::string> rockstyleinstrumentnames =
+    {
+        "lute of ages", "basic harp", "theorbo", "horn", "clarinet", "flute", "bagpipes", "pipgorn", "drums",
+     //      0      1        2         3         4          5        6           7         8
+           "basic cowbell", "moor cowbell", "basic lute", "misty harp", "student fiddle", "lm fiddle", "sprightly fiddle", "travel fiddle", "bardic fiddle",
+     //      9          10                 11            12         13          14           15         16          17
+           "basic fiddle", "basic bassoon", "lm bassoon", "bruesque bassoon"
+    };
+
+    std::vector<std::string> TSOtyleinstrumentnames =
+    {
+        "Lute of the Ages", "Basic Harp", "Basic Theorbo", "Basic Horn", "Basic Clarinet", "Basic Flute", "Bagpipes", "Pipgorn", "Drums",
+     //      0      1        2         3         4          5        6           7         8
+        "Basic Cowbell", "Moor Cowbell", "Basic Lute", "Misty M Harp", "Student Fiddle", "Lonely M Fiddle", "Sprightly Fiddle", "Travel. T. Fiddle", "Bardic Fiddle",
+     //      9          10                 11            12         13          14           15         16          17
+        "Basic Fiddle", "Basic Bassoon", "Lonely M Bassoon", "Bruesque Bassoon"
+    };
+
+    std::vector<std::vector<std::string>> abcnamingstyleinstrumentnames =
+    {
+        rockstyleinstrumentnames, TSOtyleinstrumentnames
+    };
+
+
     std::string lotroinstruments[22] =
           {"lute", "harp", "theorbo", "horn", "clarinet", "flute", "bagpipes", "pipgorn", "drums",
      //      0      1        2         3         4          5        6           7         8

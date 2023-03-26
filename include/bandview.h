@@ -18,6 +18,7 @@
 #include "miditrackview.h"
 #include "abcheader.h"
 #include "gainsettingsdialogue.h"
+#include "abcsettingsdialogue.h"
 
 
 /* m_directmapping  .. to map one input pitch to one specific output pitch .. for cowbell, student fiddle and very custom drum mapping */
@@ -105,6 +106,10 @@ public:
 
     bool m_ABCMODE = false;
     bool m_MIDIMODE = true;
+
+private:
+
+    int m_ABCnamingscheme = 0;
 
     // some useful events
     /*
@@ -230,6 +235,8 @@ void BandView::LiveUpdateAudio()
         bvmappingtext << std::endl;
 
         bvmappingtext << "panning " <<  -int( 100 * ((BVabctracks[i].x-100)/590.0 - 0.5)   ) << "  " << BVabctracks[i].y  << "  " << BVabctracks[i].id << std::endl;
+
+
         if (BVabctracks[i].instrument != 8) // for all instruments except drums we can just write the instrument
         {
          bvmappingtext << "instrument " << lotroinstruments[BVabctracks[i].instrument] << std::endl;
@@ -254,10 +261,14 @@ void BandView::LiveUpdateAudio()
             bvmappingtext << "split " << BVabctracks[i].miditrackinfo[j].split << std::endl;
            if (BVabctracks[i].miditrackinfo[j].triller > 0.01)
             bvmappingtext << "triller " << BVabctracks[i].miditrackinfo[j].triller << std::endl;
-           if (BVabctracks[i].miditrackinfo[j].pitchbendqduration > 0)
+           if (BVabctracks[i].miditrackinfo[j].pitchbendmethod > 0)
             bvmappingtext << "pitchbendinfo " << BVabctracks[i].miditrackinfo[j].pitchbendqduration  << "  "  << BVabctracks[i].miditrackinfo[j].pitchbendmethod << std::endl;
            if (BVabctracks[i].miditrackinfo[j].durationsplitlength > 0)
             bvmappingtext << "durationsplit " << BVabctracks[i].miditrackinfo[j].durationsplitlength << "  "  << BVabctracks[i].miditrackinfo[j].durationsplitpart << std::endl;
+           if (BVabctracks[i].miditrackinfo[j].directmapping > -1)
+           {
+               bvmappingtext << "directmapping " << BVabctracks[i].miditrackinfo[j].drumtone << "  " << BVabctracks[i].miditrackinfo[j].directmapping << std::endl;
+           }
            if ((midioriginal >= 0)&&(midioriginal < 128))
             bvmappingtext << "% Miditrack original Instrument " << GMinstrument[ midioriginal ] << std::endl;
            bvmappingtext << "miditrack " << BVabctracks[i].miditrackinfo[j].miditrack << " pitch " << BVabctracks[i].miditrackinfo[j].pitch << " volume " << BVabctracks[i].miditrackinfo[j].volume << " delay " << BVabctracks[i].miditrackinfo[j].delay << " prio 1" << std::endl;
@@ -325,6 +336,9 @@ void BandView::GetMapping()
             newmiditrack.durationsplitpart = myBrute->m_Mapping.m_durationsplitpartmap[i][j];
 
             newmiditrack.haspitchbends = (myBrute->m_pitchbendcounter[newmiditrack.miditrack] > 0);
+            newmiditrack.directmapping = myBrute->m_Mapping.m_directmapping[i][j];
+            newmiditrack.drumtone      = myBrute->m_Mapping.m_drumsingleinstrument[i][j];
+            newmiditrack.samples = &myBrute->m_samplesused[ myBrute->m_Mapping.m_trackmap[i][j] ];
 
             BVabctracks[i].miditrackinfo.push_back(newmiditrack);
         }
@@ -750,11 +764,14 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
 
 
         // clicking ABC settings
-    if ((mouseX>450) && (mouseY > 530) && (mouseX < 435) && (mouseY < 540))    // 157 + 100
+    if ((mouseX>450) && (mouseY > 505) && (mouseX < 530) && (mouseY < 540))    // 157 + 100
     {
         if (myBrute->DoIHaveAMidi())
         {
-            // std::cout << " ABC save clicked " << std::endl;
+            std::cout << " ABC settings clicked " << std::endl;
+            //
+            ABCSettingsDialogue * abcsettings = new ABCSettingsDialogue(   &m_ABCnamingscheme  );
+            if (abcsettings == NULL) {};
         }
     }
  }
@@ -777,10 +794,15 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
          //    BVabctracks[mypossibleABCtrack].miditracks.push_back(miditrackclickednumber);
              BandViewMidiTrack newtrack;
              newtrack.miditrack = miditrackclickednumber;
-             newtrack.midiinstrument = myBrute->GetMidiInstrument(miditrackclickednumber);
+             newtrack.midiinstrument = myBrute->GetMidiInstrument( miditrackclickednumber );
              newtrack.isdrum = myBrute->GetMidiIsDrum(miditrackclickednumber);
-             BVabctracks[mypossibleABCtrack].miditrackinfo.push_back(newtrack);
              newtrack.haspitchbends = (myBrute->m_pitchbendcounter[newtrack.miditrack] > 0);
+             newtrack.samples = &myBrute->m_samplesused[ miditrackclickednumber ];
+             BVabctracks[mypossibleABCtrack].miditrackinfo.push_back(newtrack);
+
+
+             std::cout << " Added Miditrack to ABCtrack " << mypossibleABCtrack << "  Midi " << miditrackclickednumber << std::endl;
+
              miditrackclicked = false;
              this->Refresh();
              //LiveUpdateAudio();
@@ -1075,7 +1097,7 @@ void BandView::GenerateConfigHeader()
         newdefaultsfile << "Himbeertony" << std::endl;
         newdefaultsfile.close();
     }
-    bool drumsplitting = true;
+    bool drumsplitting = true; if (drumsplitting == false ) {};
     if (strcmp("nosplit", defaultdrumhandling) >= 0)
         drumsplitting = false;
 

@@ -620,6 +620,9 @@ if (thisline.size() > 0)
                 if (m_minstrument == 8) m_drumstyle = atoi(thisline[2].c_str());
              }
              if ( thisline.size() > 3 )
+             {
+
+
                 if (m_minstrument ==8)
                 {
                    if ( thisline[3] == "c" ) { m_drumforcowbell = 1; }
@@ -637,6 +640,7 @@ if (thisline.size() > 0)
                        }
                    }
                 }
+             }
          }
          if (thisline[0] == "duration")
          {
@@ -702,6 +706,12 @@ if (thisline.size() > 0)
              m_arpeggioduration = atoi( thisline[1].c_str() );
              if (m_arpeggioduration == 1) m_arpeggioduration = 2;
              if (thisline.size() > 2) m_arpeggioinc = atoi(thisline[2].c_str());
+         }
+
+         if (thisline[0] == "directmapping")
+         {
+             m_in_midi_drum = atoi( thisline[1].c_str());
+             m_direct = atoi( thisline[2].c_str());
          }
 
          if (thisline[0] == "miditrack")
@@ -1137,10 +1147,12 @@ if (thisline.size() > 0)
              for (int j = 0; j < nInstruments; j++) if ( thisline[1] == lotroinstruments3[j])
                 m_minstrument = j;
 
-             if ( thisline.size() > 2 ){
+             if ( thisline.size() > 2 )
+             {
                 if (m_minstrument == 8) m_drumstyle = atoi(thisline[2].c_str());
              }
              if ( thisline.size() > 3 )
+             {
                 if (m_minstrument ==8)
                 {
                    if ( thisline[3] == "c" ) { m_drumforcowbell = 1; }
@@ -1158,6 +1170,7 @@ if (thisline.size() > 0)
                        }
                    }
                 }
+             }
          }
          if (thisline[0] == "duration")
          {
@@ -1220,6 +1233,13 @@ if (thisline.size() > 0)
              if (thisline.size() > 2) m_arpeggioinc = atoi(thisline[2].c_str());
          }
 
+         if (thisline[0] == "directmapping")
+         {
+             m_in_midi_drum = atoi( thisline[1].c_str());
+             m_direct = atoi( thisline[2].c_str());
+         }
+
+
          if (thisline[0] == "miditrack")
          {
              m_itrackvoices = AppendI(m_itrackvoices, m_ivoices);
@@ -1250,6 +1270,8 @@ if (thisline.size() > 0)
              m_trillerfreq = 0;
              m_pitchbendfreq = 0;
              m_pitchbendmethod = 0;
+             m_in_midi_drum = 0;
+             m_direct = -1;
 
              if (thisline.size() > 6)
              {

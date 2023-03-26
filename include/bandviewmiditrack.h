@@ -29,6 +29,11 @@ public:
 
     int durationsplitlength = 0;
     int durationsplitpart = 0;
+
+    int directmapping = -1;
+    int drumtone = -1;
+
+    std::vector < bool > * samples;
 };
 
 #endif
