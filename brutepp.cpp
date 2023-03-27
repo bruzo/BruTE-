@@ -247,7 +247,7 @@ void Notepad::OnWavRender(wxCommandEvent &event)
     if (myBrute->DoIHaveAMidi() && myBrute->DoIHaveAMap())
     {
        myBrute->GenerateABC();
-       myMidiPreview->GeneratePreviewMidi(&myBrute->m_ABCText, int64_t( myBrute->m_globalmaxtick/0.36) );
+   //    myMidiPreview->GeneratePreviewMidi(&myBrute->m_ABCText, int64_t( myBrute->m_globalmaxtick/0.36) );
       // myaudioplayer->Play();
       myaudioplayerAL->SendABC(&myBrute->m_ABCText);
       myaudioplayerAL->Play();
@@ -299,7 +299,8 @@ void Notepad::EmptyMap()
 // Take the text from the m_Mappingtext to the Notepad
 void Notepad::OnUpdateMap(wxCommandEvent &event)
 {
-    myBrute->GenerateEmptyConfig();   // this is just a placeholder real deal should come from bandview
+    //this->bandview->MakeMappingHeader();  // myBrute->GenerateEmptyConfig();   // this is just a placeholder real deal should come from bandview
+    this->bandview->GenerateConfigHeader();
     this->bandview->AppendMapping();  // as Bandview has a pointer to myBrute it can add the mapping text to the map itself
 
     this->text->Clear();
