@@ -41,6 +41,7 @@ public:
     void DrawABCTracks(wxDC& dc);
 
     void AppendMapping();   // this will write the mapping info into the brute instance
+
     void GetMapping();
     void GenerateConfigHeader();
 
@@ -110,6 +111,7 @@ public:
 private:
 
     int m_ABCnamingscheme = 0;
+    std::string Transcriber = "Himbeertony";
 
     // some useful events
     /*
@@ -199,7 +201,7 @@ void BandView::LiveUpdateAudio()
 {
    if ( myaudioplayerAL->audio_playing == 1 )   // check if we are playing
    {
-      myBrute->GenerateEmptyConfig();
+      GenerateConfigHeader();
       AppendMapping();
       myBrute->Transcode(&myBrute->m_MappingText);
       int64_t realduration;
@@ -207,6 +209,8 @@ void BandView::LiveUpdateAudio()
       myaudioplayerAL->UpdateABC(&myBrute->m_ABCText);
    }
 }
+
+
 
  void BandView::AppendMapping()
  {
@@ -635,18 +639,21 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
         if (myBrute->DoIHaveAMidi())
         {
 
-            myBrute->GenerateEmptyConfig();   // this is just a placeholder real deal should come from bandview
+            GenerateConfigHeader();
             AppendMapping();
 
+
             myBrute->Transcode(&myBrute->m_MappingText);
+
 
 //            myMidiPreview->GeneratePreviewMidi(&myBrute->m_ABCText, int64_t( myBrute->m_globalmaxtick/0.36) );
             int64_t realduration;
             myMidiPreview->GeneratePreviewMidi2(&myBrute->m_ABCText, &realduration );
 
-
             myaudioplayerAL->SendABC(&myBrute->m_ABCText);
+
             myaudioplayerAL->Play();
+
             myaudioplayerAL->audio_playing = 1;
 
             this->Refresh();
@@ -671,14 +678,14 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
           // this->myBrute = new(Brute);
            myBrute->LoadMidi(cstring);  // this loads the midi into the Brute instance
         }
-        myBrute->GenerateEmptyConfig();
+        GenerateConfigHeader();
         Refresh();
     }
 
     if ((mouseX>100) && (mouseY > 505) && (mouseX < 135) && (mouseY < 540))
     {
         // clear arrangement
-        myBrute->GenerateEmptyConfig();
+        GenerateConfigHeader();
         myBrute->ParseConfig(&myBrute->m_MappingText);
         GetMapping();
         Refresh();
@@ -770,7 +777,7 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
         {
             std::cout << " ABC settings clicked " << std::endl;
             //
-            ABCSettingsDialogue * abcsettings = new ABCSettingsDialogue(   &m_ABCnamingscheme  );
+            ABCSettingsDialogue * abcsettings = new ABCSettingsDialogue(   &m_ABCnamingscheme , &myABCHeader );
             if (abcsettings == NULL) {};
         }
     }
@@ -1060,7 +1067,6 @@ void BandView::DrawABCTracks(wxDC& dc)
    }
 }
 
-
 void BandView::GenerateConfigHeader()
 {
     myBrute->m_MappingText.str(std::string());
@@ -1107,7 +1113,7 @@ void BandView::GenerateConfigHeader()
 
     // remark .. think about adding compressor values!!!
 
-    myBrute->m_MappingText << "Style: " << ABCstyle << "  % Defaults for -a rock and a hard place-, others: TSO, Meisterbarden, Bara" << std::endl;
+    myBrute->m_MappingText << "Style: " << ABCStyleNames[ m_ABCnamingscheme ] << "  % Defaults for -a rock and a hard place-, others: TSO, Meisterbarden, Bara" << std::endl;
     myBrute->m_MappingText << "Volume: " << myABCHeader.globalvolume << "       % scaled, midi volume was " << myBrute->GetGlobalMaxVel() - 254 << std::endl;
 
     myBrute->m_MappingText << "Compress: 1.0" << "   % default : midi dynamics, between 0 and 1: smaller loudness differences, >1: increase loudness differences" << std::endl;
@@ -1117,6 +1123,7 @@ void BandView::GenerateConfigHeader()
     myBrute->m_MappingText << "Transcriber " << myABCHeader.Transcriber << std::endl;
     myBrute->m_MappingText << std::endl;
     myBrute->m_MappingText << std::endl;
+
 }
 
 void BandView::render(wxDC&  dc)

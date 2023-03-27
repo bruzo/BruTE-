@@ -161,6 +161,8 @@ private:
 
     int64_t m_verylasttonestart;
 
+    int64_t m_abcduration;
+
     // pitch statistics
     std::vector<int64_t> m_avpitches;
     std::vector<int64_t> m_avpitchc;
@@ -201,6 +203,7 @@ private:
     void Short_following_long(int abctrack);
     void Two_shorts(int abctrack);
     void Check_For_Situation(int abctrack);
+    void CheckForInialShortTone();
 
     int m_corrections;
     bool m_done;
@@ -311,6 +314,7 @@ void Brute::Transcode(std::stringstream * mapping)
        // Make sure we really have it all!
        if (!AllChordsOK()){
                 std::cout << " we didn't catch everything, trying one more time " << std::endl;
+                CheckForInialShortTone();
                 CompensateEasy();
                 if (!AllChordsOK()) std::cout << " we still didn't catch everything .. ABC is garbage!!! " << std::endl;
        }
@@ -664,7 +668,7 @@ void Brute::LoadMidi(char * mymidiname)
     for (size_t i = 0; i < m_tonestarts.size(); i++)
        if ( mylasttone < m_toneends[i].back()) mylasttone = m_toneends[i].back();
 
-    m_mylasttone = mylasttone;
+    m_mylasttone = mylasttone / (timetoticks * 26460.0);
 
 
     // Determine granularity of the tone histogram and reserve the space
@@ -880,7 +884,7 @@ void Brute::GenerateEmptyConfig()
         std::ofstream newdefaultsfile;
         newdefaultsfile.open("default.config");
         newdefaultsfile << "Drums: 0 nosplit" << std::endl;
-        newdefaultsfile << "Style: Rocks" << std::endl;
+        newdefaultsfile << "Style: Rocks"  << std::endl;
         newdefaultsfile << "Transcriber:" << std::endl;
         newdefaultsfile << "Himbeertony" << std::endl;
         newdefaultsfile.close();
@@ -900,7 +904,7 @@ void Brute::GenerateEmptyConfig()
 
     // remark .. think about adding compressor values!!!
 
-    m_MappingText << "Style: " << ABCstyle << "  % Defaults for -a rock and a hard place-, others: TSO, Meisterbarden, Bara" << std::endl;
+    m_MappingText << "Style: " << ABCStyleNames[m_Mapping.m_namingscheme] << "  % Defaults for -a rock and a hard place-, others: TSO, Meisterbarden, Bara" << std::endl;
     m_MappingText << "Volume: 0" << "       % scaled, midi volume was " << m_globalmaxvel - 254 << std::endl;
 
     m_MappingText << "Compress: 1.0" << "   % default : midi dynamics, between 0 and 1: smaller loudness differences, >1: increase loudness differences" << std::endl;
@@ -2543,10 +2547,35 @@ void Brute::Check_For_Situation(int abctrack)
     }
 }
 
+void Brute::CheckForInialShortTone()
+{
+    int abctracks = static_cast<int> ( m_Mapping.m_instrumap.size());
+    double tooshort = 2.0;
+    for (int abctrack=0; abctrack < abctracks; abctrack++)
+    {
+        std::list<ChordL>::iterator current = m_chordlists[abctrack].begin();
+        if (current->duration < tooshort)  tooshort = current->duration;
+    }
+
+    if (tooshort < 2.0)
+    {
+     for (int abctrack=0; abctrack < abctracks; abctrack++)
+     {
+        std::list<ChordL>::iterator current = m_chordlists[abctrack].begin();
+        current->duration += tooshort;
+     }
+    }
+
+}
+
 void Brute::Check_for_too_long_tones()
 {
     int abctracks = static_cast<int> ( m_Mapping.m_instrumap.size());
     m_log << "Checking for max duration." << std::endl;
+
+    std::vector<int64_t> finalevent;
+    finalevent.resize(abctracks);
+    for (int i = 0; i < abctracks; i++) finalevent[i] = 0;
 
     #pragma omp parallel for
     for (int abctrack=0; abctrack < abctracks; abctrack++)
@@ -2559,6 +2588,7 @@ void Brute::Check_for_too_long_tones()
 
         while (current != m_chordlists[abctrack].end())
         {
+            finalevent[abctrack] += current->duration;
             if (current->duration > 64*4)
             {
                 // create a new chord that is only continued, make this one shorter and insert new chord
@@ -2585,6 +2615,11 @@ void Brute::Check_for_too_long_tones()
             }
         }
     }
+
+    int64_t maxduration = 0;
+    for (size_t i = 0; i < finalevent.size(); i++) if (finalevent[i]> maxduration) maxduration = finalevent[i];
+
+    m_abcduration = maxduration;
 }
 
 
@@ -2720,7 +2755,6 @@ bool Brute::AllChordsOK()
         {
             if (current->duration < 2.0)
             {
-            //    #pragma omp atomic
                 returnvalue = false;
             }
             current++;
@@ -2880,21 +2914,108 @@ void Brute::GenerateABC()
     m_ABCText << "% Transcribed by " << m_Mapping.m_transcribername << std::endl;
     m_ABCText << std::endl;
 
+    size_t ABCstyle = m_Mapping.m_namingscheme;
+
+    int durationseconds = static_cast<int>(m_mylasttone)  ;
+    int durationminutes= durationseconds/60;
+    durationseconds = durationseconds%60;
+
+    std::string durstring = std::to_string(durationminutes)+":";
+    if (durationseconds<10) durstring += "0";
+    durstring+=std::to_string(durationseconds);
+
+    std::vector< int > StyleParts;
+    std::vector< int > StyleOrder = {};
+   // std::vector< size_t > StyleToABC; StyleToABC.resize(300); for (size_t i = 0; i < StyleToABC.size(); i++) StyleToABC[i]=0;
+
+    if (ABCstyle == 1)
+    {
+        StyleParts.resize(300); for (size_t i = 0; i < StyleParts.size(); i++) StyleParts[i]=-1;
+        for (int abctrack = 0; abctrack < abctracks; abctrack++)
+        {
+            int thisinstrument = m_Mapping.m_instrumap[abctrack];
+            int thispartnumber = lotroinstrumentadd[thisinstrument];
+            while ( StyleParts[thispartnumber] != -1) thispartnumber++;
+            StyleParts[thispartnumber] = abctrack;   // now we know which X:   refers to which abctrack number
+            std::cout << " Adding to " << thispartnumber << "  " << abctrack << std::endl;
+        }
+
+        for (size_t i = 0; i < StyleParts.size(); i++)
+        {
+            if (StyleParts[i] > -1)
+                StyleOrder.push_back(i);
+        }
+        std::cout << "Style Order Size " << StyleOrder.size() << std::endl;
+    }
+
+    if (ABCstyle == 2)
+    {
+        StyleParts.resize(300); for (size_t i = 0; i < StyleParts.size(); i++) StyleParts[i]=-1;
+        for (int abctrack = 0; abctrack < abctracks; abctrack++)
+        {
+            int thisinstrument = m_Mapping.m_instrumap[abctrack];
+            int thispartnumber = bardeninstrumentadd[thisinstrument];
+            while ( StyleParts[thispartnumber] != -1) thispartnumber++;
+            StyleParts[thispartnumber] = abctrack;   // now we know which X:   refers to which abctrack number
+            std::cout << " Adding to " << thispartnumber << "  " << abctrack << std::endl;
+        }
+
+        for (size_t i = 0; i < StyleParts.size(); i++)
+        {
+            if (StyleParts[i] > -1)
+                StyleOrder.push_back(i);
+        }
+        std::cout << "Style Order Size " << StyleOrder.size() << std::endl;
+    }
+
+
+
+
     for (int abctrack=0; abctrack < abctracks; abctrack++)
     {
+      int curabctrack = abctrack;
+
+      if ( ABCstyle == 0)    // rocks!
+      {
         // header
         m_ABCText << "X:" << abctrack+1 << std::endl;
-        m_ABCText << "T: " << m_Mapping.m_songname  << " part " << abctrack+1 << "/" << abctracks << " [" << lotroinstruments[m_Mapping.m_instrumap[abctrack]] << "]" << std::endl;
-        m_ABCText << "Z: Transcribed with BruTE " << m_Mapping.m_panningmap[abctrack] << "  " << m_Mapping.m_zpanningmap[abctrack] << "  " << m_Mapping.m_idmap[abctrack] << std::endl;
+        // m_ABCText << "T: " << m_Mapping.m_songname  << " part " << abctrack+1 << "/" << abctracks << " [" << lotroinstruments[ m_Mapping.m_instrumap[abctrack] ] << "]" << std::endl;
+        m_ABCText << "T: " << m_Mapping.m_songname  << " " << abctrack+1 << "/" << abctracks << " [" << abcnamingstyleinstrumentnames[ABCstyle][ m_Mapping.m_instrumap[abctrack] ] << "] " <<  durstring << std::endl;
+
+
+        m_ABCText << "Z: Transcribed with BruTE " << m_Mapping.m_panningmap[abctrack] << " " << m_Mapping.m_zpanningmap[abctrack] << " " << m_Mapping.m_idmap[abctrack] << std::endl;
         m_ABCText << "L: 1/4" << std::endl;
         m_ABCText << "Q: 125" << std::endl;
         m_ABCText << "K: C" << std::endl;
+      }
+
+      if (ABCstyle == 1)  // TSO
+      {
+          curabctrack = StyleParts[StyleOrder[abctrack]];
+          m_ABCText << "X:" << StyleOrder[abctrack] << std::endl;
+          m_ABCText << "T: " << m_Mapping.m_songname << " " << abcnamingstyleinstrumentnames[ABCstyle][   m_Mapping.m_instrumap[  StyleParts[StyleOrder[abctrack]] ]   ] << " " <<  durstring << std::endl;
+          m_ABCText << "Z: Transcribed with BruTE " << m_Mapping.m_panningmap[curabctrack] << " " << m_Mapping.m_zpanningmap[curabctrack] << " " << m_Mapping.m_idmap[curabctrack] << std::endl;
+          m_ABCText << "L: 1/4" << std::endl;
+          m_ABCText << "Q: 125" << std::endl;
+          m_ABCText << "K: C" << std::endl;
+
+      }
+      if (ABCstyle == 2) // Meisterbarden
+      {
+          curabctrack = StyleParts[StyleOrder[abctrack]];
+          m_ABCText << "X:" << StyleOrder[abctrack] << std::endl;
+          m_ABCText << "T: " << m_Mapping.m_songname << " " << abcnamingstyleinstrumentnames[ABCstyle][   m_Mapping.m_instrumap[  StyleParts[StyleOrder[abctrack]] ]   ] << " " <<  durstring << std::endl;
+          m_ABCText << "Z: Transcribed with BruTE " << m_Mapping.m_panningmap[curabctrack] << " " << m_Mapping.m_zpanningmap[curabctrack] << " " << m_Mapping.m_idmap[curabctrack] << std::endl;
+          m_ABCText << "L: 1/4" << std::endl;
+          m_ABCText << "Q: 125" << std::endl;
+          m_ABCText << "K: C" << std::endl;
+      }
 
         std::list<ChordL>::iterator current;
-        current = m_chordlists[abctrack].begin();
+        current = m_chordlists[curabctrack].begin();
         int currentvelocity = -1;
 
-        while ( current != m_chordlists[abctrack].end())
+        while ( current != m_chordlists[curabctrack].end())
         {
 
             int wantedvelocity = int( (   ( ( current->velocity-127) * m_Mapping.m_volumecompress + m_Mapping.m_globalvolume+127) /9.0 -5.7)*0.77 + 1.5);
@@ -2919,7 +3040,7 @@ void Brute::GenerateABC()
                     m_ABCText << pitchnames[*npitch] << current->length << "/" << current->denominator;
                     next = current;
                     next++;
-                    if (next != m_chordlists[abctrack].end())
+                    if (next != m_chordlists[curabctrack].end())
                     {
                         bool minusalreadyadded = false;
                         for (std::list<int>::iterator nextcpitch = next->cpitches.begin(); (nextcpitch != next->cpitches.end() && !minusalreadyadded); nextcpitch++)
@@ -2937,7 +3058,7 @@ void Brute::GenerateABC()
                     m_ABCText << pitchnames[*cpitch] << current->length << "/" << current->denominator;
                     next = current;
                     next++;
-                    if (next != m_chordlists[abctrack].end())
+                    if (next != m_chordlists[curabctrack].end())
                     {
                         bool minusalreadyadded = false;
                         for (std::list<int>::iterator nextcpitch = next->cpitches.begin(); (nextcpitch != next->cpitches.end()&& !minusalreadyadded); nextcpitch++)
@@ -2952,12 +3073,11 @@ void Brute::GenerateABC()
                 }
                 m_ABCText << "]" << std::endl;
             }
-
-
             current++;
         }
         m_ABCText << std::endl;
     }
+    m_ABCText << std::endl;
 }
 
 void Brute::ExportABC(char * abcfilename)

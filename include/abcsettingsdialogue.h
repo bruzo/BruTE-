@@ -2,12 +2,13 @@
 #define ABCSETTINGSDIALOGUE_H_INCLUDED
 
 #include "brutedefinitions.h"
+#include "abcheader.h"
 
 
 class ABCSettingsDialogue : public wxDialog
 {
 public:
-    ABCSettingsDialogue(int * naming);
+    ABCSettingsDialogue(int * naming, ABCHeader * abcheader);
 
     void OnButtonOK(wxCommandEvent& event);
 
@@ -18,6 +19,9 @@ public:
 
     wxStaticBox * transcriberbox;
     wxTextCtrl * transcribername;
+
+    wxStaticBox * songnamebox;
+    wxTextCtrl * songname;
 
  //   wxTextCtrl *tcvol;
  //   wxStaticBox * stpan;
@@ -34,7 +38,7 @@ EVT_BUTTON(wxID_OK, ABCSettingsDialogue::OnButtonOK)
 END_EVENT_TABLE()
 
 
-ABCSettingsDialogue::ABCSettingsDialogue( int * naming)
+ABCSettingsDialogue::ABCSettingsDialogue( int * naming, ABCHeader * abcheader)
        : wxDialog(NULL, -1, wxT("ABC Settings"), wxDefaultPosition, wxSize(350, 270))
 {
 
@@ -52,11 +56,14 @@ ABCSettingsDialogue::ABCSettingsDialogue( int * naming)
   namingscheme =   new wxComboBox(panel, -1, "", wxPoint(x+8,y+17), wxSize(95,20), items.size(),  items.data(), wxCB_DROPDOWN | wxCB_READONLY);
   namingscheme->SetSelection( *naming );
 
-  //tcvol = new wxTextCtrl(panel, -1, std::to_string(volume[0]), wxPoint(x+10, y+20), wxSize(sx-25,sy-25));
+  x = 120; y = 20; sx = 120; sy = 45;
+  transcriberbox = new wxStaticBox(panel, -1, wxT("Transcriber"), wxPoint(x,y), wxSize(sx,sy), wxTE_READONLY);
+  transcribername = new wxTextCtrl(panel, -1, (abcheader[0].Transcriber), wxPoint(x+19, y+20), wxSize(sx-25, sy-25) );
 
- // x = 5; y = 70; sx = 70; sy = 45;
- // stpan = new wxStaticBox(panel, -1, wxT("Panning"), wxPoint(x, y), wxSize(sx, sy), wxTE_READONLY);
- // tcpan = new wxTextCtrl(panel, -1, std::to_string(panning[0]), wxPoint(x+10, y+20), wxSize(sx-25,sy-25));
+  x = 5; y = 70; sx = 235; sy = 45;
+  songnamebox = new wxStaticBox(panel, -1, wxT("Songname"), wxPoint(x,y), wxSize(sx,sy), wxTE_READONLY);
+  songname = new wxTextCtrl(panel, -1, (abcheader[0].SongName ), wxPoint(x+19, y+20), wxSize(sx-25, sy-25) );
+
 
   okButton = new wxButton(this, wxID_OK, wxT("Ok"),wxDefaultPosition, wxSize(70, 30));
 
@@ -74,6 +81,8 @@ ABCSettingsDialogue::ABCSettingsDialogue( int * naming)
  // volume[0] =  wxAtoi(tcvol->GetValue());
  // panning[0] = wxAtoi(tcpan->GetValue());
   *naming = namingscheme->GetSelection();
+  abcheader[0].Transcriber = transcribername->GetValue();
+  abcheader[0].SongName = songname->GetValue();
 
   Destroy();
 }

@@ -116,12 +116,13 @@ private:
 
 	size_t Frequency_Substr(std::string strfull,std::string substring);
 	std::vector<std::string> ABCTextArray( std::string input);
-	int WhichInstrumentNumber(std::string input);
+	//int WhichInstrumentNumber(std::string input);
+	//int CheckForInstrument(std::string input);
 	bool IsVelchange(std::string input);
 	int Velocity(std::string input);
 	bool IsBreak(std::string input);
 	double BreakDuration(std::string input);
-	double EvaluateDurationString(std::string input);
+	//double EvaluateDurationString(std::string input);
 	bool IsTone(std::string input);
 	double ChordDuration(std::string input);
 	std::deque<int> GetPitches(std::string input);
@@ -887,14 +888,36 @@ std::vector<std::string> AudioPlayerAL::ABCTextArray( std::string input)
     return returntext; // and return the vector of abctracks
 }
 
+/*
 // resolve the name of the instrument into the internal instrument number
 int AudioPlayerAL::WhichInstrumentNumber(std::string input)
 {
+    int myinstrument = -1;
     for (auto it = InstrumentMidiNumbers.begin(); it != InstrumentMidiNumbers.end(); ++it)
-          if ( input.compare(it->first) == 0 )
+          if ( input.find(it->first) != std::string::npos )
              return it->second;
-    return 0;
+
+    return myinstrument;
 }
+
+int AudioPlayerAL::CheckForInstrument(std::string input)
+{
+    int myinstrument = -1;
+    for (size_t j = 0; j < abcnamingstyleinstrumentnames.size(); j++)
+    {
+       for (size_t i = 0; i < abcnamingstyleinstrumentnames[j].size(); i++)
+       {
+          if (  input.find(abcnamingstyleinstrumentnames[j][i]) != std::string::npos )
+          {
+
+                     myinstrument = i;
+          //  std::cout << "Found Instrument " << abcnamingstyleinstrumentnames[j][i] << std::endl;
+          }
+       }
+    }
+    return myinstrument;
+}
+*/
 
 bool AudioPlayerAL::IsVelchange(std::string input)
 {
@@ -936,7 +959,7 @@ double AudioPlayerAL::BreakDuration(std::string input)
    return EvaluateDurationString(onlyduration);
 }
 
-
+/*
 double AudioPlayerAL::EvaluateDurationString(std::string input)
 {
     // if the length is 0 this is easy
@@ -961,7 +984,7 @@ double AudioPlayerAL::EvaluateDurationString(std::string input)
         std::stoi(input);
     }
     return 0.;
-}
+}*/
 
 bool AudioPlayerAL::IsTone(std::string input)
 {
@@ -1133,11 +1156,8 @@ void AudioPlayerAL::SendABC(std::stringstream * abctext)
        ++lineiterator; // first line is X: one
 
        line = *lineiterator; // Instrument from T line
-
-       // we only use instruments defined between [] in the T line
-       std::string myinstrument = line.substr(line.find_last_of("[")+1,line.find_last_of("]") );
-       myinstrument.pop_back();
-       m_instrumentnumber[ztrack] = WhichInstrumentNumber(myinstrument);
+       m_instrumentnumber[ztrack] = GetABCInstrumentFromTLine(line);
+       std::cout << "Instrument " << m_instrumentnumber[ztrack] << std::endl;
 
        // Panning Info from Z line ( last number in that line )
        ++lineiterator;

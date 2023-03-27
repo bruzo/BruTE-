@@ -66,8 +66,9 @@
 
       std::vector<std::string> ABCStyleNames =
       {
-          "rocks",
-          "TSO"
+          "Rocks",
+          "TSO",
+          "Meisterbarden"
       };
 
     // Default Mapping of Midi Instruments to Lotro Instruments
@@ -100,7 +101,7 @@
 
     std::vector<std::vector<std::string>> abcnamingstyleinstrumentnames =
     {
-        rockstyleinstrumentnames, TSOtyleinstrumentnames
+        rockstyleinstrumentnames, TSOtyleinstrumentnames, TSOtyleinstrumentnames
     };
 
 
@@ -684,5 +685,81 @@ typedef struct STEREO_WAV_HEADER {
         {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72},
         {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72}
     };
+
+
+   int WhichInstrumentNumber(std::string input)
+   {
+      int myinstrument = -1;
+      for (auto it = InstrumentMidiNumbers.begin(); it != InstrumentMidiNumbers.end(); ++it)
+         if ( input.find(it->first) != std::string::npos )
+             return it->second;
+      return myinstrument;
+   }
+
+   int CheckForInstrument(std::string input)
+   {
+    int myinstrument = -1;
+    for (size_t j = 0; j < abcnamingstyleinstrumentnames.size(); j++)
+    {
+       for (size_t i = 0; i < abcnamingstyleinstrumentnames[j].size(); i++)
+       {
+          if (  input.find(abcnamingstyleinstrumentnames[j][i]) != std::string::npos )
+          {
+                     myinstrument = i;
+          }
+       }
+    }
+    return myinstrument;
+   }
+
+int GetABCInstrumentFromTLine(std::string line)
+{
+   int returnvalue = -1;
+
+   int blainstrument = CheckForInstrument(line);
+   if (blainstrument > -1)
+   {
+      returnvalue = blainstrument;
+   }
+   else
+   {
+      // we only used instruments defined between [] in the T line
+      std::string myinstrument = line.substr(line.find_last_of("[")+1,line.find_last_of("]") );
+      myinstrument.pop_back();
+      int oldinstrument = WhichInstrumentNumber(myinstrument);
+      if (oldinstrument > -1)  { returnvalue = oldinstrument; }
+      else {returnvalue = 0;}
+   }
+   return returnvalue;
+}
+
+
+
+double EvaluateDurationString(std::string input)
+{
+    // if the length is 0 this is easy
+    if (input.length() == 0) return 1.0;
+
+    if ((input.length() == 1)&&(input=="/")) return 1.0;
+
+    // Now Check if this is a fraction
+    if (input.find('/') >= 0)   // this is a fraction
+    {
+        std::vector<std::string> twovalues = split(input, '/');
+        if (twovalues.size()>1)
+        {
+            return ( 1.0 * std::stoi(twovalues.at(0)) / (1.0 * std::stoi(twovalues.at(1))) );
+        }
+        else
+        {
+            return (( 1.0 ) / (1.0 * std::stoi(twovalues.at(0))) );
+        }
+    }
+    else  // this is just a number
+    {
+        std::stoi(input);
+    }
+    return 0.;
+}
 
 #endif

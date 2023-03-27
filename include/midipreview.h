@@ -25,7 +25,6 @@ class MidiPreview
 public:
    std::vector< smf::MidiFile > PreviewMidiTracks; // this stores the preview midis of the ABC, seperate Midis per ABC Track
 
-   void GeneratePreviewMidi(std::stringstream * abctext, int64_t buffersize);
    void GeneratePreviewMidi2(std::stringstream * abctext, int64_t * buffersize);
 
    size_t m_Nabctracks;
@@ -61,12 +60,12 @@ private:
    int Velocity(std::string input);
    int WhichInstrument(std::string input);
    int WhichInstrumentNumber(std::string input);
+   int CheckForInstrument(std::string input);
    bool IsVelchange(std::string input);
    bool IsBreak(std::string input);
    bool IsTone(std::string input);
    double BreakDuration(std::string input);
    double ChordDuration(std::string input);
-   double EvaluateDurationString(std::string input);
    std::deque<int> GetPitches(std::string input);
 
    // Helper Functions to Cut down the Text
@@ -96,224 +95,7 @@ MidiPreview::MidiPreview()
    */
 }
 
-void MidiPreview::GeneratePreviewMidi(std::stringstream * abctext, int64_t buffersize)
-{
-   std::string ABCString = abctext->str();
-   m_Nabctracks = Frequency_Substr(ABCString, "X:");
 
-   std::cout << "The ABC has " <<  m_Nabctracks << " Tracks." << std::endl;
-   //std::cout << "Last Event is at " << lasttone << std::endl;
-
-   // Make sure we have the empty MidiFile instances
-   // PreviewMidiTracks.resize(m_Nabctracks);
-   // for (size_t i = 0; i<PreviewMidiTracks.size(); i++) PreviewMidiTracks[i] = smf::MidiFile();
-
-   // Make sure we have enough WAV Streams
-   // m_WavStreams.resize(m_Nabctracks);
-   // Now set them to a proper length and delete everthing that was inside
-   /*
-   for (size_t i = 0; i < m_WavStreams.size(); i++)
-   {
-       m_WavStreams[i].resize(buffersize*2);
-       std::fill(m_WavStreams[i].begin(), m_WavStreams[i].end(), short(0));
-   }
-*/
-   m_StereoStream.resize(buffersize*4.1);
-   std::fill(m_StereoStream.begin(), m_StereoStream.end(), short(0));
-
-
-   m_WavPannings.resize(m_Nabctracks);
-   for (size_t i = 0; i < m_WavPannings.size(); i++)
-       m_WavPannings[i]=64;
-
-//   short myBuffer[ 44100*3 ]; //synthesize buffer for 3 seconds
-
-
-   std::vector<std::string> ABCTracks = ABCTextArray(ABCString); // Cut down the text into ABC parts
-
-
-
- //  std::cout << "We found " << ABCTracks.size() << " ABC Tracks in the Mapping " << std::endl;
-
-   // Now we got all the ABC Tracks separated, ABCTextArray[0] is just the header so 1 to N+1 are the tracks
-
-   // might as well do this in parallel
-   // #pragma omp parallel for
-   for (size_t track=1; track < m_Nabctracks+1; track++)
-   {
-       // empty the tonestart/toneend lists
-       int ztrack = track -1 ;
-
-       // make a string stream copy of the track
-       std::stringstream mytrack;
-       mytrack << ABCTracks[track];
-
-       // why do we need to copy all the lines once more into a list? we already got all the text accessible by line
-
-       // and break it down into a list of lines
-       std::list< std::string > mytracklines;
-       std::string line;
-       while ( std::getline(mytrack, line) )
-       {
-           mytracklines.push_back(line);
-       }
-       auto lineiterator = mytracklines.begin();
-    //   std::cout << "We found " << mytracklines.size() << " Lines in the ABC " << std::endl;
-       ++lineiterator; // first line is bogus
-
-       // Instrument from T line
-       line = *lineiterator; // this is the line with the instrument
-
-       std::string myinstrument = line.substr(line.find_last_of("[")+1,line.find_last_of("]") ); // we only use instruments defined between [] in the T line
-       myinstrument.pop_back();
-
-       // Panning Info from Z line
-       ++lineiterator;
-       line = *lineiterator;
-       auto ps = split(line, ' ');
-       int panning = std::stoi( ps[ ps.size()-1 ] );
-
-       m_WavPannings[ztrack] = panning;  // keep this for later
-
-       // the next three line we ignore, as all the BruTE ABCs have identical timings
-       ++lineiterator; ++ lineiterator; ++lineiterator;
-
-       // Parse Instrument String to ChannelNumber
-       int MidiChannel = WhichInstrument(myinstrument);
-      // int TinyMidiChannel = tsf_get_presetindex( TinySoundFont , 0, MidiChannel);
-
-       std::cout << "Track: " << track << " \t " << myinstrument << "\t MidiChannel "<< MidiChannel  << " \t  Panning " << panning << std::endl;
-
-    //   PreviewMidiTracks[mytracknumber].addTempo(0, 0, 125);
-    //   PreviewMidiTracks[mytracknumber].addTracks(1);
-    //   PreviewMidiTracks[mytracknumber].addTimbre(0, 0, 0, MidiChannel);
-       // int tpq     = PreviewMidiTracks[mytracknumber].getTPQ();
-
-       // now the fun starts generating tones from the chords
-       double currenttime = 0.;
-    //   int currentvelocity = 127;
-
-       // to keep track of registers on and off
-       std::vector<bool> claviature;
-       claviature.resize(38);
-       std::fill(claviature.begin(), claviature.end(), false);
-
-       while ( lineiterator != mytracklines.end() )
-       {
-           std::string myline = *lineiterator;
-           //std::cout << myline << std::endl;
-           double myduration = 0.;     // so far this line has a 0 duration
-           std::list<int> pitchends = {};
-
-           // is this a velocity change?
-           if (IsVelchange( myline ))
-           {
-              //  currentvelocity = Velocity( myline );
-           }
-
-           // is this a break?
-           if (IsBreak(myline))
-           {
-               myduration = BreakDuration(myline);
-           }
-
-           if (IsTone(myline))
-           {
-               myduration = ChordDuration(myline);
-
-               std::deque<int> pitches = GetPitches(myline);
-
-               while (pitches.size() > 0)
-               {
-                   int mypitch = pitches.front();
-                   pitches.pop_front();
-                   int cont = pitches.front();
-                   pitches.pop_front();
-
-                   // Check if this generated a new tone start event
-                   if ( !claviature[mypitch] )
-                   {
-                       claviature[mypitch] = true;
-                       // int thistick = int( currenttime *tpq  );
-                       // PreviewMidiTracks[mytracknumber].addNoteOn(1, thistick,0, mypitch+36, currentvelocity);
-
-                       // also switch on tone in tinysf
-                 //      tsf_note_on(TinySoundFont, TinyMidiChannel, mypitch+36, currentvelocity/128.0 ); //preset 0, middle C , MidiChannel!
-                   }
-                   if (cont == -1)
-                   {
-                       // this tone ends here
-                       claviature[mypitch] = false;
-
-                      //  int thistick = int( (currenttime+myduration)*tpq  );
-                      // PreviewMidiTracks[mytracknumber].addNoteOff(1, thistick,0, mypitch+36); //
-
-                       // the tone end will happen only after the duration .. so we need to memorize this for now
-                       pitchends.push_front(mypitch+36);
-                   }
-               }
-           }
-           // Render a bit into the WAV stream
-
-           // calculations for timings:
-           //     currenttime/ 2 = current time in seconds
-           //     (currenttime / 2) * 44100 in samples
-
-
-         //  int64_t currentsampleposition = int64_t(currenttime*0.5 * 44100);
-           int64_t currentbuffer = int64_t(myduration * 0.5 * 44100);
-
-           // we only render if this had a duration
-           if ( currentbuffer > 0)
-           {
-
-
-          //    tsf_render_short(TinySoundFont, myBuffer, int(currentbuffer), 0);  // render this duration
-/*
-              for (int64_t cp = 0; cp < currentbuffer; cp++){
-                 // m_WavStreams[mytracknumber][currentsampleposition + cp] = myBuffer[cp];
-
-                 int mypanning = (( panning - 64 ) *  m_panning)/100 + 64;
-
-                 float weightleft = ((mypanning) / 128.0);
-                 float weightright = ((1.0 - weightleft));
-
-                 weightleft = (weightleft * m_volume)/100.0;
-                 weightright = (weightright * m_volume)/100.0;
-
-                 m_StereoStream[2*cp   +currentsampleposition*2] += int( myBuffer[cp] * weightleft);            // left channel
-                 m_StereoStream[2*cp+1 +currentsampleposition*2] += int( myBuffer[cp] * weightright);
-
-              }*/
-           }
-
-           currenttime = currenttime + myduration;
-
-           // now take the tone end events and write them into tsf and our data structure
-           for (std::list<int>::iterator ip=pitchends.begin(); ip!=pitchends.end(); ip++)
-           {
-        //        tsf_note_off(TinySoundFont, TinyMidiChannel, *ip);  // Midichannel
-           }
-
-
-           ++lineiterator; // take the next line
-       }
-   }
-
-/*
-   std::cout << " Writing WAV Track " << std::endl;
-
-   STEREO_WAV_HEADER myheader;
-   myheader.Subchunk2Size = uint32_t(m_StereoStream.size());
-
-   std::stringstream myfilename;
-   FILE * myfile;
-   myfile = fopen("audio.wav", "wb");
-   fwrite(&myheader, 1, sizeof(STEREO_WAV_HEADER), myfile );
-   fwrite( m_StereoStream.data() , 1, m_StereoStream.size()*sizeof(short), myfile);
-   fclose(myfile);
-*/
-}
 
 bool ToneCompare (const ToneTuple &lhs, const ToneTuple &rhs){
   return std::get<0>(lhs) < std::get<0>(rhs);
@@ -323,12 +105,7 @@ void MidiPreview::GeneratePreviewMidi2(std::stringstream * abctext, int64_t * bu
 {
    std::string ABCString = abctext->str();
    m_Nabctracks = Frequency_Substr(ABCString, "X:");
-   std::cout << "The ABC has " <<  m_Nabctracks << " Tracks." << std::endl;
-
-   // Allocate Panning Information
-   m_WavPannings.resize(m_Nabctracks);
-   for (size_t i = 0; i < m_WavPannings.size(); i++)
-       m_WavPannings[i]=64;
+   // std::cout << "The ABC has " <<  m_Nabctracks << " Tracks." << std::endl;
 
    // Allocate Space for Toneinformation
    m_ABCTones.resize(m_Nabctracks);
@@ -363,28 +140,14 @@ void MidiPreview::GeneratePreviewMidi2(std::stringstream * abctext, int64_t * bu
 
        line = *lineiterator; // Instrument from T line
 
-       // we only use instruments defined between [] in the T line
-       std::string myinstrument = line.substr(line.find_last_of("[")+1,line.find_last_of("]") );
-       myinstrument.pop_back();
+       myinstrumentnumber[ztrack] = GetABCInstrumentFromTLine(line);
 
        // Panning Info from Z line
        ++lineiterator;
        line = *lineiterator;
-       auto ps = split(line, ' ');
-       int panning = std::stoi( ps[ ps.size()-1 ] );
-       m_WavPannings[ztrack] = panning;  // keep this for later
 
-       // the next three line we ignore, as all the BruTE ABCs have identical timings and we do not make music with foreign ABC flavors yet
        ++lineiterator; ++ lineiterator; ++lineiterator;
 
-       // Parse Instrument String to ChannelNumber
-     //  int MidiChannel = WhichInstrument(myinstrument);
-       //int TinyMidiChannel = tsf_get_presetindex( TinySoundFont , 0, MidiChannel);
-       myinstrumentnumber[ztrack] = WhichInstrumentNumber(myinstrument);
-
-       std::cout << "Track: " << track << " \t " << myinstrument << " \t  Panning " << panning << std::endl;
-
-       // now the fun starts generating tones from the chords
        double currenttime = 0.;
        int currentvelocity = 127;
 
@@ -490,54 +253,13 @@ void MidiPreview::GeneratePreviewMidi2(std::stringstream * abctext, int64_t * bu
 
    for (size_t i = 0; i < m_Nabctracks; i++)
    {
-      std::cout << "Estimating Track " << i << std::endl;
-      int64_t oldID = -1;
+    //  std::cout << "Estimating Track " << i << std::endl;
+    //  int64_t oldID = -1;
       for (size_t j= 0; j < m_ABCTonesvector[i].size(); j++)
       {
-          int64_t newID = std::get<0>(m_ABCTonesvector[i][j]);
 
           int64_t tonestart = std::get<1>(m_ABCTonesvector[i][j]);
           int64_t toneduration = std::get<2>(m_ABCTonesvector[i][j]);
-      //    int64_t samplelength = toneduration + silence;
-          float tonevelocity = std::get<5>(m_ABCTonesvector[i][j]);
-
-          if ( newID != oldID) // this is a new tone so we have to render it
-          {
-         //     int midichannel = std::get<3>(m_ABCTonesvector[i][j]);
-          //    int tonepitch = std::get<4>(m_ABCTonesvector[i][j]);
-
-             // if (AudioBuffer.size() < samplelength ) AudioBuffer.resize(samplelength);
-
-             // std::fill(AudioBuffer.begin(), AudioBuffer.end(), 0);  // wipe the audiobuffer to be certain, always better with STL than own loop :)
-
-             // tsf_reset(TinySoundFont);  // reset our synthesizer
-
-              // turn on the tone, render the duration, then turn of the tone, render the release sound
-             // tsf_note_on(TinySoundFont, midichannel, tonepitch, 105.0/128.0 );
-             // tsf_render_short(TinySoundFont, &AudioBuffer[0], toneduration, 0);
-             // tsf_note_off(TinySoundFont, midichannel, tonepitch);
-             // tsf_render_short(TinySoundFont, &AudioBuffer[toneduration], silence, 0);
-          }
-
-          // now copy the sample into the right position of the stream
-          int mypanning = (( m_WavPannings[i] - 64 ) *  m_panning)/100 + 64;
-          float velfactor = 1.895 * tonevelocity - 0.555; // empiric formula that captures the difference in amplitude as a function of velocity, based on measurements in the game
-
-          float weightleft = ((mypanning) / 128.0)*velfactor;   // panning
-          float weightright = ((1.0 - weightleft))*velfactor;
-
-          weightleft = (weightleft * m_volume)/100.0;   // volume rescale
-          weightright = (weightright * m_volume)/100.0;
-/*
-          for (int64_t cp = 0; cp < samplelength; cp++)
-          {
-             m_StereoStream[ 2*cp + tonestart*2  ] += short( AudioBuffer[cp] * weightleft);
-             m_StereoStream[2*cp + tonestart*2 +1] += short( AudioBuffer[cp] * weightright);
-          }
-          */
-     //     oldID = newID;
-
-          // now we gotta count tones for the tonecounting preview
 
           int64_t chunkstart = ( (tonestart * 1000) / (44100*50) );
           int64_t chunkduration = ( toneduration * 1000 ) / (44100*50);
@@ -560,16 +282,12 @@ void MidiPreview::GeneratePreviewMidi2(std::stringstream * abctext, int64_t * bu
               // this is a continuous instrument
               for (size_t m = chunkstart; m < loopend; m++) m_ToneCounts[i][m] += 1;
         }
-         // std::cout << std::get<0>(m_ABCTonesvector[i][j]) << "  " << std::get<1>(m_ABCTonesvector[i][j]) << std::endl;1
-
       }
    }
 
    m_TotalToneCounts.resize(691);
    std::fill(m_TotalToneCounts.begin(), m_TotalToneCounts.end(), 0);
-
    float chunksperpixel =  690.0 / m_ToneCounts[0].size();
-
 
    for ( uint64_t i = 0; i < m_ToneCounts[0].size(); i++ )
    {
@@ -582,13 +300,11 @@ void MidiPreview::GeneratePreviewMidi2(std::stringstream * abctext, int64_t * bu
       if (val > 99) val = 99;
       size_t position = size_t(i * chunksperpixel);
       if ( val > m_TotalToneCounts[position] ) m_TotalToneCounts[position] = val;
-
    }
 
    AudioReady = true;
    AudioRedrawn = false;
-   // to check: difference in volume between the velocities:  ppp : 51, pp 64, p 73, mp 82, mf 89, f 96, ff 102, fff105
-   // for that we'll do same tone at 105 always and need "amplification factor for  fff-to-ff, etcc
+
 }
 
 
@@ -663,13 +379,33 @@ int MidiPreview::WhichInstrument(std::string input)
     return 0;
 }
 
+
+int MidiPreview::CheckForInstrument(std::string input)
+{
+    int myinstrument = -1;
+    for (size_t j = 0; j < abcnamingstyleinstrumentnames.size(); j++)
+    {
+       for (size_t i = 0; i < abcnamingstyleinstrumentnames[j].size(); i++)
+       {
+          if (  input.find(abcnamingstyleinstrumentnames[j][i]) != std::string::npos )
+          {
+
+                     myinstrument = i;
+          //  std::cout << "Found Instrument " << abcnamingstyleinstrumentnames[j][i] << std::endl;
+          }
+       }
+    }
+    return myinstrument;
+}
+
 // resolve the name of the instrument into the internal instrument number
 int MidiPreview::WhichInstrumentNumber(std::string input)
 {
     for (auto it = InstrumentMidiNumbers.begin(); it != InstrumentMidiNumbers.end(); ++it)
           if ( input.compare(it->first) == 0 )
              return it->second;
-    return 0;
+
+    return -1;
 }
 
 bool MidiPreview::IsBreak(std::string input)
@@ -828,32 +564,9 @@ std::deque<int> MidiPreview::GetPitches(std::string input)
     {
         returnvalue.push_back(-1);
     }
-
-    /*
-    for (size_t i=0; i < returnvalue.size(); i++)
-        std::cout << returnvalue[i] << " ";
-    std::cout<< std::endl;
-*/
     return returnvalue;
 }
 
-double MidiPreview::EvaluateDurationString(std::string input)
-{
-    // if the length is 0 this is easy
-    if (input.length() == 0) return 1.0;
 
-    // Now Check if this is a fraction
-    if (input.find('/') > 0)   // this is a fraction
-    {
-        std::vector<std::string> twovalues = split(input, '/');
-        return ( 1.0 * std::stoi(twovalues.at(0)) / (1.0 * std::stoi(twovalues.at(1))) );
-    }
-    else        // this is not a fraction
-    {
-        std::stoi(input);
-    }
-
-    return 0.;
-}
 
 #endif
