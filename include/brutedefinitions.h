@@ -759,7 +759,9 @@ double EvaluateDurationString(std::string input)
     {
         std::stoi(input);
     }
-    return 0.;
+
+    // we have no idea what this means .... we're returning a full tone ...
+    return 1.;
 }
 
 #endif

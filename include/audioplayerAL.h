@@ -51,6 +51,7 @@
 //
 
 #include "brutedefinitions.h"
+#include "abc.h"
 
 typedef std::tuple< int64_t, int64_t, int64_t, int, int, float > ToneTuple;
 
@@ -888,36 +889,7 @@ std::vector<std::string> AudioPlayerAL::ABCTextArray( std::string input)
     return returntext; // and return the vector of abctracks
 }
 
-/*
-// resolve the name of the instrument into the internal instrument number
-int AudioPlayerAL::WhichInstrumentNumber(std::string input)
-{
-    int myinstrument = -1;
-    for (auto it = InstrumentMidiNumbers.begin(); it != InstrumentMidiNumbers.end(); ++it)
-          if ( input.find(it->first) != std::string::npos )
-             return it->second;
 
-    return myinstrument;
-}
-
-int AudioPlayerAL::CheckForInstrument(std::string input)
-{
-    int myinstrument = -1;
-    for (size_t j = 0; j < abcnamingstyleinstrumentnames.size(); j++)
-    {
-       for (size_t i = 0; i < abcnamingstyleinstrumentnames[j].size(); i++)
-       {
-          if (  input.find(abcnamingstyleinstrumentnames[j][i]) != std::string::npos )
-          {
-
-                     myinstrument = i;
-          //  std::cout << "Found Instrument " << abcnamingstyleinstrumentnames[j][i] << std::endl;
-          }
-       }
-    }
-    return myinstrument;
-}
-*/
 
 bool AudioPlayerAL::IsVelchange(std::string input)
 {
@@ -959,32 +931,7 @@ double AudioPlayerAL::BreakDuration(std::string input)
    return EvaluateDurationString(onlyduration);
 }
 
-/*
-double AudioPlayerAL::EvaluateDurationString(std::string input)
-{
-    // if the length is 0 this is easy
-    if (input.length() == 0) return 1.0;
 
-    // Now Check if this is a fraction
-    if (input.find('/') >= 0)   // this is a fraction
-    {
-
-        std::vector<std::string> twovalues = split(input, '/');
-        if (twovalues.size()>1)
-        {
-            return ( 1.0 * std::stoi(twovalues.at(0)) / (1.0 * std::stoi(twovalues.at(1))) );
-        }
-        else
-        {
-            return (( 1.0 ) / (1.0 * std::stoi(twovalues.at(0))) );
-        }
-    }
-    else        // this is not a fraction
-    {
-        std::stoi(input);
-    }
-    return 0.;
-}*/
 
 bool AudioPlayerAL::IsTone(std::string input)
 {
