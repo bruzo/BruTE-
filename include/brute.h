@@ -570,35 +570,12 @@ void Brute::LoadMidi(char * mymidiname)
                 // Calculate the pitch bend range in semitones
                 double pitchBendRangeSemitones = (PitchBendData - maxPitchBendValue/2.0) * (1.0*pitchbendrange / (1.0*maxPitchBendValue));
                 // Assume that the relative pitch value is stored in a variable called relativePitch
-
-
-                // Calculate the relative pitch in semitones
-            //    double relativePitchSemitones = pitchBendRangeSemitones;
-
-                //if ((relativePitchSemitones < 0.97) && ( relativePitchSemitones > 0.49)) relativePitchSemitones = 0.4;
-                //if ((relativePitchSemitones > -0.97) && ( relativePitchSemitones < -0.49)) relativePitchSemitones = -0.4;
-
-                //relativePitchSemitones = static_cast<int>(relativePitchSemitones+0.5);
-
-             //   std::cout << "Pitchbend " << relativePitchSemitones << "  Amount from MidiFileLib " << m_Midi[i][j].getPitchbendAmount() << std::endl;
-
-
-
-                // only act on stuff that actually does something
-
-                   // only use events after time 0
-                   if (time > 0.00001)
-                   {
-
-                      m_pitchbendtimes[i][ m_pitchbendcounter[i] ] = time*26460.0;
-
-                      m_pitchbendvalues[i][ m_pitchbendcounter[i] ] = pitchBendRangeSemitones; // static_cast<int>(std::round(relativePitchSemitones*20))/20;
-
-                      // std::cout << "Pitchbend " << i << " at " << time << " Value " << relativePitchSemitones << std::endl;
-
-                      m_pitchbendcounter[i]++;
-                   }
-
+                if (time > 0.00001)
+                {
+                     m_pitchbendtimes[i][ m_pitchbendcounter[i] ] = time*26460.0;
+                     m_pitchbendvalues[i][ m_pitchbendcounter[i] ] = pitchBendRangeSemitones; // static_cast<int>(std::round(relativePitchSemitones*20))/20;
+                     m_pitchbendcounter[i]++;
+                }
             }
         }
         // collect samples used statistics
@@ -636,29 +613,22 @@ void Brute::LoadMidi(char * mymidiname)
 		m_pitchbendtimes[i].resize(m_pitchbendcounter[i]);
 		m_pitchbendvalues[i].resize(m_pitchbendcounter[i]);
 	}
-/*
-	for (size_t i = 0; i < m_tonestarts.size(); i++)
-      for ( size_t j = 0; j < m_pitchbendtimes[i].size(); j++)
-        std::cout << "PBend " << i << " " << j << " " << m_pitchbendtimes[i][j] << "  " << m_pitchbendvalues[i][j]  << std::endl;
-*/
+
 
     m_pbt.resize( m_tonestarts.size());
     m_pbv.resize( m_tonestarts.size());
 
 	for (size_t i = 0; i < m_tonestarts.size(); i++)
     {
-       m_pbt[i].resize(0);
-       m_pbt[i].push_back(0.0);
-       m_pbv[i].resize(0);
-       m_pbv[i].push_back(0);
+       m_pbt[i].resize(1,0.0);
+       m_pbv[i].resize(1,0);
+
        for ( size_t j = 0; j < m_pitchbendtimes[i].size(); j++)
        {
-          // if (( m_pitchbendvalues[i][j] != m_pbv[i].back() ) )// || (m_pitchbendtimes[i][j] > m_pbt[i].back() + 0.05*timetoticks*26460.0))
            {   // new pitch so record time
-               double mybendvalue = m_pitchbendvalues[i][j];
 
                m_pbt[i].push_back(m_pitchbendtimes[i][j]);
-               m_pbv[i].push_back(mybendvalue );
+               m_pbv[i].push_back(m_pitchbendvalues[i][j]);
            }
        }
     }
@@ -675,7 +645,7 @@ void Brute::LoadMidi(char * mymidiname)
     int chunks = static_cast<int>(( mylasttone / timetoticks / 26460)) / timechunksize ;
     m_timechunk =   chunks / mylasttone;
     m_histogram.resize( chunks );
-    for (size_t i = 0; i < m_histogram.size(); i++) m_histogram[i].resize(12);
+    for (size_t i = 0; i < m_histogram.size(); i++) m_histogram[i].resize(12,0);
 
      // calculate the histogram
     for (size_t i=0; i < m_tonestarts.size(); i++)
@@ -691,7 +661,7 @@ void Brute::LoadMidi(char * mymidiname)
         }
     }
     // Analyze for most probable tonality
-    m_tonality.resize(chunks);
+    m_tonality.resize(chunks,0);
     for (size_t i = 0; i < m_histogram.size(); i++)
     {
         size_t besttonality = 0;
@@ -714,8 +684,6 @@ void Brute::LoadMidi(char * mymidiname)
         m_tonality[i]=besttonality;
         lastbest = besttonality;
     }
-    // Now we have the tonality of the piece save in m_tonality which can be used for pitchbends and tonality conversion
-    // for (size_t i = 0; i < m_tonality.size(); i++) std::cout << "Ton " << i << "  " << m_tonality[i] << std::endl;
 }
 
 // Export the out_all.txt file with tone information

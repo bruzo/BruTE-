@@ -95,6 +95,8 @@ public:
 
 private:
 
+    ABCInput * myabc;
+
     std::vector< std::vector<  std::vector< uint8_t  >  > > allsamples;
 
 #ifdef win32
@@ -114,19 +116,6 @@ private:
 	std::vector<ALuint> buffers;
 	std::vector<ALint> source_states;
 	std::vector<int> bufferbound;
-
-	size_t Frequency_Substr(std::string strfull,std::string substring);
-	std::vector<std::string> ABCTextArray( std::string input);
-	//int WhichInstrumentNumber(std::string input);
-	//int CheckForInstrument(std::string input);
-	bool IsVelchange(std::string input);
-	int Velocity(std::string input);
-	bool IsBreak(std::string input);
-	double BreakDuration(std::string input);
-	//double EvaluateDurationString(std::string input);
-	bool IsTone(std::string input);
-	double ChordDuration(std::string input);
-	std::deque<int> GetPitches(std::string input);
 
 	size_t m_Nabctracks=0;
     std::vector< int > m_WavPannings; // traditional stereo position, will also be used for the 3D x-position
@@ -301,10 +290,6 @@ void AudioPlayerAL::Seek(float f)
    m_ABC_Play_Start = thisisnow;
    m_ABC_Play_LastUpdate = thisisnow + std::chrono::milliseconds(static_cast<uint32_t>(f * m_durationseconds*1000));
 
-   //std::cout << "durationseconds " << m_durationseconds;
-   //std::cout << std::endl;
-   //std::cout << f*m_durationseconds*1000 << std::endl;
-
    // now we need to set the pointers to the right position
 
    std::chrono::duration<double> ST = m_ABC_Play_LastUpdate - m_ABC_Play_Start;
@@ -379,9 +364,7 @@ void AudioPlayerAL::SetEnvelope(int Instrument, uint32_t duration, uint32_t samp
             {
                 m_envelope[starti + i] = startvel  +  i * mv;
             }
-
         }
-
     }
 }
 
@@ -505,13 +488,9 @@ void AudioPlayerAL::PlayLoop()
                    }
                    //else{std::cout << "Dropping Tone" << std::endl;}
                }
-
-
            }
        }
 
-       //  std::cout << " I'm running " << std::endl;
-       // now we have to find all the tones that should have been fired in the passed intervall
 
        // Wait a little and recall this routine if we are not supposed to stop yet
        m_ABC_Play_LastUpdate = updatetime;
@@ -734,7 +713,6 @@ std::vector<uint8_t> AudioPlayerAL::snd_load_file(FILE * oggFile ){
 			printf("Data not read.\n");
 		}
 	}
-
 	//free(dyn_data);
 	return outdata;
 }
@@ -840,229 +818,29 @@ void AudioPlayerAL::PlayTestTones(int instrument, int pitch)
     }
 }
 
-
-size_t AudioPlayerAL::Frequency_Substr(std::string strfull,std::string substring)
-{
-    int counter=0;
-    for (size_t i = 0; i <strfull.size()-1; i++)
-    {
-        size_t m = 0;
-        size_t n = i;
-        for (size_t j = 0; j < substring.size(); j++)
-        {
-            if (strfull[n] == substring[j])
-            {
-                m++;
-            }
-            n++;
-        }
-        if (m == substring.size())
-        {
-            counter++;
-        }
-    }
-    return counter;
-}
-
-
-std::vector<std::string> AudioPlayerAL::ABCTextArray( std::string input)
-{
-    std::stringstream abctext;
-    abctext << input;
-    std::vector<std::string> returntext;
-
-    std::string line;
-    std::stringstream abcblock;
-
-    std::getline(abctext, line);  // we also read all the lines before the first actual ABC track, that will end up in entry 0, which is ignored for the tone information
-    while ( !abctext.eof() )
-    {
-        if (line[0] == 'X')
-        {
-            returntext.push_back(abcblock.str());
-            abcblock.str(std::string());
-        }
-        abcblock << line << std::endl;
-        std::getline(abctext, line);
-    }
-    returntext.push_back(abcblock.str()); // push last block in
-    return returntext; // and return the vector of abctracks
-}
-
-
-
-bool AudioPlayerAL::IsVelchange(std::string input)
-{
-   if (input.length() > 2) // a velocity change always has at least 3 characters
-   {
-      if (input.at(0)=='+'){return true;} // yupp, this starts with a + so has to be a tempo change
-      else{return false;}
-   }
-   else
-   {
-       return false;  // line too short to be a velocity change
-   }
-}
-
-int AudioPlayerAL::Velocity(std::string input)
-{
-    for (auto it = VelocityValues.begin(); it != VelocityValues.end(); ++it)
-          if ( input.compare(it->first) == 0 )
-             return it->second;
-    return 0;
-}
-
-bool AudioPlayerAL::IsBreak(std::string input)
-{
-    if (input.length()>0)  // any break must have at least a "z"
-    {
-        if (input.at(0) == 'z')
-        {
-            return true;
-        }
-        else return false;
-    }
-    else return false;
-}
-
-double AudioPlayerAL::BreakDuration(std::string input)
-{
-   std::string onlyduration = input.erase(0,1);
-   return EvaluateDurationString(onlyduration);
-}
-
-
-
-bool AudioPlayerAL::IsTone(std::string input)
-{
-    if (input.length()>0)  // any tone must have at least one character
-    {
-        if (input.at(0) == '[')  // currently all tones must be in brackets []
-        {
-            return true;
-        }
-        else return false;
-    }
-    else return false;
-}
-
-double AudioPlayerAL::ChordDuration(std::string input)
-{
-    std::string myinput = input;
-    std::vector< char > forbidden = { 'C', 'c', 'D', 'd', 'E', 'e', 'F', 'f', 'G', 'g', 'A', 'a', 'B', 'b', '^', '_', '[', ']', '=', ',', '-', ("'")[0] };
-    // first Replace all Characters with spaces
-    for (size_t i = 0; i < myinput.length(); i++)
-    {
-        for (size_t j = 0; j < forbidden.size(); j++)
-        if ( myinput.at(i)== forbidden.at(j))
-        {
-            myinput[i] = ' ';
-        }
-    }
-    //then split into an array by the spaces
-    std::string myduration = split(myinput, ' ')[0];
-    return EvaluateDurationString(myduration); // and then just use the first duration
-}
-
-
-std::deque<int> AudioPlayerAL::GetPitches(std::string input)
-{
-    std::string myinput = input;
-    std::vector< char > forbidden = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '/', '[', ']'};
-    // first replace all non-pitch information ( duration and chord brackets with spaces
-    for (size_t i = 0; i < myinput.length(); i++)
-    {
-        for (size_t j = 0; j < forbidden.size(); j++)
-            if (myinput.at(i)==forbidden.at(j))
-               myinput[i] = ' ';
-    }
-
-    // now make sure continuation signs are distinguishable
-    for (size_t i=0; i < myinput.length(); i++)
-    {
-        if ( myinput.at(i)=='-' ) myinput.insert(i+1, " ");
-    }
-    std::vector<std::string> mytokens = split(myinput, ' ');
-
-    // now parse the objects
-    std::deque<int> returnvalue;
-    int waslastapitch = 0;
-
-    for (size_t i =0; i < mytokens.size(); i++)
-    {
-        if (mytokens[i]=="-")
-        { // this was a continuation sign
-            returnvalue.push_back(-2);
-            waslastapitch = 0; // now the last one wasn't a pitch
-        }
-        else
-        {
-            // this wasn't a continuation sign, but last one was a pitch, so this tone ends here and we have to add that information
-            if (waslastapitch == 1)
-            {
-                waslastapitch = 0; // now the last one wasn't a pitch
-                returnvalue.push_back(-1);
-            }
-
-
-            {
-                // this was actually a pitch, we have to find it's value
-                waslastapitch = 1;  // now the last one was a pitch
-                // first find if this is transposed one up or down
-                int relpitch = 0;
-                if (mytokens[i].at(0)=='^') relpitch = 1;
-                if (mytokens[i].at(0)=='_') relpitch = -1;
-                mytokens[i].erase(0,1);
-
-                // now we definitely have to start with a letter
-                if ( mytokens[i].at(0) == 'C' ) relpitch += 12;
-                if ( mytokens[i].at(0) == 'D' ) relpitch += 14;
-                if ( mytokens[i].at(0) == 'E' ) relpitch += 16;
-                if ( mytokens[i].at(0) == 'F' ) relpitch += 17;
-                if ( mytokens[i].at(0) == 'G' ) relpitch += 19;
-                if ( mytokens[i].at(0) == 'A' ) relpitch += 21;
-                if ( mytokens[i].at(0) == 'B' ) relpitch += 23;
-                if ( mytokens[i].at(0) == 'c' ) relpitch += 24;
-                if ( mytokens[i].at(0) == 'd' ) relpitch += 26;
-                if ( mytokens[i].at(0) == 'e' ) relpitch += 28;
-                if ( mytokens[i].at(0) == 'f' ) relpitch += 29;
-                if ( mytokens[i].at(0) == 'g' ) relpitch += 31;
-                if ( mytokens[i].at(0) == 'a' ) relpitch += 33;
-                if ( mytokens[i].at(0) == 'b' ) relpitch += 35;
-                mytokens[i].erase(0,1);
-
-                // and finally we can only have a "," or a "'" to raise or lower it by an octave
-                if ( mytokens[i].length() > 0)
-                {
-                    if (mytokens[i].at(0) == ',') {relpitch -= 12;}
-                    else {relpitch += 12;}
-                }
-                returnvalue.push_back( relpitch );
-            }
-        }
-    }
-
-    // last one was a pitch, there was no -, so this one is discontinued
-    if (waslastapitch == 1)
-    {
-        returnvalue.push_back(-1);
-    }
-
-    return returnvalue;
-}
-
 void AudioPlayerAL::SendABC(std::stringstream * abctext)
 {
+
+   ABCInput * newabc = new ABCInput();
+
+   newabc->LoadABC(abctext);
+
+   m_Nabctracks = newabc->Nabctracks();
+
    std::string ABCString = abctext->str();
-   m_Nabctracks = Frequency_Substr(ABCString, "X:");
+
+   //m_Nabctracks = Frequency_Substr(ABCString, "X:"); //newabc->Nabctracks();
+
    std::cout << "The ABC has " <<  m_Nabctracks << " Tracks." << std::endl;
+
 
    m_WavPannings.resize(m_Nabctracks);
    std::fill(m_WavPannings.begin(), m_WavPannings.end(), 0); // fill with center position by default
    m_WavZPannings.resize(m_Nabctracks);
    std::fill(m_WavZPannings.begin(), m_WavZPannings.end(), 0); // fill with some position
    m_id.resize(m_Nabctracks);
-   m_mutes.resize(m_Nabctracks);
+
+   m_mutes.resize(m_Nabctracks, false);
 
    // Allocate Space for Toneinformation
    m_ABCTones.resize(m_Nabctracks);
@@ -1072,7 +850,7 @@ void AudioPlayerAL::SendABC(std::stringstream * abctext)
    m_instrumentnumber.resize(m_Nabctracks);
 
    // Cut down the text into the ABC parts
-   std::vector<std::string> ABCTracks = ABCTextArray(ABCString);
+   std::vector<std::string> ABCTracks = ABCTextArray(ABCString, 'X');
 
    double beat_to_second = 0.48;   // true for 125BPM 1/4
 

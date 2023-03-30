@@ -35,7 +35,6 @@ public:
 
    MidiPreview();  // constructor
 
-
    //start time, end time, channel, pitch, velocity, identifier
 
    std::vector< std::list< ToneTuple > > m_ABCTones;
@@ -52,53 +51,11 @@ public:
    bool AudioReady = false;
    bool AudioRedrawn = false;
 
-
-
-private:
-
-   // Functions to make the conversion
-   int Velocity(std::string input);
-   int WhichInstrument(std::string input);
-   int WhichInstrumentNumber(std::string input);
-   int CheckForInstrument(std::string input);
-   bool IsVelchange(std::string input);
-   bool IsBreak(std::string input);
-   bool IsTone(std::string input);
-   double BreakDuration(std::string input);
-   double ChordDuration(std::string input);
-   std::deque<int> GetPitches(std::string input);
-
-   // Helper Functions to Cut down the Text
-   size_t Frequency_Substr(std::string strfull,std::string substring);
-   std::vector<std::string> ABCTextArray( std::string input );
-
-    // tsf* TinySoundFont;
-
 };
 
 // Constructor
 MidiPreview::MidiPreview()
 {
-   // load the soundfont
-   // std::cout << "Loading Soundfont" << std::endl;
-   // TinySoundFont = tsf_load_filename("sfnew.sf2");
-   // std::cout << "Soundfont loaded" << std::endl;
-   //TinySoundFont = tsf_load_memory(MinimalSoundFont, sizeof(MinimalSoundFont));
-
-   // set the render engine to 44kHz, Mono
-   // tsf_set_output(TinySoundFont, TSF_MONO, 44100, 0); //sample rate
-
-   /*
-   tsf_note_on(TinySoundFont, 0, 60, 1.0f); //preset 0, middle C
-   short HalfSecond[22050]; //synthesize 0.5 seconds
-   tsf_render_short(TinySoundFont, HalfSecond, 22050, 0);
-   */
-}
-
-
-
-bool ToneCompare (const ToneTuple &lhs, const ToneTuple &rhs){
-  return std::get<0>(lhs) < std::get<0>(rhs);
 }
 
 void MidiPreview::GeneratePreviewMidi2(std::stringstream * abctext, int64_t * buffersize)
@@ -115,7 +72,7 @@ void MidiPreview::GeneratePreviewMidi2(std::stringstream * abctext, int64_t * bu
    myinstrumentnumber.resize(m_Nabctracks);
 
    // Cut down the text into the ABC parts
-   std::vector<std::string> ABCTracks = ABCTextArray(ABCString);
+   std::vector<std::string> ABCTracks = ABCTextArray(ABCString, 'X');
 
    // #pragma omp parallel for   // might as well do this in parallel
    uint64_t finalsample=0;
@@ -304,268 +261,8 @@ void MidiPreview::GeneratePreviewMidi2(std::stringstream * abctext, int64_t * bu
 
    AudioReady = true;
    AudioRedrawn = false;
-
 }
 
-
-
-std::vector<std::string> MidiPreview::ABCTextArray( std::string input)
-{
-    std::stringstream abctext;
-    abctext << input;
-
-    std::vector<std::string> returntext;
-
-
-    std::string line;
-    std::stringstream abcblock;
-
-    std::getline(abctext, line);
-    while ( !abctext.eof() )
-    {
-        if (line[0] == 'X')
-        {
-            returntext.push_back(abcblock.str());
-            abcblock.str(std::string());
-        }
-
-        abcblock << line << std::endl;
-        std::getline(abctext, line);
-    }
-    returntext.push_back(abcblock.str());
-
-    return returntext;
-}
-
-
-size_t MidiPreview::Frequency_Substr(std::string strfull,std::string substring)
-{
-    int counter=0;
-    for (size_t i = 0; i <strfull.size()-1; i++)
-    {
-        size_t m = 0;
-        size_t n = i;
-        for (size_t j = 0; j < substring.size(); j++)
-        {
-            if (strfull[n] == substring[j])
-            {
-                m++;
-            }
-            n++;
-        }
-        if (m == substring.size())
-        {
-            counter++;
-        }
-    }
-    return counter;
-}
-
-
-int MidiPreview::Velocity(std::string input)
-{
-    for (auto it = MidiVelocities.begin(); it != MidiVelocities.end(); ++it)
-          if ( input.compare(it->first) == 0 )
-             return it->second;
-    return 0;
-}
-
-// resolve the name of the instrument into the midi channel
-int MidiPreview::WhichInstrument(std::string input)
-{
-    for (auto it = InstrumentMidiChannels.begin(); it != InstrumentMidiChannels.end(); ++it)
-          if ( input.compare(it->first) == 0 )
-             return it->second;
-    return 0;
-}
-
-
-int MidiPreview::CheckForInstrument(std::string input)
-{
-    int myinstrument = -1;
-    for (size_t j = 0; j < abcnamingstyleinstrumentnames.size(); j++)
-    {
-       for (size_t i = 0; i < abcnamingstyleinstrumentnames[j].size(); i++)
-       {
-          if (  input.find(abcnamingstyleinstrumentnames[j][i]) != std::string::npos )
-          {
-
-                     myinstrument = i;
-          //  std::cout << "Found Instrument " << abcnamingstyleinstrumentnames[j][i] << std::endl;
-          }
-       }
-    }
-    return myinstrument;
-}
-
-// resolve the name of the instrument into the internal instrument number
-int MidiPreview::WhichInstrumentNumber(std::string input)
-{
-    for (auto it = InstrumentMidiNumbers.begin(); it != InstrumentMidiNumbers.end(); ++it)
-          if ( input.compare(it->first) == 0 )
-             return it->second;
-
-    return -1;
-}
-
-bool MidiPreview::IsBreak(std::string input)
-{
-    if (input.length()>0)  // any break must have at least a "z"
-    {
-        if (input.at(0) == 'z')
-        {
-            return true;
-        }
-        else return false;
-    }
-    else return false;
-}
-
-bool MidiPreview::IsTone(std::string input)
-{
-    if (input.length()>0)  // any break must have at least a "z"
-    {
-        if (input.at(0) == '[')
-        {
-            return true;
-        }
-        else return false;
-    }
-    else return false;
-}
-
-bool MidiPreview::IsVelchange(std::string input)
-{
-   if (input.length() > 2) // a velocity change always has at least 3 characters
-   {
-   if (input.at(0)=='+')
-       {
-           return true;
-       }
-       else
-       {
-           return false;
-       }
-   }
-   else
-   {
-       return false;
-   }
-}
-
-double MidiPreview::BreakDuration(std::string input)
-{
-   std::string onlyduration = input.erase(0,1);
-   return EvaluateDurationString(onlyduration);
-}
-
-double MidiPreview::ChordDuration(std::string input)
-{
-    std::string myinput = input;
-    std::vector< char > forbidden = { 'C', 'c', 'D', 'd', 'E', 'e', 'F', 'f', 'G', 'g', 'A', 'a', 'B', 'b', '^', '_', '[', ']', '=', ',', '-', ("'")[0] };
-    // first Replace all Characters with spaces
-    for (size_t i = 0; i < myinput.length(); i++)
-    {
-        for (size_t j = 0; j < forbidden.size(); j++)
-        if ( myinput.at(i)== forbidden.at(j))
-        {
-            myinput[i] = ' ';
-        }
-    }
-    std::string myduration = split(myinput, ' ')[0];
-
-    return EvaluateDurationString(myduration);
-}
-
-std::deque<int> MidiPreview::GetPitches(std::string input)
-{
-    std::string myinput = input;
-    std::vector< char > forbidden = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '/', '[', ']'};
-    for (size_t i = 0; i < myinput.length(); i++)
-    {
-        for (size_t j = 0; j < forbidden.size(); j++)
-            if (myinput.at(i)==forbidden.at(j))
-               myinput[i] = ' ';
-    }
-
-    // now make sure continuation signs are distinguishable
-    for (size_t i=0; i < myinput.length(); i++)
-    {
-        if ( myinput.at(i)=='-' ) myinput.insert(i+1, " ");
-    }
-
-    std::vector<std::string> mytokens = split(myinput, ' ');
-
-    // now parse the objects
-    std::deque<int> returnvalue;
-    int waslastapitch = 0;
-
-    /*
-    for (size_t i = 0; i < mytokens.size(); i++)
-        std::cout << mytokens[i] << " ";
-    std::cout << std::endl;
-*/
-    for (size_t i =0; i < mytokens.size(); i++)
-    {
-        if (mytokens[i]=="-")
-        { // this was a continuation sign
-            returnvalue.push_back(-2);
-            waslastapitch = 0; // now the last one wasn't a pitch
-        }
-        else
-        {
-            // this wasn't a continuation sign, but last one was a pitch, so this tone ends here and we have to add that information
-            if (waslastapitch == 1)
-            {
-                waslastapitch = 0; // now the last one wasn't a pitch
-                returnvalue.push_back(-1);
-            }
-
-
-            {
-                // this was actually a pitch, we have to find it's value
-                waslastapitch = 1;  // now the last one was a pitch
-                // first find if this is transposed one up or down
-                int relpitch = 0;
-                if (mytokens[i].at(0)=='^') relpitch = 1;
-                if (mytokens[i].at(0)=='_') relpitch = -1;
-                mytokens[i].erase(0,1);
-
-                // now we definitely have to start with a letter
-                if ( mytokens[i].at(0) == 'C' ) relpitch += 12;
-                if ( mytokens[i].at(0) == 'D' ) relpitch += 14;
-                if ( mytokens[i].at(0) == 'E' ) relpitch += 16;
-                if ( mytokens[i].at(0) == 'F' ) relpitch += 17;
-                if ( mytokens[i].at(0) == 'G' ) relpitch += 19;
-                if ( mytokens[i].at(0) == 'A' ) relpitch += 21;
-                if ( mytokens[i].at(0) == 'B' ) relpitch += 23;
-                if ( mytokens[i].at(0) == 'c' ) relpitch += 24;
-                if ( mytokens[i].at(0) == 'd' ) relpitch += 26;
-                if ( mytokens[i].at(0) == 'e' ) relpitch += 28;
-                if ( mytokens[i].at(0) == 'f' ) relpitch += 29;
-                if ( mytokens[i].at(0) == 'g' ) relpitch += 31;
-                if ( mytokens[i].at(0) == 'a' ) relpitch += 33;
-                if ( mytokens[i].at(0) == 'b' ) relpitch += 35;
-                mytokens[i].erase(0,1);
-
-                // and finally we can only have a "," or a "'" to raise or lower it by an octave
-                if ( mytokens[i].length() > 0)
-                {
-                    if (mytokens[i].at(0) == ',') {relpitch -= 12;}
-                    else {relpitch += 12;}
-                }
-                returnvalue.push_back( relpitch );
-            }
-        }
-    }
-
-    // last one was a pitch, there was no -, so this one is discontinued
-    if (waslastapitch == 1)
-    {
-        returnvalue.push_back(-1);
-    }
-    return returnvalue;
-}
 
 
 

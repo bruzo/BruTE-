@@ -6,6 +6,7 @@
 #include <sstream>
 #include <fstream>
 #include <iostream>
+#include <deque>
 #include <map>
 
     const double timetoticks = 0.60476973728946;
@@ -687,30 +688,30 @@ typedef struct STEREO_WAV_HEADER {
     };
 
 
-   int WhichInstrumentNumber(std::string input)
-   {
+int WhichInstrumentNumber(std::string input)
+{
       int myinstrument = -1;
       for (auto it = InstrumentMidiNumbers.begin(); it != InstrumentMidiNumbers.end(); ++it)
          if ( input.find(it->first) != std::string::npos )
              return it->second;
       return myinstrument;
-   }
+}
 
-   int CheckForInstrument(std::string input)
+int CheckForInstrument(std::string input)
+{
+   int myinstrument = -1;
+   for (size_t j = 0; j < abcnamingstyleinstrumentnames.size(); j++)
    {
-    int myinstrument = -1;
-    for (size_t j = 0; j < abcnamingstyleinstrumentnames.size(); j++)
-    {
-       for (size_t i = 0; i < abcnamingstyleinstrumentnames[j].size(); i++)
-       {
-          if (  input.find(abcnamingstyleinstrumentnames[j][i]) != std::string::npos )
-          {
-                     myinstrument = i;
-          }
-       }
-    }
-    return myinstrument;
+   for (size_t i = 0; i < abcnamingstyleinstrumentnames[j].size(); i++)
+      {
+         if (  input.find(abcnamingstyleinstrumentnames[j][i]) != std::string::npos )
+         {
+           myinstrument = i;
+         }
+      }
    }
+   return myinstrument;
+}
 
 int GetABCInstrumentFromTLine(std::string line)
 {
@@ -759,9 +760,245 @@ double EvaluateDurationString(std::string input)
     {
         std::stoi(input);
     }
-
     // we have no idea what this means .... we're returning a full tone ...
     return 1.;
+}
+
+
+double ChordDuration(std::string input)
+{
+    std::string myinput = input;
+    std::vector< char > forbidden = { 'C', 'c', 'D', 'd', 'E', 'e', 'F', 'f', 'G', 'g', 'A', 'a', 'B', 'b', '^', '_', '[', ']', '=', ',', '-', ("'")[0] };
+    // first Replace all Characters with spaces
+
+    for (size_t i = 0; i < myinput.length(); i++)
+    {
+        for (size_t j = 0; j < forbidden.size(); j++)
+        if ( myinput.at(i)== forbidden.at(j))
+        {
+            myinput[i] = ' ';
+        }
+    }
+
+    //then split into an array by the spaces
+    std::string myduration = split(myinput, ' ')[0];
+    return EvaluateDurationString(myduration); // and then just use the first duration
+}
+
+// Find the number of occurances of substring in strfull
+size_t Frequency_Substr(std::string strfull, std::string substring)
+{
+    size_t counter = 0;
+    size_t pos = 0;
+    while ((pos = strfull.find(substring, pos)) != std::string::npos)
+    {
+       ++counter;
+       pos += substring.length();
+    }
+    return counter;
+}
+
+inline bool IsBreak(std::string input)
+{
+   return (!input.empty() && input[0] == 'z') ? true : false;
+}
+
+
+std::vector<std::string> ABCTextArray(std::string input, char separator)
+{
+    std::vector<std::string> returntext;
+
+    std::string tempstr;
+    bool firstchar = true;
+    for (char c : input)
+    {
+        if (c == separator)
+        {
+            if (!firstchar)
+            {
+                tempstr += separator;
+            }
+            returntext.push_back(tempstr);
+            tempstr.clear();
+            firstchar = true;
+        }
+        else
+        {
+            tempstr += c;
+            firstchar = false;
+        }
+    }
+    if (!tempstr.empty())
+    {
+        returntext.push_back(tempstr);
+    }
+    return returntext;
+}
+
+
+std::vector<std::string> ABCTextArray(const std::string& input, const std::string& separator)
+{
+    std::vector<std::string> returntext;
+
+    size_t startpos = 0;
+    size_t endpos = input.find(separator);
+
+    while (endpos != std::string::npos) {
+        returntext.push_back(input.substr(startpos, endpos - startpos));
+        startpos = endpos;
+        endpos = input.find(separator, startpos + separator.length());
+    }
+
+    returntext.push_back(input.substr(startpos));
+
+    return returntext;
+}
+
+void ABCSplitHeaderBody(std::stringstream& alllines, std::list< std::string>& mytracklines, std::list<std::string>& mytrackheader)
+{
+   std::string line;
+   mytracklines.resize(0);
+   mytrackheader.resize(0);
+   while ( std::getline(alllines, line) )
+   {
+      if ((line[0]!='%')&&(line.size() > 0))
+      {
+         if (( line.size()>1 )&&(line[1]==':' ))
+         {
+            mytrackheader.push_back(line);
+         }
+         else
+         {
+            mytracklines.push_back(line);
+         }
+     }
+   }
+}
+
+
+inline bool IsVelchange(std::string input)
+{
+    auto it = VelocityValues.find(input);
+    if (it == VelocityValues.end())
+    {
+        return false;
+    }
+    else
+    {
+        return true;
+    }
+}
+
+inline int Velocity(std::string input)
+{
+  return VelocityValues[input];
+}
+
+double BreakDuration(std::string input)
+{
+   std::string onlyduration = input.erase(0,1);
+   return EvaluateDurationString(onlyduration);
+}
+
+std::deque<int> GetPitches(std::string input)
+{
+    std::string myinput = input;
+    std::vector< char > forbidden = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '/', '[', ']'};
+    // first replace all non-pitch information ( duration and chord brackets with spaces
+    for (size_t i = 0; i < myinput.length(); i++)
+    {
+        for (size_t j = 0; j < forbidden.size(); j++)
+            if (myinput.at(i)==forbidden.at(j))
+               myinput[i] = ' ';
+    }
+
+    // now make sure continuation signs are distinguishable
+    for (size_t i=0; i < myinput.length(); i++)
+    {
+        if ( myinput.at(i)=='-' ) myinput.insert(i+1, " ");
+    }
+    std::vector<std::string> mytokens = split(myinput, ' ');
+
+    // now parse the objects
+    std::deque<int> returnvalue;
+    int waslastapitch = 0;
+
+    for (size_t i =0; i < mytokens.size(); i++)
+    {
+        if (mytokens[i]=="-")
+        { // this was a continuation sign
+            returnvalue.push_back(-2);
+            waslastapitch = 0; // now the last one wasn't a pitch
+        }
+        else
+        {
+            // this wasn't a continuation sign, but last one was a pitch, so this tone ends here and we have to add that information
+            if (waslastapitch == 1)
+            {
+                waslastapitch = 0; // now the last one wasn't a pitch
+                returnvalue.push_back(-1);
+            }
+
+
+            {
+                // this was actually a pitch, we have to find it's value
+                waslastapitch = 1;  // now the last one was a pitch
+                // first find if this is transposed one up or down
+                int relpitch = 0;
+                if (mytokens[i].at(0)=='^') relpitch = 1;
+                if (mytokens[i].at(0)=='_') relpitch = -1;
+                mytokens[i].erase(0,1);
+
+                // now we definitely have to start with a letter
+                if ( mytokens[i].at(0) == 'C' ) relpitch += 12;
+                if ( mytokens[i].at(0) == 'D' ) relpitch += 14;
+                if ( mytokens[i].at(0) == 'E' ) relpitch += 16;
+                if ( mytokens[i].at(0) == 'F' ) relpitch += 17;
+                if ( mytokens[i].at(0) == 'G' ) relpitch += 19;
+                if ( mytokens[i].at(0) == 'A' ) relpitch += 21;
+                if ( mytokens[i].at(0) == 'B' ) relpitch += 23;
+                if ( mytokens[i].at(0) == 'c' ) relpitch += 24;
+                if ( mytokens[i].at(0) == 'd' ) relpitch += 26;
+                if ( mytokens[i].at(0) == 'e' ) relpitch += 28;
+                if ( mytokens[i].at(0) == 'f' ) relpitch += 29;
+                if ( mytokens[i].at(0) == 'g' ) relpitch += 31;
+                if ( mytokens[i].at(0) == 'a' ) relpitch += 33;
+                if ( mytokens[i].at(0) == 'b' ) relpitch += 35;
+                mytokens[i].erase(0,1);
+
+                // and finally we can only have a "," or a "'" to raise or lower it by an octave
+                if ( mytokens[i].length() > 0)
+                {
+                    if (mytokens[i].at(0) == ',') {relpitch -= 12;}
+                    else {relpitch += 12;}
+                }
+                returnvalue.push_back( relpitch );
+            }
+        }
+    }
+
+    // last one was a pitch, there was no -, so this one is discontinued
+    if (waslastapitch == 1)
+    {
+        returnvalue.push_back(-1);
+    }
+
+    return returnvalue;
+}
+
+
+
+bool IsTone(std::string input)
+{
+    if (input.length()>0)  // any tone must have at least one character
+    {
+        if (input.at(0) == '[')  // currently all tones must be in brackets []
+        {
+            return true;
+        }
+        else return false;
+    }
+    else return false;
 }
 
 #endif
