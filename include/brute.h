@@ -429,8 +429,8 @@ void Brute::LoadMidi(char * mymidiname)
     double globalmaxtick = 0;
 
     // to build the pitch averages for shifting everything to middle octave
-    m_avpitches.resize(m_Midi.size());
-    m_avpitchc.resize(m_Midi.size());
+    m_avpitches.resize(m_Midi.size(),0);
+    m_avpitchc.resize(m_Midi.size(),0);
 
     // to keep the current volume
     int curvol = 64;

@@ -741,7 +741,14 @@ double EvaluateDurationString(std::string input)
     // if the length is 0 this is easy
     if (input.length() == 0) return 1.0;
 
-    if ((input.length() == 1)&&(input=="/")) return 1.0;
+    // Get the /////// out of the way
+    if ((input.length() == 1)&&(input=="/")) return 0.5;
+    if ((input.length() == 2)&&(input=="//")) return 0.25;
+    if ((input.length() == 3)&&(input=="///")) return 0.125;
+    if ((input.length() == 4)&&(input=="////")) return 0.125*0.5;
+    if ((input.length() == 5)&&(input=="/////")) return 0.125*0.25;
+    if ((input.length() == 6)&&(input=="//////")) return 0.125*0.125;
+
 
     // Now Check if this is a fraction
     if (input.find('/') >= 0)   // this is a fraction
@@ -771,15 +778,17 @@ double ChordDuration(std::string input)
     std::vector< char > forbidden = { 'C', 'c', 'D', 'd', 'E', 'e', 'F', 'f', 'G', 'g', 'A', 'a', 'B', 'b', '^', '_', '[', ']', '=', ',', '-', ("'")[0] };
     // first Replace all Characters with spaces
 
+    size_t digits = 0;
     for (size_t i = 0; i < myinput.length(); i++)
     {
         for (size_t j = 0; j < forbidden.size(); j++)
-        if ( myinput.at(i)== forbidden.at(j))
+        if ( myinput[i] == forbidden[j])
         {
             myinput[i] = ' ';
         }
+        if (isdigit(myinput[i])) digits++;
     }
-
+    if (digits == 0) return 1.0;
     //then split into an array by the spaces
     std::string myduration = split(myinput, ' ')[0];
     return EvaluateDurationString(myduration); // and then just use the first duration
@@ -854,7 +863,7 @@ std::vector<std::string> ABCTextArray(const std::string& input, const std::strin
     return returntext;
 }
 
-void ABCSplitHeaderBody(std::stringstream& alllines, std::list< std::string>& mytracklines, std::list<std::string>& mytrackheader)
+void ABCSplitHeaderBody(std::stringstream& alllines, std::vector< std::string>& mytracklines, std::vector<std::string>& mytrackheader)
 {
    std::string line;
    mytracklines.resize(0);
@@ -869,7 +878,12 @@ void ABCSplitHeaderBody(std::stringstream& alllines, std::list< std::string>& my
          }
          else
          {
-            mytracklines.push_back(line);
+            auto lines = split(line, ' ');
+            for ( auto element : lines)
+            {
+               if (( element != "|" ) && ( element != "|]"))
+                     mytracklines.push_back(element);
+            }
          }
      }
    }
@@ -896,8 +910,9 @@ inline int Velocity(std::string input)
 
 double BreakDuration(std::string input)
 {
-   std::string onlyduration = input.erase(0,1);
-   return EvaluateDurationString(onlyduration);
+ //  std::string onlyduration = input.erase(0,1);
+ //  return EvaluateDurationString(onlyduration);
+ return EvaluateDurationString(input.substr(1));
 }
 
 std::deque<int> GetPitches(std::string input)
@@ -988,15 +1003,105 @@ std::deque<int> GetPitches(std::string input)
 
 
 
+std::vector<int16_t> GetPitches2(std::string input)
+{
+    std::string myinput = input;
+    std::vector< char > forbidden = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '/', '[', ']'};
+    // first replace all non-pitch information ( duration and chord brackets with spaces
+    for (size_t i = 0; i < myinput.length(); i++)
+    {
+        for (size_t j = 0; j < forbidden.size(); j++)
+            if (myinput[i]==forbidden[j])
+               myinput[i] = ' ';
+    }
+
+    // now make sure continuation signs are distinguishable
+    for (size_t i=0; i < myinput.length(); i++)
+    {
+        if ( myinput[i]=='-' ) myinput.insert(i+1, " ");
+    }
+    std::vector<std::string> mytokens = split(myinput, ' ');
+
+    // now parse the objects
+    std::vector<int16_t> returnvalue; returnvalue.resize(0);
+    int waslastapitch = 0;
+
+    for (size_t i =0; i < mytokens.size(); i++)
+    {
+        if (mytokens[i]=="-")
+        { // this was a continuation sign
+            returnvalue.push_back(-2);
+            waslastapitch = 0; // now the last one wasn't a pitch
+        }
+        else
+        {
+            // this wasn't a continuation sign, but last one was a pitch, so this tone ends here and we have to add that information
+            if (waslastapitch == 1)
+            {
+                waslastapitch = 0; // now the last one wasn't a pitch
+                returnvalue.push_back(-1);
+            }
+
+
+            {
+                // this was actually a pitch, we have to find it's value
+                waslastapitch = 1;  // now the last one was a pitch
+                // first find if this is transposed one up or down
+                int relpitch = 0;
+                if (mytokens[i][0]=='^') relpitch = 1;
+                if (mytokens[i][0]=='_') relpitch = -1;
+                mytokens[i].erase(0,1);
+
+                // now we definitely have to start with a letter
+                if ( mytokens[i][0] == 'C' ) relpitch += 12;
+                if ( mytokens[i][0] == 'D' ) relpitch += 14;
+                if ( mytokens[i][0] == 'E' ) relpitch += 16;
+                if ( mytokens[i][0] == 'F' ) relpitch += 17;
+                if ( mytokens[i][0] == 'G' ) relpitch += 19;
+                if ( mytokens[i][0] == 'A' ) relpitch += 21;
+                if ( mytokens[i][0] == 'B' ) relpitch += 23;
+                if ( mytokens[i][0] == 'c' ) relpitch += 24;
+                if ( mytokens[i][0] == 'd' ) relpitch += 26;
+                if ( mytokens[i][0] == 'e' ) relpitch += 28;
+                if ( mytokens[i][0] == 'f' ) relpitch += 29;
+                if ( mytokens[i][0] == 'g' ) relpitch += 31;
+                if ( mytokens[i][0] == 'a' ) relpitch += 33;
+                if ( mytokens[i][0] == 'b' ) relpitch += 35;
+                mytokens[i].erase(0,1);
+
+                // and finally we can only have a "," or a "'" to raise or lower it by an octave
+                if ( mytokens[i].length() > 0)
+                {
+                    if (mytokens[i][0] == ',') {relpitch -= 12;}
+                    else {relpitch += 12;}
+                }
+                returnvalue.push_back( relpitch );
+            }
+        }
+    }
+
+    // last one was a pitch, there was no -, so this one is discontinued
+    if (waslastapitch == 1)
+    {
+        returnvalue.push_back(-1);
+    }
+    return returnvalue;
+}
+
+
+
 bool IsTone(std::string input)
 {
     if (input.length()>0)  // any tone must have at least one character
     {
-        if (input.at(0) == '[')  // currently all tones must be in brackets []
+        if ((input[0] == '[') || (input[0]=='^')|| (input[0]=='_') || (input[0]=='='))  // a tone can be in brackets or with ^ _ or =
         {
             return true;
         }
-        else return false;
+        else
+        {
+            return false;
+        }
     }
     else return false;
 }
