@@ -40,11 +40,10 @@ public:
 
     void PitchBends();
     void CopyMidiInfoToTracks();    // New method of handling midi events seperatly per ABCTrack
-    void GenerateQuantizedNotes();  // Old Quantization flatly processes only all the miditracks
     void GenerateQuantizedNotes2(); // New Quantization uses Miditrack per ABCTRAck
-    void GenerateNoteSelection();
+
     void GenerateNoteSelection2();
-    void MapToRegister();
+
     void MapToRegister2();
     void GenerateRoughChordLists();
     void ChordJoinDurations();
@@ -377,24 +376,19 @@ void Brute::LoadMidi(char * mymidiname)
     m_samplesused.resize(m_Midi.size());
     for (int i = 0; i < m_Midi.size(); i++)
     {
-        m_samplesused[i].resize(256);
-        for (unsigned int j = 0; j < m_samplesused[i].size(); j++)
-            m_samplesused[i][j] = false;
+        m_samplesused[i].resize(256); for (size_t j = 0; j < m_samplesused[i].size(); j++) m_samplesused[i][j] = false;
     }
 
     // midi instruments of tracks
-    m_midiinstruments.resize(m_Midi.size());
-    for (int i = 0; i < m_Midi.size(); i++) m_midiinstruments[i] = 0;
+    m_midiinstruments.resize(m_Midi.size(),0);
 
     int pitchbendrange = 2; // default pitchbendrange
 
     // number of tones per track
-    m_tonecounts.resize(m_Midi.size());
-    for (int i = 0; i < m_Midi.size(); i++) m_tonecounts[i] = 0;
+    m_tonecounts.resize(m_Midi.size(),0); for (size_t i = 0; i < m_tonecounts.size(); i++) m_tonecounts[i] = 0;
 
     // drum track book keeping
-    m_isdrumtrack.resize(m_Midi.size());
-    for (int i = 0; i < m_Midi.size(); i++) m_isdrumtrack[i] = false;
+    m_isdrumtrack.resize(m_Midi.size(), false); for (size_t i = 0; i < m_isdrumtrack.size(); i++) m_isdrumtrack[i] = false;
 
     // reserve space for starts/ends/pitches/velocities
     m_tonestarts.resize(m_Midi.size());
@@ -407,9 +401,7 @@ void Brute::LoadMidi(char * mymidiname)
     m_pitchbendvalues.resize(m_Midi.size());
 
     // pitchbend arrays
-    m_pitchbendcounter.resize(m_Midi.size());
-    for (int i = 0; i < m_Midi.size(); i++) m_pitchbendcounter[i] = 0;
-
+    m_pitchbendcounter.resize(m_Midi.size(), 0);
 
     //int ticksperbeat =  m_Midi.getTicksPerQuarterNote();
     m_bpm = 120; // initial default tempo
@@ -435,7 +427,6 @@ void Brute::LoadMidi(char * mymidiname)
     // to keep the current volume
     int curvol = 64;
 
-
     // loop through midi file to find all the stuff
     for (int i = 0; i < m_Midi.size(); i++)
     {
@@ -455,14 +446,14 @@ void Brute::LoadMidi(char * mymidiname)
         int eventcount = m_Midi.getEventCount(i);
 
         // resize all the arrays to the number of events .. just to be on the save side
-        m_tonestarts[i].resize(eventcount);
-        m_toneends[i].resize(eventcount);
-        m_pitches[i].resize(eventcount);
-        m_velocities[i].resize(eventcount);
+        m_tonestarts[i].resize(eventcount,0); for (size_t j = 0; j < m_tonestarts[i].size(); j++) m_tonestarts[i][j] = 0;
+        m_toneends[i].resize(eventcount,0);   for (size_t j = 0; j < m_toneends[i].size(); j++) m_toneends[i][j] = 0;
+        m_pitches[i].resize(eventcount,0);    for (size_t j = 0; j < m_pitches[i].size(); j++) m_pitches[i][j] = 0;
+        m_velocities[i].resize(eventcount,0); for (size_t j = 0; j < m_velocities[i].size(); j++) m_velocities[i][j] = 0;
 
         // pitchbend arrays
-        m_pitchbendtimes[i].resize(eventcount);
-        m_pitchbendvalues[i].resize(eventcount);
+        m_pitchbendtimes[i].resize(eventcount,0); for (size_t j = 0; j < m_pitchbendtimes[i].size(); j++) m_pitchbendtimes[i][j] = 0;
+        m_pitchbendvalues[i].resize(eventcount,0);for (size_t j = 0; j < m_pitchbendvalues[i].size(); j++) m_pitchbendvalues[i][j] = 0;
 
 
         for (int j = 0; j < eventcount; j++)
@@ -545,7 +536,7 @@ void Brute::LoadMidi(char * mymidiname)
 
         if (m_Midi[i][j][0] == 0xB0 && m_Midi[i][j][1] == 0x65 && m_Midi[i][j][2] == 0x00 )
         {
-                std::cout << " we are adjusting sensitivity " << i << std::endl;
+//                std::cout << " we are adjusting sensitivity " << i << std::endl;
                 int msb = m_Midi[i][j][1];
                 int lsb = m_Midi[i][j][2];
                 pitchbendrange = ((msb<<7)|lsb)/100;
@@ -554,7 +545,6 @@ void Brute::LoadMidi(char * mymidiname)
             // check for pitch bend events
             if (m_Midi[i][j].isPitchbend() )
             {
-
                 double time = timetoticks * m_Midi.getTimeInSeconds(m_Midi[i][j].tick) ;
 
                 // Extract the least significant 7 bits of the pitch bend data
@@ -599,10 +589,10 @@ void Brute::LoadMidi(char * mymidiname)
     // Set volumes to normalized max
     for (int i = 0; i < m_Midi.size(); i++)
     {
-        #pragma omp simd
         for (size_t j = 0; j < m_velocities[i].size(); j++)
             m_velocities[i][j] = m_velocities[i][j] - m_globalmaxvel + 127;
     }
+
     // Prevent Issues with too large Data Structures
     for (size_t i = 0; i < m_tonestarts.size(); i++)
     {
@@ -1453,104 +1443,6 @@ void Brute::GenerateQuantizedNotes2()
 	}
 }
 
-void Brute::GenerateQuantizedNotes()
-{
-    // this is where the quantization happens
-    // every midi tone is thrown on the intrinsic lattice in time
-
-    m_maxduration = 0;
-    m_minnotestart = 0; // magic number: 2^30
-
-    // now we do some regularization math
-    int zminstep = m_minstep/m_Mapping.m_oversampling;  // oversampling should be always 2
-    m_qunits = 8 * zminstep;
-    double ziminstep = 1.0 / zminstep;
-
-    m_verylasttone = 0;
-    m_verylasttonestart = 0;
-
-    // we may not need this always, but nothing wrong with declaring a bit too much
-    double oldhuman = 0;
-    double oldhuman2 = 0;
-    double oldhuman3 = 0;
-
-    // build the normal distribution rng
-    //std::default_random_engine generator;
-
-   // std::normal_distribution<double> distribution(0.0,m_Mapping.m_dohumanization);
-
-    // traditionally here would be some calculations for time correction of instruments, not beeing done right now
-    m_qnotestart.resize(m_Midi.size());
-    m_qnoteend.resize(m_Midi.size());
-
-    m_qnotestarterror.resize(m_Midi.size());
-    m_qnoteenderror.resize(m_Midi.size());
-
-    // loop over midi tracks
-    for (int i=0; i < m_Midi.size(); i++)
-    {
-        // allocate memory for quantized tones
-        int tonesinthistrack = m_tonecounts[i];
-
-        m_qnotestart[i].resize( tonesinthistrack );
-        m_qnoteend[i].resize( tonesinthistrack );
-        m_qnotestarterror[i].resize( tonesinthistrack);
-        m_qnoteenderror[i].resize( tonesinthistrack);
-
-        // loop over tones in midi track
-        for (int j = 0; j < tonesinthistrack; j++)
-        {
-            // someone crazy switched on the humanization - because this is a not usual thing, we just change the timings
-            // in the midi tones. The oldhuman variables are a lag filter to avoid too fast jumps in timing missmatch
-            if (m_Mapping.m_dohumanization > 0.)
-            {
-                double r_start = m_tonestarts[i][j];
-                double r_end = m_toneends[i][j];
-
-//                double mtdshift = distribution(generator);
-                double mtdshift = myrandom()*m_Mapping.m_dohumanization;  // we got rid of the <random.h> dependency for 32 bit compilations
-                r_start = r_start + (mtdshift+oldhuman+oldhuman2*0.35+oldhuman3*0.15)*0.4;
-                r_end = r_end + (mtdshift+oldhuman+oldhuman2*0.35+oldhuman3*0.15)*0.4;
-
-                // some kind of cheap mans ringbuffer
-                oldhuman3 = oldhuman2;
-                oldhuman2 = oldhuman;
-                oldhuman = mtdshift;
-
-                m_toneends[i][j] = r_end;
-                m_tonestarts[i][j] = r_start;
-            }
-
-            // keep track of final tone
-            if (m_toneends[i][j] > m_verylasttone) m_verylasttone = m_toneends[i][j];
-            if (m_tonestarts[i][j] > m_verylasttonestart) m_verylasttonestart = m_tonestarts[i][j];
-
-            // bin number in register grid for this tone
-            int64_t qstart = static_cast<int64_t>( m_tonestarts[i][j] * ziminstep  );
-            int64_t qend   = static_cast<int64_t>( m_toneends[i][j] * ziminstep );
-
-            // keep track of rounding error
-            double qstarterror = (m_tonestarts[i][j]*ziminstep) - qstart ;
-            double qenderror   = (m_toneends[i][j]*ziminstep) - qend;
-
-            //std::cout << qstart << "  " << qstarterror << std::endl;
-
-            // store in quantized vectors
-            m_qnotestarterror[i][j] = qstarterror;
-            m_qnoteenderror[i][j] = qenderror;
-            m_qnotestart[i][j] = qstart;
-            m_qnoteend[i][j] = qend;
-
-            if (qend > m_maxduration) m_maxduration = qend + m_Mapping.m_DATA_maxdelay;
-        }
-    }
-
-    // setting some constants
-    m_minnotestart /= m_Mapping.m_oversampling;
-    m_qunits *= m_Mapping.m_oversampling * m_Mapping.m_oversampling / 2;
-
-}
-
 void Brute::PitchBends()
 {
     // not done right now!
@@ -1733,184 +1625,6 @@ void Brute::MapToRegister2()
         }
     }
     m_log << "Mapped Tones to Register" << std::endl;
-}
-
-void Brute::MapToRegister()
-{
-    // this maps the quantized tones to the register
-
-    // Allocate Registers
-    m_registerlength = m_maxduration+1+100;
-
-    int nabctracks = static_cast<int>( m_Mapping.m_instrumap.size() );
-
-    // allocate and wipe memory for registers
-    // Tones - ABC Track -> Pitch -> Length
-
-    m_register.resize(nabctracks);
-    m_missmatch.resize(nabctracks);
-    m_velocity.resize(nabctracks);
-    m_priomap.resize(nabctracks);
-
-    m_projectedmissmatch.resize(nabctracks);
-    m_projectedvelocity.resize(nabctracks);
-
-    for (int i = 0; i < nabctracks; i++)
-    {
-        m_projectedmissmatch[i].resize(m_registerlength);
-        m_projectedvelocity[i].resize(m_registerlength);
-        for (int j = 0; j < m_registerlength; j++)
-        {
-            m_projectedmissmatch[i][j]=0.;
-            m_projectedvelocity[i][j]=0.;
-        }
-    }
-
-    for (int i = 0; i < nabctracks; i++)
-    {
-        m_register[i].resize(38);
-        m_missmatch[i].resize(38);
-        m_velocity[i].resize(38);
-        m_priomap[i].resize(38);
-
-        for (int pitch = 0; pitch < 38; pitch++)
-        {
-            m_register[i][pitch].resize(m_registerlength);
-            m_missmatch[i][pitch].resize(m_registerlength);
-            m_velocity[i][pitch].resize(m_registerlength);
-            m_priomap[i][pitch].resize(m_registerlength);
-            for (int j = 0; j < m_registerlength; j++)
-            {
-                m_register[i][pitch][j] = 0.;
-                m_missmatch[i][pitch][j] = -1.;
-                m_velocity[i][pitch][j] = 0.;
-                m_priomap[i][pitch][j] = 0.;
-            }
-        }
-    }
-
-    // Now write all the tones in the register
-
-    // Loop over all abctracks
-    m_log << "Mapping Info " << std::endl;
-  //  #pragma omp parallel for
-    for (int abctrack = 0; abctrack < nabctracks; abctrack++)
-    {
-        // Loop over the miditracks in this abctrack
-        for (unsigned int miditrack = 0; miditrack < m_Mapping.m_trackmap[abctrack].size(); miditrack++ )
-        {
-            int utrack = m_Mapping.m_trackmap[abctrack][miditrack];
-            m_log << "ABC Track: " << abctrack+1 << " Miditrack: " << utrack << std::endl;;
-
-            // take either no octaveshift or if the avpitch feature is used take the mean shift into account
-            int octavepitch = 0;
-            if (m_avpitchc[utrack]!=0)
-            {
-                octavepitch = int(double(m_avpitches[utrack])/double(m_avpitchc[utrack])/12 - 1);
-            }
-            if ( m_Mapping.m_nopitchguessing ) octavepitch = 0; // no pitch guessing overrides everything
-            // this is another good point to care about pitchbending .. this time midi track based
-
-
-            // now go through all the tones
-            for (int toneid = 0; toneid < m_tonecounts[utrack]; toneid++)
-            {
-                bool takethistone = true;
-
-                // velocity is the normalized velo from the midi reading
-                int velocity = m_velocities[utrack][toneid] + m_Mapping.m_volumemap[abctrack][miditrack];
-                // std::cout << m_Mapping.m_volumemap[abctrack][miditrack] << std::endl;
-
-                // pitch, adjusted by general pitch, per midi pitch and possible octave guessing
-                int pitch;
-
-                // now fold or not fold the pitch into playable region
-                //    if (  !m_isdrumtrack[utrack] ) // this would be the miditrack info, but we use definitions in config file!
-                if ( m_Mapping.m_instrumap[abctrack] != 8 )  // don't do this if this is a lotro drum
-                {
-                    pitch = m_pitches[utrack][toneid] + m_Mapping.m_generalpitch + m_Mapping.m_pitchmap[abctrack][miditrack] -
-                            octavepitch * 12;
-                    while ( pitch < m_Mapping.m_rangemapl[abctrack][miditrack] ) pitch = pitch + 12;
-                    while ( pitch > m_Mapping.m_rangemaph[abctrack][miditrack] ) pitch = pitch - 12;
-
-                    // here would be the tonality conversion, but will come later!
-                }
-                else
-                {
-                    // drums use the mapping
-                    pitch = m_Mapping.m_drumsmapd[ m_Mapping.m_drumstylemap[abctrack][miditrack] ][m_pitches[utrack][toneid]];
-
-                    // check for drum sample selection
-                    if (m_Mapping.m_drumsingleinstrument[abctrack][miditrack] > 0)
-                        if (m_pitches[utrack][toneid]!=m_Mapping.m_drumsingleinstrument[abctrack][miditrack]) takethistone = false;
-                }
-
-
-                if ((takethistone)&&(m_selected[abctrack][miditrack][toneid]))
-                    // if (takethistone)
-                {
-                    double mystart = m_qnotestart[utrack][toneid] - m_minnotestart + m_Mapping.m_delaymap[abctrack][miditrack];
-                    double myend   = m_qnoteend[utrack][toneid] - m_minnotestart + m_Mapping.m_delaymap[abctrack][miditrack];
-
-                    // assure minimum note and maximum note length
-                    while ( (myend - mystart) < m_Mapping.m_durmap[abctrack] )
-                    {
-                        myend = myend + 1;
-                    }
-                    while ( ((myend - mystart) > m_Mapping.m_durmaxmap[abctrack]) && (myend-mystart >= m_Mapping.m_durmap[abctrack]) ) myend = myend -1;
-
-                    // Linear 'note'-priority-decay from start to end (rather shorten a tone than miss out on a new start)
-                    // v(end-start) = x/(end-start)
-                    double m = 1.0 / (myend-mystart);
-                    double endp1 = myend + 1;
-
-
-                    // keep track of missmatch, if tone is already assigned, give a warning and use missmatch of first
-                    if ((pitch >= 0) && (pitch < 38))
-                    {
-
-                        if (m_missmatch[abctrack][pitch][mystart] >= 0.)
-                        {
-
-                            if ( !dequal( m_missmatch[abctrack][pitch][mystart], m_qnotestarterror[utrack][toneid] ) )
-                            {
-                                m_log << "Identical pitch, start times aligned: " << utrack << " time: " << maketime(m_tonestarts[utrack][toneid]) << "    Difference: "  << maketime( std::abs(m_qnotestarterror[utrack][toneid] - m_missmatch[abctrack][pitch][mystart]) ) << std::endl;
-                            }
-                        }
-                        else
-                        {
-                            m_missmatch[abctrack][pitch][mystart] = m_qnotestarterror[utrack][toneid];  // first tone in this register wins the race
-                        }
-
-
-                        if ( velocity > m_velocity[abctrack][pitch][mystart] )
-                        {
-                            if ( m_velocity[abctrack][pitch][mystart] > 0)
-                                std::cout <<"Identical pitch, taking highest velocity, Miditrack: " << utrack << " time: " << maketime(m_tonestarts[utrack][toneid]) << std::endl;
-                            m_velocity[abctrack][pitch][mystart] = velocity;
-                        }
-                        // and mark the following slots till tone ends
-                        for (int j = mystart; j < myend; j++)
-                        {
-                            double gm_val = (endp1 - j) * m + m_Mapping.m_priomap[abctrack][miditrack];
-
-
-                            // if the value in the register is smaller than gm_val we overwrite it - branching version
-                            if (m_register[abctrack][pitch][j] < gm_val) m_register[abctrack][pitch][j] = gm_val;
-
-                            // branchless version
-                            //int condition = (m_register[abctrack][pitch][j] < gm_val);
-                            //m_register[abctrack][pitch][j] = condition * gm_val + (condition-1) * m_register[abctrack][pitch][j];
-
-                        }
-                    }
-                }
-            }
-        }
-
-    }
-    m_log << "Mapped tones to registers " << std::endl;
-    // pitch = int( qtracknotes[track][i][3] - octavepitch[track] * 12 + pitchmap[itrack][utrack] + generalpitch )
 }
 
 void Brute::GenerateRoughChordLists()
@@ -2902,7 +2616,7 @@ void Brute::GenerateABC()
         for (int abctrack = 0; abctrack < abctracks; abctrack++)
         {
             int thisinstrument = m_Mapping.m_instrumap[abctrack];
-            int thispartnumber = lotroinstrumentadd[thisinstrument];
+            int thispartnumber = lotroinstrumentadd[thisinstrument]+1;
             while ( StyleParts[thispartnumber] != -1) thispartnumber++;
             StyleParts[thispartnumber] = abctrack;   // now we know which X:   refers to which abctrack number
             std::cout << " Adding to " << thispartnumber << "  " << abctrack << std::endl;
@@ -3166,76 +2880,6 @@ void Brute::GenerateNoteSelection2()
                 }
 			}
 	    }
-    }
-}
-
-
-// this goes over the quantized tones and sets the flags for tones to be selected or not for each abctrack/miditrack
-void Brute::GenerateNoteSelection()
-{
-
-    int abctracks = static_cast<int> ( m_Mapping.m_instrumap.size());
-    m_selected.resize(abctracks);
-    #pragma omp parallel for
-    for (int abctrack = 0; abctrack < abctracks; abctrack++)
-    {
-        int miditracks = m_Mapping.m_trackmap[abctrack].size();
-        m_selected[abctrack].resize(miditracks);
-
-
-        for (int miditrack = 0; miditrack < miditracks; miditrack++)
-        {
-            int thismiditrack = m_Mapping.m_trackmap[abctrack][miditrack];
-            // get number of tones of this miditrack
-            m_selected[abctrack][miditrack].resize( m_tonecounts[thismiditrack] );
-            for (int event = 0; event < m_tonecounts[thismiditrack]; event++)
-                m_selected[abctrack][miditrack][event]=true;
-
-        }
-    }
-
-
-    // now we got the data structure reserved
-    // #pragma omp parallel for
-    for (int abctrack = 0; abctrack < abctracks; abctrack++)
-    {
-        int miditracks = m_Mapping.m_trackmap[abctrack].size();
-        for (int miditrack = 0; miditrack < miditracks; miditrack++)
-        {
-            int thisoneisalternated = (m_Mapping.m_alternatemap[abctrack][miditrack] > 1);
-            int thisoneissplitted = (m_Mapping.m_splitvoicemap[abctrack][miditrack]>0);
-            if (( m_Mapping.m_alternatemap[abctrack][miditrack] > 1) || (m_Mapping.m_splitvoicemap[abctrack][miditrack]>0))   // we only have to  go through this if this track is either alternated or a specific tone of each chord is picked
-            {
-                // this track is alternated!
-                int utrack = m_Mapping.m_trackmap[abctrack][miditrack];
-                int ntones = m_tonecounts[utrack];
-                int eventcounter = 0;
-                int tonenumber = 0;
-                double currenttime = 0;
-                int thispart = 1;
-                int alternateparts = m_Mapping.m_alternatemap[abctrack][miditrack];
-                int alternatepart = m_Mapping.m_alternatepart[abctrack][miditrack];
-
-                while ( tonenumber < ntones)
-                {
-
-                    // Branchless Version of the chord finder
-                    int mm = (( m_tonestarts[utrack][tonenumber] < currenttime   - 0.0000001 ) || (m_tonestarts[utrack][tonenumber] > currenttime + 0.0000001 )); // check if the new tone happens at a different time than the preceeding one
-                    eventcounter += mm;    // if yes, add one to the number of events
-                    currenttime = ( 1 - mm ) * currenttime + mm * m_tonestarts[utrack][tonenumber];   // and memorize the new time
-                    thispart =  mm + ( 1-mm ) * (thispart+1);  // this is either 1 in case it's true, or thispart+1 in case it's false, meaning it counts up the value in thispart to identify the n'th tone in the chord
-
-                    // Branchless version
-                    int acondition =  ( eventcounter % alternateparts != alternatepart );
-                    int scondition =  ( thispart != m_Mapping.m_splitvoicemap[abctrack][miditrack]);
-                                                                // default is true, if either this shouldn't be played by alternation or splitting it will be disabled
-                    m_selected[abctrack][miditrack][tonenumber] = true - (( thisoneisalternated && acondition ) || ( thisoneissplitted && scondition ));
-
-                    // move a tone further
-                    tonenumber++;
-                }
-            }
-        }
     }
 }
 

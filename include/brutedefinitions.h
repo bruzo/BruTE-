@@ -49,9 +49,40 @@
       "no idea","no idea","no idea","no idea","no idea","no idea"
       };
 
+     std::vector<std::string> GMDrumNames =
+    { "nothing", "nothing", "nothing", "nothing", "nothing", "nothing", "nothing", "nothing", "nothing", "nothing", "nothing",
+      "nothing", "nothing", "nothing", "nothing", "nothing", "nothing", "nothing", "nothing", "nothing", "nothing", "nothing",
+      "nothing", "nothing", "nothing", "nothing", "nothing", "nothing", "nothing", "nothing", "nothing", "nothing", "nothing",
+      "nothing", "nothing", "Bass Drum 2", "Bass Drum 1", "Side Stick/Rimshot", "Snare Drum 1", "Hand Clap", "Snare Drum 2",
+      "Low Tom 2", "Closed Hi-hat", "Low Tom 1", "Pedal Hi-hat", "Mid Tom 2", "Open Hi-hat", "Mid Tom 1", "High Tom 2",
+      "Crash Cymbal 1", "High Tom 1", "Ride Cymbal 1", "Chinese Cymbal", "Ride Bell", "Tambourine", "Splash Cymbal", "Cowbell",
+      "Crash Cymbal 2", "Vibra Slap", "Ride Cymbal 2", "High Bongo", "Low Bongo", "Mute High Conga", "Open High Conga",
+      "Low Conga", "High Timbale", "Low Timbale", "High Agogo", "Low Agogo", "Cabasa", "Maracas", "Short Whistle", "Long Whistle",
+      "Short Gueiro", "Long Gueiro", "Claves", "High Wood Block", "Low Wood Block", "Mute Cuica", "Open Cuica", "Mute Triangle",
+      "Open Triangle","nothing","nothing","nothing","nothing","nothing","nothing","nothing","nothing","nothing","nothing",
+      "nothing","nothing","nothing","nothing","nothing","nothing","nothing","nothing","nothing","nothing","nothing","nothing",
+      "nothing","nothing","nothing","nothing","nothing","nothing","nothing","nothing","nothing","nothing","nothing","nothing",
+      "nothing","nothing","nothing","nothing","nothing","nothing","nothing","nothing","nothing","nothing","nothing","nothing",
+      "nothing","nothing",
+      "no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea",
+      "no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea",
+      "no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea",
+      "no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea",
+      "no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea",
+      "no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea",
+      "no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea",
+      "no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea",
+      "no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea",
+      "no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea",
+      "no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea",
+      "no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea","no idea",
+      "no idea","no idea","no idea","no idea","no idea","no idea"
+      };
+
       // C, = 36   C = 48  c = 60      // C-D = 2 // C-E = 4 // C-F = 5 // C-G = 7 // C-A = 9 // C-B =11
 
       // C, = 0   C = 12 c = 24
+      /*
       std::vector<std::string> LotroDrumSampleNames =
       {
           "Bass (^G)\t20", "Bass Open (^A)\t22", "Bass Slap 1 (^C)\t13", "Bass Slap 2 (D)\t14", "Bend High Up (f)\t29",
@@ -63,7 +94,133 @@
           "Slap 1 (^D,)\t3", "Slap 2 (E,)\t4", "Slap 3 (E)\t14", "Slap 4 (^F)\t 18",
           "Slap 5 (^f)\t30", "Slap 6 (^g)\t32", "Slap 7 (c')\t36",
           "Tambourine (^A,)\t10", "Tom High 1 (G,)\t7", "Tom High 2 (A,)\t9", "Tom Mid 1 (B,)\t11", "Tom Mid 2 (^d)\t27"
+      };*/
+
+      std::vector<std::string> LotroDrumSampleNames =
+      {
+          "No Direct Mapping",
+          "Conga High 1 (C,) 0",
+          "Rattle Short 1 (^C,) 1",
+          "Bongo High (D,) 2",
+          "Slap 1 (^D,) 3",
+          "Slap 2 (E,) 4",
+          "Muted 1 (F,) 5",
+          "Rattle Short 2 (^F,) 6",
+          "Tom High 1 (G,) 7",
+          "Rattle Short 3 (^G,) 8",
+          "Tom High 2 (A,) 9",
+          "Tambourine (^A,) 10",
+          "Tom Mid 1 (B,) 11",
+          "Muted Mid (C) 12",
+          "Bass Slap 1 (^C) 13",
+          "Bass Slap 2 (D) 14",
+          "Rim Shot 1 (^D) 15",
+          "Slap 3 (E) 16",
+          "Rim Shot 2 (F) 17",
+          "Slap 4 (^F) 18",
+          "Rattle 1 (G) 19",
+          "Bass (^G) 20",
+          "Rattle Long (A) 21",
+          "Bass Open (^A) 22",
+          "Rattle 2 (B) 23",
+          "Rattle 3 (c) 24",
+          "Muted 2 (^c) 25",
+          "Bend Low Up (d) 26",
+          "Tom Mid 2 (^d) 27",
+          "Bend Mid Down (e) 28",
+          "Bend High Up (f) 29",
+          "Slap 5 (^f) 30",
+          "Conga Low (g) 31",
+          "Slap 6 (^g) 32",
+          "Bongo Low (a) 33",
+          "Conga High 2 (^a) 34",
+          "Conga Mid (b) 35",
+          "Slap 7 (c') 36",
       };
+
+      std::vector<std::string> LotroStudentFiddleSampleNames =
+      {
+          "No Direct Mapping",
+          "Strings (C,) 0",
+          "Knock (^C,) 1",
+          "Scratch (D,) 2",
+          "None (^D,) 3",
+          "None (E,) 4",
+          "None (F,) 5",
+          "None (^F,) 6",
+          "None (G,) 7",
+          "None (^G,) 8",
+          "None (A,) 9",
+          "None (^A,) 10",
+          "None (B,) 11",
+          "(C) 12",
+          "(^C) 13",
+          "(D) 14",
+          "(^D) 15",
+          "(E) 16",
+          "(F) 17",
+          "(^F) 18",
+          "(G) 19",
+          "(^G) 20",
+          "(A) 21",
+          "(^A) 22",
+          "(B) 23",
+          "(c) 24",
+          "(^c) 25",
+          "(d) 26",
+          "(^d) 27"
+          "(e) 28",
+          "(f) 29",
+          "(^f) 30",
+          "(g) 31",
+          "(^g) 32",
+          "(a) 33",
+          "(^a) 34",
+          "(b) 35",
+          "(c') 36",
+      };
+      std::vector<std::string> LotroToneSampleNames =
+      {
+          "No Direct Mapping",
+          "(C,) 0",
+          "(^C,) 1",
+          "(D,) 2",
+          "(^D,) 3",
+          "(E,) 4",
+          "(F,) 5",
+          "(^F,) 6",
+          "(G,) 7",
+          "(^G,) 8",
+          "(A,) 9",
+          "(^A,) 10",
+          "(B,) 11",
+          "(C) 12",
+          "(^C) 13",
+          "(D) 14",
+          "(^D) 15",
+          "(E) 16",
+          "(F) 17",
+          "(^F) 18",
+          "(G) 19",
+          "(^G) 20",
+          "(A) 21",
+          "(^A) 22",
+          "(B) 23",
+          "(c) 24",
+          "(^c) 25",
+          "(d) 26",
+          "(^d) 27"
+          "(e) 28",
+          "(f) 29",
+          "(^f) 30",
+          "(g) 31",
+          "(^g) 32",
+          "(a) 33",
+          "(^a) 34",
+          "(b) 35",
+          "(c') 36",
+      };
+
 
       std::vector<std::string> ABCStyleNames =
       {
@@ -87,8 +244,9 @@
         "lute of ages", "basic harp", "theorbo", "horn", "clarinet", "flute", "bagpipes", "pipgorn", "drums",
      //      0      1        2         3         4          5        6           7         8
            "basic cowbell", "moor cowbell", "basic lute", "misty harp", "student fiddle", "lm fiddle", "sprightly fiddle", "travel fiddle", "bardic fiddle",
-     //      9          10                 11            12         13          14           15         16          17
+     //      9                10                 11            12          13               14            15                  16          17
            "basic fiddle", "basic bassoon", "lm bassoon", "bruesque bassoon"
+           // 18               19               20             21
     };
 
     std::vector<std::string> TSOtyleinstrumentnames =
@@ -123,6 +281,7 @@
            "basicfiddle", "basson_flat", "basson_vib", "basson_stac"};
      //      18             19              20            21
 
+
      std::string lotroinstruments2[22] =
           {"Lute", "Harp", "Theorbo", "horn", "clarinet", "flute", "bagpipes", "pipgorn", "drums",
      //      0      1        2         3         4          5        6           7         8
@@ -146,36 +305,10 @@
 
      std::string pitchnames[38] = {"=C,","^C,","=D,","^D,","=E,","=F,","^F,","=G,","^G,","=A,","^A,","=B,", "=C","^C","=D","^D","=E","=F","^F","=G","^G","=A","^A","=B", "=c","^c","=d","^d","=e","=f","^f","=g","^g","=a","^a","=b","=c'", "^c'" };
 
-     std::string volumenames[8] = {"+ppp+", "+pp+", "+p+", "+mp+", "+mf+", "+f+", "+ff+", "+fff+"};
-
-     std::string fullvolumenames[10] = {"+pppp+", "+ppp+", "+pp+", "+p+", "+mp+", "+mf+", "+f+", "+ff+", "+fff+", "+ffff+"};
-
+     std::string volumenames[8] =      {"+ppp+", "+pp+", "+p+", "+mp+", "+mf+", "+f+", "+ff+", "+fff+"};
+    // std::string fullvolumenames[10] = {"+pppp+", "+ppp+", "+pp+", "+p+", "+mp+", "+mf+", "+f+", "+ff+", "+fff+", "+ffff+"};
 
 
-     std::vector<std::vector<float>> fullvolumegains = {
-                                        {0.201 , 0.201   , 0.2963  ,  0.3647 ,  0.4608  ,   0.5507  ,    0.644  ,   0.74  ,   0.774  , 0.774},   // lute of the ages 1
-                                        {0.231 , 0.231   , 0.35    ,  0.4965  ,  0.606    ,   0.709   ,    0.795  ,   0.92 ,   0.96  , 0.96},    // harp 2
-                                        {0.108 , 0.108   , 0.1743   ,  0.213  ,  0.2654  ,   0.3244  ,    0.3725 ,   0.4137,   0.4416 , 0.4416},  // theorbo 3
-                                        {0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9},   // horn 4
-                                        {0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9},   // clarinet 5
-                                        {0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9},   // flute 6
-                                        {0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9},   // bagpipes 7
-                                        {0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9},   // pibgorn 8
-                                        {0.14, 0.14, 0.21, 0.3, 0.42, 0.5, 0.57, 0.65, 0.7, 0.7},   // drums 9
-                                        {0.14, 0.14, 0.21, 0.3, 0.42, 0.5, 0.57, 0.65, 0.7, 0.7},   // cowbell 10
-                                        {0.14, 0.14, 0.21, 0.3, 0.42, 0.5, 0.57, 0.65, 0.7, 0.7},   // moor bell 11
-                                        {0.092, 0.092, 0.131 , 0.164 , 0.200 , 0.245 , 0.302,0.342, 0.362, 0.362},   // basic lute 12
-                                        {0.231 , 0.231   , 0.35    ,  0.4965  ,  0.606    ,   0.709   ,    0.795  ,   0.92 ,   0.96  , 0.96},   // misty M harp 13
-                                        {0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9},   // student fiddle 14
-                                        {0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9},   // lonely M fiddle  15
-                                        {0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9},   // sprightly fiddle  16
-                                        {0.14, 0.14, 0.22, 0.26, 0.38, 0.51, 0.65, 0.7, 0.8, 0.8},   // travellers t 17
-                                        {0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9},   // bardic  18
-                                        {0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9},   // basic fiddle  19
-                                        {0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9},   // basic basson  20
-                                        {0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9},   // lonely m basson
-                                        {0.2, 0.2, 0.3, 0.3, 0.5, 0.65, 0.66, 0.69, 0.77, 0.77}    // brusque basson
-                                                        };
 
      std::vector<float> pitchgains = {0.2, 0.2, 0.28, 0.37, 0.46, 0.55, 0.64, 0.73, 0.78, 0.78};
      std::vector<float> relativegain = {1, 1.25, 0.56, 1.25, 0.95, 0.95, 0.95, 0.95, 1.25, 1., 1.25, 0.55, 0.74, 1.  , 1.25, 0.6, 0.8, 1.25, 1.25, 1.25, 1.25, 1.25, 1.25};
@@ -252,7 +385,7 @@
         //  Volume corrections U16.1  (in dB)
         const float instrumentvolumeoffset[22] = {0, 0.75, 3.75, -1.0, -2.75, -3.0, -2.0, -4.0, 2.75, 5.0, 12.0, -1.25, 0.25, 0, 0, 0 ,0 ,0 ,0 ,0,0,0};
 
-
+/*
         // Volume offsets per tone (in dB)
         const float toneoffsets[22][38] = {
         //lute
@@ -299,7 +432,7 @@
 {0,0,0,0,0,0,0,0,0,0,0,0,0,0.0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
 // basson_stac
 {0,0,0,0,0,0,0,0,0,0,0,0,0,0.0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0} };
-
+*/
 
 // Note ranges
 int noteranges[22][2] = {
@@ -466,6 +599,7 @@ std::map<std::string,int>InstrumentMidiNumbers =
     {"Basson_stac", 21}
 };
 
+/*
 std::map<std::string, int> MidiVelocities =
 {
               {"+pppp+" , 51},
@@ -479,6 +613,7 @@ std::map<std::string, int> MidiVelocities =
               {"+fff+", 105},
               {"+ffff+", 105}
 };
+*/
 
 std::map<std::string, int> VelocityValues =
 {
@@ -493,8 +628,6 @@ std::map<std::string, int> VelocityValues =
               {"+fff+", 8},
               {"+ffff+", 9}
 };
-                                        //   pppp     ppp      pp        p       mp        mf         f         ff       fff   ffff
-std::vector<float> volconversionfactors = { 1.0/7.0, 1.0/5.0, 1.0/2.8, 1.0/1.9, 1.0/1.55, 1.0/1.32, 1.0/1.165, 1.0/1.045, 1.0, 1.0/0.9727   };
 
 // string split function
 std::vector<std::string> split(const std::string& s, char delimiter)
@@ -635,6 +768,7 @@ bool dequal( double a, double b)
     return retval;
 }
 
+/*
 const static unsigned char MinimalSoundFont[] =
 {
 	#define TEN0 0,0,0,0,0,0,0,0,0,0
@@ -649,13 +783,15 @@ const static unsigned char MinimalSoundFont[] =
 	'L','I','S','T',112,0,0,0,'s','d','t','a','s','m','p','l',100,0,0,0,86,0,119,3,31,7,147,10,43,14,169,17,58,21,189,24,73,28,204,31,73,35,249,38,46,42,71,46,250,48,150,53,242,55,126,60,151,63,108,66,126,72,207,
 		70,86,83,100,72,74,100,163,39,241,163,59,175,59,179,9,179,134,187,6,186,2,194,5,194,15,200,6,202,96,206,159,209,35,213,213,216,45,220,221,223,76,227,221,230,91,234,242,237,105,241,8,245,118,248,32,252
 };
+*/
 
+/*
 typedef struct STEREO_WAV_HEADER {
-  /* RIFF Chunk Descriptor */
+  // RIFF Chunk Descriptor
   uint8_t RIFF[4] = {'R', 'I', 'F', 'F'}; // RIFF Header Magic header
   uint32_t ChunkSize;                     // RIFF Chunk Size
   uint8_t WAVE[4] = {'W', 'A', 'V', 'E'}; // WAVE Header
-  /* "fmt" sub-chunk */
+  // "fmt" sub-chunk
   uint8_t fmt[4] = {'f', 'm', 't', ' '}; // FMT header
   uint32_t Subchunk1Size = 16;           // Size of the fmt chunk
   uint16_t AudioFormat = 1; // Audio format 1=PCM,6=mulaw,7=alaw,     257=IBM
@@ -665,10 +801,11 @@ typedef struct STEREO_WAV_HEADER {
   uint32_t bytesPerSec = 44100 * 4; // bytes per second
   uint16_t blockAlign = 4;          // 2=16-bit mono, 4=16-bit stereo
   uint16_t bitsPerSample = 16;      // Number of bits per sample
-  /* "data" sub-chunk */
+  // "data" sub-chunk
   uint8_t Subchunk2ID[4] = {'d', 'a', 't', 'a'}; // "data"  string
   uint32_t Subchunk2Size;                        // Sampled data length
 } stereo_wav_hdr;
+*/
 
     std::vector<std::vector<int>> oggpitchnumbers=
     {

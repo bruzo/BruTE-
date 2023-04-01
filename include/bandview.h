@@ -598,7 +598,7 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
 
      // check for Midi in ABC Track picked
      size_t mypossibleMidiInABCTrack = MidiTrackInABCTrackPicked(mouseX, mouseY);
-     if (mypossibleMidiInABCTrack != 1000)
+     if ((mypossibleMidiInABCTrack != 1000) && ( !CRTLIsDown ) && (!ShiftIsDown))
      {
          // std::cout << "Someone Picked a MidiTrack in an ABC Track" << std::endl;
          size_t whichmidi = WhichMidiTrackInABCTrackPicked(mouseX, mouseY);
@@ -615,6 +615,43 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
 
              midiinabctrackclicked = true;
 
+             this->Refresh();
+         }
+     }
+
+     if ((mypossibleMidiInABCTrack != 1000) && ( CRTLIsDown ) && (!ShiftIsDown))
+     {
+         size_t whichmidi = WhichMidiTrackInABCTrackPicked(mouseX, mouseY);
+         if ( whichmidi != 1000)
+         {
+             // we decided to split a midi track into the singular instruments, but we should only do that for drums right now
+             BandViewMidiTrack TempMidi = BVabctracks[mypossibleMidiInABCTrack].miditrackinfo[whichmidi];
+             BVabctracks[mypossibleMidiInABCTrack].miditrackinfo.erase( BVabctracks[mypossibleMidiInABCTrack].miditrackinfo.begin() + whichmidi );
+             int drummapping = TempMidi.drummapping;
+
+             for (size_t i = 0; i < TempMidi.samples->size(); i++)
+             {
+                 if (TempMidi.samples->at(i))
+                    {
+                        TempMidi.drumtone = i;
+                        TempMidi.directmapping = myBrute->m_Mapping.m_drumsmapd[drummapping][i];
+
+                        BVabctracks[mypossibleMidiInABCTrack].miditrackinfo.push_back(TempMidi);
+                    }
+             }
+
+             this->Refresh();
+         }
+     }
+
+     if ((mypossibleMidiInABCTrack != 1000) && ( !CRTLIsDown ) && (ShiftIsDown))
+     {
+         size_t whichmidi = WhichMidiTrackInABCTrackPicked(mouseX, mouseY);
+         if ( whichmidi != 1000)
+         {
+             // we decided to split a midi track into the singular instruments, but we should only do that for drums right now
+             BandViewMidiTrack TempMidi = BVabctracks[mypossibleMidiInABCTrack].miditrackinfo[whichmidi];
+             BVabctracks[mypossibleMidiInABCTrack].miditrackinfo.push_back(TempMidi);
              this->Refresh();
          }
      }

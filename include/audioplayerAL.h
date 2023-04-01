@@ -789,7 +789,7 @@ void AudioPlayerAL::PlayTestTones(int instrument, int pitch)
         int j = i - 48;
         if (j<0) j = 0;
 
-        float mygain = fullvolumegains[instrument][j/48];
+        float mygain = 0.7;
 
 
         //if (myvol < 0 ) myvol = 0;
@@ -838,6 +838,8 @@ void AudioPlayerAL::SendABC(std::stringstream * abctext)
     m_durationseconds = newabc->GetDuration();
   //  m_ABCTonesvector = newabc->m_ABCTonesvector;
 
+
+
     if (myabc == NULL)
     {
         myabc = newabc;
@@ -847,11 +849,13 @@ void AudioPlayerAL::SendABC(std::stringstream * abctext)
         delete(myabc);
         myabc = newabc;
     }
-    if ((m_Nabctracks>0) && (myabc->GetID(0) == -1))
+
+    if ((m_Nabctracks>0) && (newabc->GetID(0) == -1))
     {
         // this ABC didn't have ID info so we're setting this
         for (int i = 0; i < static_cast<int>(m_Nabctracks); i++) myabc->SetID(i, i+1);
     }
+
 }
 
 

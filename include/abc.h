@@ -192,7 +192,7 @@ void ABCInput::LoadABC(std::stringstream * abctext)
    std::string ABCString = abctext->str();
 
    this->m_Nabctracks = Frequency_Substr(ABCString, "X:");
-   std::cout << "ABC IMPORT The ABC has " <<  this->m_Nabctracks << " Tracks." << std::endl;
+ //  std::cout << "ABC IMPORT The ABC has " <<  this->m_Nabctracks << " Tracks." << std::endl;
 
    // ABC Track information arrays
    m_abcheaders.resize(m_Nabctracks);

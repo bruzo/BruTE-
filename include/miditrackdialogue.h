@@ -72,7 +72,9 @@ public:
 
   wxStaticBox * directmapping;
   wxTextCtrl * directm;
+  wxComboBox * directms;
   wxTextCtrl * drumm;
+  wxComboBox * drumms;
   wxCheckBox * directbox;
 
 
@@ -187,13 +189,67 @@ MidiTrackDialogue::MidiTrackDialogue(BandViewMidiTrack * myMidiTrack, BandViewAB
   durationsplitl = new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->durationsplitlength), wxPoint(x+10, y+20), wxSize(45,sy-25));
   durationsplitp = new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->durationsplitpart), wxPoint(x+95, y+20), wxSize(45,sy-25));
 
-  x = 5; y = 270; sx = 200; sy = 45;
+  x = 5; y = 270; sx = 300; sy = 45;
   directmapping = new wxStaticBox(panel, -1, wxT("Direct Mapping"), wxPoint(x,y), wxSize(sx,sy), wxTE_READONLY);
 
-  drumm = new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->drumtone), wxPoint(x+10, y+20), wxSize(45,sy-25));
-  directm =new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->directmapping), wxPoint(x+85, y+20), wxSize(45,sy-25));
-  sampleinfobutton = new wxButton(panel, -1, wxT("Info"), wxPoint(x+150, y+20), wxSize(40,sy-25));
-  sampleinfobutton->Bind(wxEVT_BUTTON, &ShowInfo, this);
+
+  std::vector<wxString> dkeys = {};
+  std::vector<int> dkeyvalues = {};
+
+  dkeys.push_back("No Mapping");
+  dkeyvalues.push_back(0);
+
+  int dkeycurrentpos = 0;
+
+  for (size_t i = 0; i < thisMiditrack->samples->size(); i++  )
+  {
+      if (thisMiditrack->samples->at(i))
+      {
+          if (myMidiTrack->drumtone ==static_cast<int>(i))
+          {
+              dkeycurrentpos = dkeys.size();
+          }
+          if (myABCTrack->instrument == 8)
+          {
+             dkeys.push_back(GMDrumNames[i] + " " + std::to_string(i));
+             dkeyvalues.push_back(i);
+          }
+          else
+          {
+              dkeys.push_back(std::to_string(i));
+              dkeyvalues.push_back(i);
+          }
+      }
+  }
+
+  std::vector<wxString> ditems =  {};
+  if ( myABCTrack->instrument == 8)
+  {
+     for (size_t i = 0; i < LotroDrumSampleNames.size(); i++) ditems.push_back( LotroDrumSampleNames[i] )  ;
+  }
+  else
+  {
+     if ( myABCTrack->instrument == 13) // student fiddle
+     {
+        for (size_t i = 0; i < LotroStudentFiddleSampleNames.size(); i++) ditems.push_back( LotroStudentFiddleSampleNames[i] )  ;
+     }
+     else
+     {
+        for (size_t i = 0; i < LotroToneSampleNames.size(); i++) ditems.push_back( LotroToneSampleNames[i] )  ;
+     }
+  }
+
+  // drumm = new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->drumtone), wxPoint(x+10, y+20), wxSize(45,sy-25));
+  directms = new wxComboBox(panel, -1, "", wxPoint(x+10,y+20), wxSize(130,20), dkeys.size(),  dkeys.data(), wxCB_DROPDOWN | wxCB_READONLY);
+  directms->SetSelection( dkeycurrentpos  );
+  //directm =new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->directmapping), wxPoint(x+85, y+20), wxSize(45,sy-25));
+
+  drumms =   new wxComboBox(panel, -1, "", wxPoint(x+145,y+20), wxSize(150,20), ditems.size(),  ditems.data(), wxCB_DROPDOWN | wxCB_READONLY);
+  drumms->SetSelection( myMidiTrack->directmapping + 1 );
+
+
+ // sampleinfobutton = new wxButton(panel, -1, wxT("Info"), wxPoint(x+250, y+20), wxSize(40,sy-25));
+ // sampleinfobutton->Bind(wxEVT_BUTTON, &ShowInfo, this);
 
   okButton = new wxButton(this, wxID_OK, wxT("Ok"),wxDefaultPosition, wxSize(70, 30));
 
@@ -228,8 +284,12 @@ MidiTrackDialogue::MidiTrackDialogue(BandViewMidiTrack * myMidiTrack, BandViewAB
   thisMiditrack->durationsplitlength = wxAtoi(durationsplitl->GetValue());
   thisMiditrack->durationsplitpart = wxAtoi(durationsplitp->GetValue());
 
-  thisMiditrack->drumtone = wxAtoi(drumm->GetValue());
-  thisMiditrack->directmapping = wxAtoi(directm->GetValue());
+//  thisMiditrack->drumtone = wxAtoi(drumm->GetValue());
+  thisMiditrack->drumtone = dkeyvalues[directms->GetSelection()];
+
+
+  thisMiditrack->directmapping = drumms->GetSelection()-1;
+  //thisMiditrack->directmapping = wxAtoi(directm->GetValue());
 
   Destroy();
 }
