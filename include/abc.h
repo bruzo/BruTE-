@@ -26,8 +26,9 @@ public:
 
    std::vector< std::vector< ToneTuple > > m_ABCTonesvector = {};
 
-   std::vector<size_t> m_instrumentnumber = {};     // Instrument of the ABC tracks
-   std::vector<size_t> m_Xnumber = {};
+   std::vector< std::vector<uint32_t> > m_ToneCounts;  // to measure occupancy in 50ms blocks
+   std::vector< uint32_t> m_TotalToneCounts;
+
 
    std::size_t Nabctracks();
 
@@ -48,6 +49,10 @@ public:
    int GetInstrument(int abctrack);
    void SetInstrument(int abctrack, int value);
 
+   void UpdateToneCounts();
+   bool AudioReady = false;
+   bool AudioRedrawn = false;
+
 private:
 
    std::size_t m_Nabctracks = 0;
@@ -57,6 +62,64 @@ private:
    int64_t m_durationseconds = 0;
 
 };
+
+void ABCInput::UpdateToneCounts()
+{
+   int64_t chunks = ((m_durationseconds+2) * 1000) / 50;
+
+   m_ToneCounts.resize( m_Nabctracks );
+   for (size_t i = 0; i < m_Nabctracks; i++) m_ToneCounts[i].resize(chunks, 0);
+
+   for (size_t i = 0; i < m_Nabctracks; i++)
+   {
+      for (size_t j= 0; j < m_ABCTonesvector[i].size(); j++)
+      {
+          int64_t tonestart = std::get<1>(m_ABCTonesvector[i][j]);
+          int64_t toneduration = std::get<2>(m_ABCTonesvector[i][j]);
+
+          int64_t chunkstart = ( (tonestart * 1000) / (44100*50) );
+          int64_t chunkduration = ( toneduration * 1000 ) / (44100*50);
+
+          int instrunumber = GetInstrument(i);
+
+          if (  fadeouttype[ instrunumber ] == 0 )
+          {
+              // this is a constant duration instrument
+              size_t loopend = chunkstart + fadeout[instrunumber];
+              if (loopend >= m_ToneCounts[i].size()) loopend = m_ToneCounts[i].size() ;
+
+              for (size_t m = chunkstart; m < loopend; m++) m_ToneCounts[i][m] += 1;
+          }
+          else
+          {
+              size_t loopend = chunkstart + chunkduration + fadeout[instrunumber];
+              if (loopend >= m_ToneCounts[i].size()) loopend = m_ToneCounts[i].size() ;
+              // this is a continuous instrument
+              for (size_t m = chunkstart; m < loopend; m++) m_ToneCounts[i][m] += 1;
+        }
+      }
+   }
+   m_TotalToneCounts.resize(691);
+   std::fill(m_TotalToneCounts.begin(), m_TotalToneCounts.end(), 0);
+   float chunksperpixel =  690.0 / m_ToneCounts[0].size();
+
+   for ( uint64_t i = 0; i < m_ToneCounts[0].size(); i++ )
+   {
+        // count full number of tones per slot and pick largest
+      uint32_t val = 0;
+      for (size_t j = 0; j < m_ToneCounts.size(); j++) // loop over tracks
+      {
+         val = val + m_ToneCounts[j][i];
+      }
+      if (val > 99) val = 99;
+      size_t position = size_t(i * chunksperpixel);
+      if ( val > m_TotalToneCounts[position] ) m_TotalToneCounts[position] = val;
+   }
+
+
+   AudioReady = true;
+   AudioRedrawn = false;
+}
 
 int ABCInput::GetInstrument(int abctrack)
 {

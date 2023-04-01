@@ -12,7 +12,7 @@
 #include "bandviewabctrack.h"
 #include "bandviewmiditrack.h"
 #include "audioplayerAL.h"
-#include "midipreview.h"
+//#include "midipreview.h"
 #include "audiencedialogue.h"
 #include "overloadpicture.h"
 #include "miditrackview.h"
@@ -28,7 +28,7 @@ class BandView : public wxPanel
 {
 
 public:
-    BandView(wxFrame* parent, Brute * myBrute, MidiPreview * myMidiPreview, MidiTrackView * myMidiTrackViewp, AudioPlayerAL * myAudioPlayerAL);
+    BandView(wxFrame* parent, Brute * myBrute, MidiTrackView * myMidiTrackViewp, AudioPlayerAL * myAudioPlayerAL);
 
     void paintEvent(wxPaintEvent & evt);
     void paintNow();
@@ -55,7 +55,7 @@ public:
     Brute * myBrute;  // our instance of Brute
    // AudioPlayer * myaudioplayer; // our instance of the AudioPlayer
     AudioPlayerAL * myaudioplayerAL;
-    MidiPreview * myMidiPreview;
+    // MidiPreview * myMidiPreview;
 
     void mouseLeftDown(wxMouseEvent& event);
     void mouseLeftUp(wxMouseEvent& event);
@@ -112,6 +112,9 @@ private:
 
     int m_ABCnamingscheme = 0;
     std::string Transcriber = "Himbeertony";
+
+    int m_volume=100;
+    int m_panning=100;;
 
     // some useful events
     /*
@@ -204,8 +207,8 @@ void BandView::LiveUpdateAudio()
       GenerateConfigHeader();
       AppendMapping();
       myBrute->Transcode(&myBrute->m_MappingText);
-      int64_t realduration;
-      myMidiPreview->GeneratePreviewMidi2(&myBrute->m_ABCText, &realduration );
+   //   int64_t realduration;
+    //  myMidiPreview->GeneratePreviewMidi2(&myBrute->m_ABCText, &realduration );
       myaudioplayerAL->UpdateABC(&myBrute->m_ABCText);
    }
 }
@@ -495,9 +498,9 @@ void BandView::mouseRightDown(wxMouseEvent& event)
     if (( mouseY > 545 ) && (mouseY < 570 ) && ( mouseX > 440) && (mouseX < 500))
     {
         // audience right clicked
-        AudienceDialogue * myaudience = new AudienceDialogue( &myMidiPreview->m_volume, &myMidiPreview->m_panning );         if (myaudience == NULL) {};
-        myaudioplayerAL->SetVolume(myMidiPreview->m_volume);
-        myaudioplayerAL->SetGlobalPanning(myMidiPreview->m_panning);
+        AudienceDialogue * myaudience = new AudienceDialogue( &m_volume, &m_panning );         if (myaudience == NULL) {};
+        myaudioplayerAL->SetVolume(m_volume);
+        myaudioplayerAL->SetGlobalPanning(m_panning);
     }
 
          // check for miditrack picked
@@ -647,11 +650,11 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
 
 
 //            myMidiPreview->GeneratePreviewMidi(&myBrute->m_ABCText, int64_t( myBrute->m_globalmaxtick/0.36) );
-            int64_t realduration;
-            myMidiPreview->GeneratePreviewMidi2(&myBrute->m_ABCText, &realduration );
+         //   int64_t realduration;
+            // myMidiPreview->GeneratePreviewMidi2(&myBrute->m_ABCText, &realduration );
 
             myaudioplayerAL->SendABC(&myBrute->m_ABCText);
-
+            myaudioplayerAL->GetABC()->UpdateToneCounts();
             myaudioplayerAL->Play();
 
             myaudioplayerAL->audio_playing = 1;
@@ -861,7 +864,7 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
              BVabctracks.push_back(MovingABCTrack);
              abctrackclicked=false;
              this->Refresh();
-             myaudioplayerAL->SetPanning(  BVabctracks[ BVabctracks.size()-1 ].id  , -int( myMidiPreview->m_panning * ((BVabctracks[BVabctracks.size()-1].x-100)/590.0 - 0.5)   ));
+             myaudioplayerAL->SetPanning(  BVabctracks[ BVabctracks.size()-1 ].id  , -int( m_panning * ((BVabctracks[BVabctracks.size()-1].x-100)/590.0 - 0.5)   ));
          }
      }
      // someone is dropping a miditrack that was picked up from an ABC Track
@@ -887,7 +890,7 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
      miditrackclicked = false;
  }
 
-BandView::BandView(wxFrame* parent, Brute * myBrutep, MidiPreview * myMidiPreviewp, MidiTrackView * myMidiTrackViewp, AudioPlayerAL * myAudioPlayerAL) :
+BandView::BandView(wxFrame* parent, Brute * myBrutep, MidiTrackView * myMidiTrackViewp, AudioPlayerAL * myAudioPlayerAL) :
 wxPanel(parent)
 {
     parent->SetLabel (wxT("Band View"));
@@ -895,7 +898,6 @@ wxPanel(parent)
     myBrute = myBrutep;
    // myaudioplayer = myaudioplayerp;
     myaudioplayerAL = myAudioPlayerAL;
-    myMidiPreview = myMidiPreviewp;
     myMidiTrackView = myMidiTrackViewp;
 
 
@@ -911,6 +913,8 @@ wxPanel(parent)
     DragAcceptFiles(true);
 
   //  Bind(wxEVT_KEY_DOWN, &BandView::OnKeyDown, this);
+
+     std::cout << " Initialization Bandview done " << std::endl;
 }
 
 /*
@@ -1236,23 +1240,27 @@ void BandView::render(wxDC&  dc)
 
     // Draw Overloading Info at 100,600 - 790, 700
 
-    if (( myMidiPreview->AudioReady) && !(myMidiPreview->AudioRedrawn))
+    if (myaudioplayerAL->GetABC() != NULL)
+    {
+
+
+    if (( myaudioplayerAL->GetABC()->AudioReady) && !(myaudioplayerAL->GetABC()->AudioRedrawn))
     {
        wxMemoryDC dc2;
        dc2.SelectObject(myOverLoadPic[0]);
 
-       for (size_t i = 0; i < myMidiPreview->m_TotalToneCounts.size(); i++)
+       for (size_t i = 0; i < myaudioplayerAL->GetABC()->m_TotalToneCounts.size(); i++)
        {
            dc2.SetPen( wxPen( wxColor(0,0,0), 1));
-           if ( myMidiPreview->m_TotalToneCounts[i] > 64) dc2.SetPen( wxPen( wxColor(255,0,0), 1));
-           if ( myMidiPreview->m_TotalToneCounts[i] < 65) dc2.SetPen( wxPen( wxColor(0,255,0), 1));
-           dc2.DrawLine(i, 50, i, 50-myMidiPreview->m_TotalToneCounts[i]/2);
+           if ( myaudioplayerAL->GetABC()->m_TotalToneCounts[i] > 64) dc2.SetPen( wxPen( wxColor(255,0,0), 1));
+           if ( myaudioplayerAL->GetABC()->m_TotalToneCounts[i] < 65) dc2.SetPen( wxPen( wxColor(0,255,0), 1));
+           dc2.DrawLine(i, 50, i, 50-myaudioplayerAL->GetABC()->m_TotalToneCounts[i]/2);
            dc2.SetPen( wxPen( wxColor(255,255,255), 1));
-           dc2.DrawLine(i, 50-myMidiPreview->m_TotalToneCounts[i]/2, i, 0);
+           dc2.DrawLine(i, 50-myaudioplayerAL->GetABC()->m_TotalToneCounts[i]/2, i, 0);
        }
-       myMidiPreview->AudioRedrawn = true;
+       myaudioplayerAL->GetABC()->AudioRedrawn = true;
     }
-
+    }
 
 
     dc.DrawBitmap(myOverLoadPic[0], 100, 580, false);
@@ -1314,6 +1322,7 @@ void BandView::OnDropFiles(wxDropFilesEvent& event) {
        myBrute->DeleteMidi();
        myaudioplayerAL->Stop();
        myaudioplayerAL->SendABC(&myBrute->m_ABCText);
+       myaudioplayerAL->GetABC()->UpdateToneCounts();
        myaudioplayerAL->Play();
        myaudioplayerAL->audio_playing = 1;
        BVabctracks.resize(myaudioplayerAL->GetNumberOfTracks());

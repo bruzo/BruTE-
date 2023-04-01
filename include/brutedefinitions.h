@@ -100,9 +100,18 @@
         "Basic Fiddle", "Basic Bassoon", "Lonely M Bassoon", "Bruesque Bassoon"
     };
 
+    std::vector<std::string> Maestrostyleinstrumentnames =
+    {
+        "Lute of Ages", "Basic Harp", "Basic Theorbo", "Basic Horn", "Basic Clarinet", "Basic Flute", "Basic Bagpipe", "Basic Pipgorn", "Basic Drum",
+     //      0      1        2         3         4          5        6           7         8
+        "Basic Cowbell", "Moor Cowbell", "Basic Lute", "Misty Mountain Harp", "Student Fiddle", "Lonely Mountain Fiddle", "Sprightly Fiddle", "Traveller's Trusty Fiddle", "Bardic Fiddle",
+     //      9          10                 11            12         13          14           15         16          17
+        "Basic Fiddle", "Basic Bassoon", "Lonely Mountain Bassoon", "Brusque Bassoon"
+    };
+
     std::vector<std::vector<std::string>> abcnamingstyleinstrumentnames =
     {
-        rockstyleinstrumentnames, TSOtyleinstrumentnames, TSOtyleinstrumentnames
+        rockstyleinstrumentnames, TSOtyleinstrumentnames, TSOtyleinstrumentnames, Maestrostyleinstrumentnames
     };
 
 

@@ -231,8 +231,8 @@ void ABCHeaderT::ParseLine(std::string line)
                    {
                        // seems we only had one number in the end, lets treat that as stereo panning
                        two = 0;
-                       m_StereoPosition = three;
-                       m_DepthPosition = 0;
+                       m_StereoPosition = static_cast<int>((three - 64.0)/64*50) ;
+                       m_DepthPosition = 300;
                        m_ID = -1;
                    }
 
@@ -240,7 +240,7 @@ void ABCHeaderT::ParseLine(std::string line)
                else   // last is not a number, so we don't get anything from the Z-line
                {
                    m_StereoPosition = 0;
-                   m_DepthPosition = 0;
+                   m_DepthPosition = 300;
                    m_ID = -1;
                }
            }

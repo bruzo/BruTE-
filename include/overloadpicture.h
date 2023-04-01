@@ -1,15 +1,15 @@
 #ifndef OVERLOADPICTURE_H_INCLUDED
 #define OVERLOADPICTURE_H_INCLUDED
 
-#include "midipreview.h"
+
 
 class OverLoadPicture
 {
 public:
 
-   OverLoadPicture(MidiPreview * myMidiPreviewp);
+   OverLoadPicture();
 
-   MidiPreview * myMidiPreview;
+  // MidiPreview * myMidiPreview;
 
    void UpdateView();
 
@@ -17,9 +17,9 @@ public:
 
 };
 
-OverLoadPicture::OverLoadPicture(MidiPreview * myMidiPreviewp)
+OverLoadPicture::OverLoadPicture()
 {
-    myMidiPreview = myMidiPreviewp;
+   // myMidiPreview = myMidiPreviewp;
 }
 
 void OverLoadPicture::UpdateView()

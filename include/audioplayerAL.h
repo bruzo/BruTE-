@@ -92,6 +92,7 @@ public:
     int m_stop = 0;
     int m_mute = 0; // 0 is not muted
 
+    ABCInput * GetABC();
 
 private:
 
@@ -138,6 +139,11 @@ private:
 
     void SetEnvelope(int Instrument, uint32_t duration, uint32_t samplesize);
 };
+
+ABCInput * AudioPlayerAL::GetABC()
+{
+    return myabc;
+}
 
 size_t AudioPlayerAL::GetNumberOfTracks()
 {
@@ -840,6 +846,11 @@ void AudioPlayerAL::SendABC(std::stringstream * abctext)
     {
         delete(myabc);
         myabc = newabc;
+    }
+    if ((m_Nabctracks>0) && (myabc->GetID(0) == -1))
+    {
+        // this ABC didn't have ID info so we're setting this
+        for (int i = 0; i < static_cast<int>(m_Nabctracks); i++) myabc->SetID(i, i+1);
     }
 }
 
