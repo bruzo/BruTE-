@@ -11,7 +11,7 @@
 
 #include "include/brute.h"
 #include "include/brutedefinitions.h"
-#include "include/midipreview.h"
+//#include "include/midipreview.h"
 #include "include/bandview.h"
 #include "include/audioplayerAL.h"
 #include "include/miditrackview.h"
@@ -26,7 +26,7 @@ class Notepad : public wxFrame {
 
         Brute * myBrute;  // instance of the conversion class, for simplicity this is public for now
 
-        MidiPreview * myMidiPreview; // the object that will be handling the midi preview
+//        MidiPreview * myMidiPreview; // the object that will be handling the midi preview
 
         MidiTrackView * myMidiTrackView;
 
@@ -339,7 +339,7 @@ bool MainApp::OnInit() {
     // to make sure that there is no default ABCName
     main->ABCFileName = "";
 
-    main->myMidiPreview = new MidiPreview();
+   // main->myMidiPreview = new MidiPreview();
     main->myBrute = new Brute;
 
    // main->myaudioplayer = new AudioPlayer(main->myBrute, main->myMidiPreview);
@@ -350,9 +350,13 @@ bool MainApp::OnInit() {
     // Make the BandView Window
     wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
     main->frame = new wxFrame((wxFrame *)NULL, -1,  wxT("Hello wxDC"), wxPoint(200,50), wxSize(1050,700));
-    main->bandview = new BandView( (wxFrame*) main->frame, main->myBrute, main->myMidiPreview, main->myMidiTrackView, main->myaudioplayerAL);
+    main->bandview = new BandView( (wxFrame*) main->frame, main->myBrute, main->myMidiTrackView, main->myaudioplayerAL);
+
+
     sizer->Add(main->bandview, 1, wxEXPAND);
+
     main->frame->SetSizer(sizer);
+
     main->frame->SetAutoLayout(true);
     main->frame->Show();
 
