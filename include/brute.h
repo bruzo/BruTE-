@@ -421,8 +421,8 @@ void Brute::LoadMidi(char * mymidiname)
     double globalmaxtick = 0;
 
     // to build the pitch averages for shifting everything to middle octave
-    m_avpitches.resize(m_Midi.size(),0);
-    m_avpitchc.resize(m_Midi.size(),0);
+    m_avpitches.resize(m_Midi.size(),0); for (size_t i = 0; i < m_avpitches.size(); i++) m_avpitches[i] = 0;
+    m_avpitchc.resize(m_Midi.size(),0); for (size_t i = 0; i < m_avpitchc.size(); i++) m_avpitchc[i] = 0;
 
     // to keep the current volume
     int curvol = 64;
@@ -446,15 +446,22 @@ void Brute::LoadMidi(char * mymidiname)
         int eventcount = m_Midi.getEventCount(i);
 
         // resize all the arrays to the number of events .. just to be on the save side
-        m_tonestarts[i].resize(eventcount,0); for (size_t j = 0; j < m_tonestarts[i].size(); j++) m_tonestarts[i][j] = 0;
-        m_toneends[i].resize(eventcount,0);   for (size_t j = 0; j < m_toneends[i].size(); j++) m_toneends[i][j] = 0;
-        m_pitches[i].resize(eventcount,0);    for (size_t j = 0; j < m_pitches[i].size(); j++) m_pitches[i][j] = 0;
-        m_velocities[i].resize(eventcount,0); for (size_t j = 0; j < m_velocities[i].size(); j++) m_velocities[i][j] = 0;
+        // m_tonestarts[i].resize(eventcount,0); for (size_t j = 0; j < m_tonestarts[i].size(); j++) m_tonestarts[i][j] = 0;
+        // m_toneends[i].resize(eventcount,0);   for (size_t j = 0; j < m_toneends[i].size(); j++) m_toneends[i][j] = 0;
+        // m_pitches[i].resize(eventcount,0);    for (size_t j = 0; j < m_pitches[i].size(); j++) m_pitches[i][j] = 0;
+        // m_velocities[i].resize(eventcount,0); for (size_t j = 0; j < m_velocities[i].size(); j++) m_velocities[i][j] = 0;
+
+        m_tonestarts[i].resize(0);
+        m_toneends[i].resize(0);
+        m_pitches[i].resize(0);
+        m_velocities[i].resize(0);
 
         // pitchbend arrays
-        m_pitchbendtimes[i].resize(eventcount,0); for (size_t j = 0; j < m_pitchbendtimes[i].size(); j++) m_pitchbendtimes[i][j] = 0;
-        m_pitchbendvalues[i].resize(eventcount,0);for (size_t j = 0; j < m_pitchbendvalues[i].size(); j++) m_pitchbendvalues[i][j] = 0;
+        //m_pitchbendtimes[i].resize(eventcount,0); for (size_t j = 0; j < m_pitchbendtimes[i].size(); j++) m_pitchbendtimes[i][j] = 0;
+        //m_pitchbendvalues[i].resize(eventcount,0);for (size_t j = 0; j < m_pitchbendvalues[i].size(); j++) m_pitchbendvalues[i][j] = 0;
 
+        m_pitchbendtimes[i].resize(0);
+        m_pitchbendvalues[i].resize(0);
 
         for (int j = 0; j < eventcount; j++)
         {
@@ -525,10 +532,15 @@ void Brute::LoadMidi(char * mymidiname)
                 int pitch = key;
 
                 // store in tone list
-                m_tonestarts[i][m_tonecounts[i]] = starttime;
-                m_toneends[i][m_tonecounts[i]] = endtime;
-                m_velocities[i][m_tonecounts[i]] = onvelocity;
-                m_pitches[i][m_tonecounts[i]] = pitch;
+                //m_tonestarts[i][m_tonecounts[i]] = starttime;
+                //m_toneends[i][m_tonecounts[i]] = endtime;
+                //m_velocities[i][m_tonecounts[i]] = onvelocity;
+                //m_pitches[i][m_tonecounts[i]] = pitch;
+
+                m_tonestarts[i].push_back(starttime);
+                m_toneends[i].push_back(endtime);
+                m_velocities[i].push_back(onvelocity);
+                m_pitches[i].push_back(pitch);
 
                 if ( endtime > globalmaxtick ) globalmaxtick = endtime;
                 m_tonecounts[i] += 1;
@@ -562,8 +574,12 @@ void Brute::LoadMidi(char * mymidiname)
                 // Assume that the relative pitch value is stored in a variable called relativePitch
                 if (time > 0.00001)
                 {
-                     m_pitchbendtimes[i][ m_pitchbendcounter[i] ] = time*26460.0;
-                     m_pitchbendvalues[i][ m_pitchbendcounter[i] ] = pitchBendRangeSemitones; // static_cast<int>(std::round(relativePitchSemitones*20))/20;
+                   //  m_pitchbendtimes[i][ m_pitchbendcounter[i] ] = time*26460.0;
+                  //   m_pitchbendvalues[i][ m_pitchbendcounter[i] ] = pitchBendRangeSemitones; // static_cast<int>(std::round(relativePitchSemitones*20))/20;
+                     //m_pitchbendcounter[i]++;
+
+                     m_pitchbendtimes[i].push_back(time*26460.0);
+                     m_pitchbendvalues[i].push_back(pitchBendRangeSemitones);
                      m_pitchbendcounter[i]++;
                 }
             }
@@ -587,31 +603,32 @@ void Brute::LoadMidi(char * mymidiname)
     m_minstep = 1000;
 
     // Set volumes to normalized max
-    for (int i = 0; i < m_Midi.size(); i++)
+    for (size_t i = 0; i < m_velocities.size(); i++)
     {
         for (size_t j = 0; j < m_velocities[i].size(); j++)
             m_velocities[i][j] = m_velocities[i][j] - m_globalmaxvel + 127;
     }
 
     // Prevent Issues with too large Data Structures
-    for (size_t i = 0; i < m_tonestarts.size(); i++)
-    {
-		m_tonestarts[i].resize(m_tonecounts[i]);
-		m_toneends[i].resize(m_tonecounts[i]);
-		m_velocities[i].resize(m_tonecounts[i]);
-		m_pitches[i].resize(m_tonecounts[i]);
-		m_pitchbendtimes[i].resize(m_pitchbendcounter[i]);
-		m_pitchbendvalues[i].resize(m_pitchbendcounter[i]);
-	}
+   // for (size_t i = 0; i < m_tonestarts.size(); i++)
+   // {
+   //     std::cout << m_toneends[i].size() << "  " << m_tonecounts[i] << std::endl;
+		// m_tonestarts[i].resize(m_tonecounts[i]);
+	//	m_toneends[i].resize(m_tonecounts[i]);
+//		m_velocities[i].resize(m_tonecounts[i]);
+//		m_pitches[i].resize(m_tonecounts[i]);
+	//	m_pitchbendtimes[i].resize(m_pitchbendcounter[i]);
+	//	m_pitchbendvalues[i].resize(m_pitchbendcounter[i]);
+	//}
 
 
-    m_pbt.resize( m_tonestarts.size());
-    m_pbv.resize( m_tonestarts.size());
+    m_pbt.resize( m_tonestarts.size() );
+    m_pbv.resize( m_tonestarts.size() );
 
 	for (size_t i = 0; i < m_tonestarts.size(); i++)
     {
-       m_pbt[i].resize(1,0.0);
-       m_pbv[i].resize(1,0);
+       m_pbt[i].resize(1,0.0); m_pbt[i][0] = 0.0;
+       m_pbv[i].resize(1,0); m_pbv[i][0] = 0;
 
        for ( size_t j = 0; j < m_pitchbendtimes[i].size(); j++)
        {
@@ -625,8 +642,11 @@ void Brute::LoadMidi(char * mymidiname)
 
     // Tonality analysis, first find last time event
     double mylasttone = 0;
-    for (size_t i = 0; i < m_tonestarts.size(); i++)
+    for (size_t i = 0; i < m_toneends.size(); i++)
+       if (m_toneends[i].size() > 0)
+    {
        if ( mylasttone < m_toneends[i].back()) mylasttone = m_toneends[i].back();
+    }
 
     m_mylasttone = mylasttone / (timetoticks * 26460.0);
 
@@ -1521,6 +1541,7 @@ void Brute::MapToRegister2()
             if (m_avpitchc[utrack]!=0)
             {
                 octavepitch = int(double(m_avpitches[utrack])/double(m_avpitchc[utrack])/12 - 1);
+              //  std::cout << "Oct Pitch "<< abctrack << " " << octavepitch << " AV Pitch " << m_avpitches[utrack] << "  c" << m_avpitchc[utrack] <<  std::endl;
             }
             if ( m_Mapping.m_nopitchguessing ) octavepitch = 0; // no pitch guessing overrides everything
 
