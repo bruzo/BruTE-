@@ -38,6 +38,7 @@ public:
     void DrawOneInstrument(wxDC& dc, int x, int y, wxString mytext, bool muted);
     void DrawMidiTracks(wxDC& dc);
     void DrawOneMidiTrack(wxDC& dc, int x, int y, int i, size_t midiinstrumentnumber);
+    void DrawOneMidiTrack(wxMemoryDC& dc, int x, int y, int i, size_t midiinstrumentnumber);
     void DrawABCTracks(wxDC& dc);
 
     void AppendMapping();   // this will write the mapping info into the brute instance
@@ -114,7 +115,7 @@ private:
     std::string Transcriber = "Himbeertony";
 
     int m_volume=100;
-    int m_panning=100;;
+    int m_panning=100;
 
     // some useful events
     /*
@@ -127,6 +128,10 @@ private:
      void keyPressed(wxKeyEvent& event);
      void keyReleased(wxKeyEvent& event);
      */
+
+     wxBitmap * m_bitmap;
+     wxImage * m_image;
+     unsigned char * m_alphachannel;
 
     DECLARE_EVENT_TABLE()
 };
@@ -520,6 +525,7 @@ void BandView::mouseRightDown(wxMouseEvent& event)
      {
          // an instrument was picked, so put hand icon
          this->SetCursor(wxCursor(wxCURSOR_HAND));
+
          lotroinstrumentclicked = false;
          lotroinstrumentclickednumber = mypossiblelotroinstrument;
          click_relx = 50;
@@ -553,7 +559,33 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
      if (mypossiblemiditrack != 1000)
      {
          std::cout << " Selected Midi Track " << mypossiblemiditrack << std::endl;
-         this->SetCursor(wxCursor(wxCURSOR_HAND));
+//         this->SetCursor(wxCursor(wxCURSOR_HAND));
+          wxBitmap bitmap(32,32);
+          wxMemoryDC dc;
+          dc.SelectObject(bitmap);
+          dc.SetBackground(*wxBLACK_BRUSH);  //   *wxTRANSPARENT_BRUSH);
+          dc.Clear();
+
+
+          int mymidiinstrument = myBrute->GetMidiInstrument( mypossiblemiditrack );
+          bool myisdrum = myBrute->GetMidiIsDrum(mypossiblemiditrack);
+          if (myisdrum) mymidiinstrument = 201;
+          DrawOneMidiTrack(dc, 12, 12, mypossiblemiditrack , mymidiinstrument );
+          wxImage image(bitmap.ConvertToImage());
+
+          unsigned char* m_alphachannel = new unsigned char[image.GetWidth() * image.GetHeight()];
+          for (int y = 0; y < image.GetHeight(); y++)
+         {for (int x = 0; x < image.GetWidth(); x++){
+          int dx = x - 12;
+          int dy = y - 12;
+          if (dx * dx + dy * dy <= 12*12){m_alphachannel[y * image.GetWidth() + x] = 255;}
+           else{m_alphachannel[y * image.GetWidth() + x] = 0;}}}
+
+          image.SetAlpha(m_alphachannel);
+          wxCursor mycursornow(image);
+          this->SetCursor(mycursornow);
+
+       //  delete[] m_alphachannel;
          miditrackclicked = true;
          miditrackclickednumber = mypossiblemiditrack;
      }
@@ -606,7 +638,30 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
          {
              // std::cout <<"Someone Picked Miditrack " << whichmidi << " in ABC Track " << mypossibleMidiInABCTrack;
 
-             this->SetCursor(wxCursor(wxCURSOR_HAND));
+
+             wxBitmap bitmap(32,32);
+             wxMemoryDC dc;
+             dc.SelectObject(bitmap);
+             dc.SetBackground(*wxBLACK_BRUSH);  //   *wxTRANSPARENT_BRUSH);
+             dc.Clear();
+             int mymidiinstrument = BVabctracks[mypossibleMidiInABCTrack].miditrackinfo[whichmidi].midiinstrument;
+             if (BVabctracks[mypossibleMidiInABCTrack].miditrackinfo[whichmidi].isdrum) mymidiinstrument = 201;
+             DrawOneMidiTrack(dc, 12, 12, BVabctracks[mypossibleMidiInABCTrack].miditrackinfo[whichmidi].miditrack , mymidiinstrument );
+             wxImage image(bitmap.ConvertToImage());
+
+          unsigned char* m_alphachannel = new unsigned char[image.GetWidth() * image.GetHeight()];
+          for (int y = 0; y < image.GetHeight(); y++)
+         {for (int x = 0; x < image.GetWidth(); x++){
+          int dx = x - 12;
+          int dy = y - 12;
+          if (dx * dx + dy * dy <= 12*12){m_alphachannel[y * image.GetWidth() + x] = 255;}
+           else{m_alphachannel[y * image.GetWidth() + x] = 0;}}}
+
+             image.SetAlpha(m_alphachannel);
+             wxCursor mycursornow(image);
+
+             this->SetCursor(mycursornow);
+
              MovingMidiTrack = BVabctracks[mypossibleMidiInABCTrack].miditrackinfo[whichmidi];
             // MovingMidiTrackNumber = BVabctracks[mypossibleMidiInABCTrack].miditracks[whichmidi];
 
@@ -834,7 +889,7 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
      if (miditrackclicked)
      {
          // find out if we hit an ABC Track
-         size_t mypossibleABCtrack = ABCTrackPicked(mouseX, mouseY);
+         size_t mypossibleABCtrack = ABCTrackPicked(mouseX+12, mouseY+12);
          if (mypossibleABCtrack !=1000)
          {
              // ok we dropped the Miditrack on an ABC Track
@@ -908,7 +963,7 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
      if (midiinabctrackclicked)
      {
 
-         size_t mypossibleABCtrack = ABCTrackPicked(mouseX, mouseY);
+         size_t mypossibleABCtrack = ABCTrackPicked(mouseX+12, mouseY+12);
          // dropping on an ABCtrack
          if (mypossibleABCtrack != 1000)
          {
@@ -951,7 +1006,20 @@ wxPanel(parent)
 
   //  Bind(wxEVT_KEY_DOWN, &BandView::OnKeyDown, this);
 
-     std::cout << " Initialization Bandview done " << std::endl;
+
+    wxBitmap bitmap(32, 32);
+    wxMemoryDC dc(bitmap);
+    dc.SetBackground(*wxWHITE_BRUSH);
+    dc.Clear();
+    wxImage image(bitmap.ConvertToImage());
+
+    unsigned char* m_alphachannel = new unsigned char[image.GetWidth() * image.GetHeight()];
+    for (int y = 0; y < image.GetHeight(); y++)
+    {for (int x = 0; x < image.GetWidth(); x++){
+       int dx = x - 12;
+       int dy = y - 12;
+       if (dx * dx + dy * dy <= 12*12){m_alphachannel[y * image.GetWidth() + x] = 255;}
+       else{m_alphachannel[y * image.GetWidth() + x] = 0;}}}
 }
 
 /*
@@ -1005,6 +1073,37 @@ void BandView::paintNow()
 
 
 void BandView::DrawOneMidiTrack(wxDC& dc, int x, int y, int i, size_t midiinstrumentnumber)
+{
+   dc.SetBrush(*wxGREEN_BRUSH); // green filling
+
+   wxColor mycolor;
+   mycolor.Set("rgb(255,255,255)"); // default is white
+   if ( midiinstrumentnumber < 17) mycolor.Set("rgb(255,200,200)");  // pale red for pianos
+   if (( midiinstrumentnumber > 16) && ( midiinstrumentnumber < 25)) mycolor.Set("rgb(200,200,255)"); // pale blue  for organs
+   if (( midiinstrumentnumber > 24) && ( midiinstrumentnumber < 33)) mycolor.Set("rgb(255,150,150)"); // stronger red  for guitars
+   if (( midiinstrumentnumber > 32) && ( midiinstrumentnumber < 41)) mycolor.Set("rgb(255,100,100)"); // even stronger red  for base
+   if (( midiinstrumentnumber > 40) && ( midiinstrumentnumber < 49)) mycolor.Set("rgb(150,150,255)"); // stronger blue  for strings
+   if (( midiinstrumentnumber > 48) && ( midiinstrumentnumber < 57)) mycolor.Set("rgb(100,100,255)"); // even stronger blue  for ensemble
+   if (( midiinstrumentnumber > 56) && ( midiinstrumentnumber < 65)) mycolor.Set("rgb(200,255,200)"); // green  for brass
+   if (( midiinstrumentnumber > 64) && ( midiinstrumentnumber < 73)) mycolor.Set("rgb(150,255,150)"); // green  for reed
+   if (( midiinstrumentnumber > 72) && ( midiinstrumentnumber < 81)) mycolor.Set("rgb(100,255,100)"); // green  for pipes
+   if (( midiinstrumentnumber > 80) && ( midiinstrumentnumber < 97)) mycolor.Set("rgb(255,255,200)"); // green  for synth lead
+   if (( midiinstrumentnumber > 96) && ( midiinstrumentnumber < 105)) mycolor.Set("rgb(255,255,150)"); // green  for synth
+   if (( midiinstrumentnumber > 104) && ( midiinstrumentnumber < 113)) mycolor.Set("rgb(255,200,255)"); // green  for ethnic
+   if (midiinstrumentnumber == 201) mycolor.Set("rgb(150,150,150)"); // dark grey for Drums
+
+
+   dc.SetBrush(mycolor);
+
+
+   dc.SetPen( wxPen( wxColor(255,0,0), 1 ) ); // 5-pixels-thick red outline
+   dc.DrawCircle( wxPoint(x,y), 12); /* radius */ // );
+   std::stringstream mytext;
+   mytext << i;
+   dc.DrawText(mytext.str(), x-4,y-6);
+ }
+
+ void BandView::DrawOneMidiTrack(wxMemoryDC& dc, int x, int y, int i, size_t midiinstrumentnumber)
 {
    dc.SetBrush(*wxGREEN_BRUSH); // green filling
 
@@ -1378,6 +1477,7 @@ void BandView::OnDropFiles(wxDropFilesEvent& event) {
     }
 
 }
+
 
 
 #endif
