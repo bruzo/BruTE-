@@ -36,6 +36,7 @@ public:
     void render(wxDC& dc);
     void DrawLotroInstruments(wxDC& dc);
     void DrawOneInstrument(wxDC& dc, int x, int y, wxString mytext, bool muted);
+    void DrawOneInstrument(wxMemoryDC & dc, int x, int y, wxString mytext, bool muted);
     void DrawMidiTracks(wxDC& dc);
     void DrawOneMidiTrack(wxDC& dc, int x, int y, int i, size_t midiinstrumentnumber);
     void DrawOneMidiTrack(wxMemoryDC& dc, int x, int y, int i, size_t midiinstrumentnumber);
@@ -611,6 +612,7 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
           image.SetAlpha(m_alphachannel);
           wxCursor mycursornow(image);
           this->SetCursor(mycursornow);
+          this->WarpPointer(mouseX-12, mouseY-12);
 
        //  delete[] m_alphachannel;
          miditrackclicked = true;
@@ -623,12 +625,36 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
      if ((mypossibleABCtrack !=1000)  && ( CRTLIsDown == false))
      {
            // std::cout << " Selected ABC Track " << mypossibleABCtrack << std::endl;
-            this->SetCursor(wxCursor(wxCURSOR_HAND));
+/*
+             wxBitmap bitmap(320,32);
+             wxMemoryDC dc;
+             dc.SelectObject(bitmap);
+             dc.SetBackground(*wxWHITE_BRUSH);  //   *wxTRANSPARENT_BRUSH);
+             dc.Clear();
+
+             wxImage image(bitmap.ConvertToImage());
+
+             unsigned char* m_alphachannel = new unsigned char[image.GetWidth() * image.GetHeight()];
+             for (int y = 0; y < image.GetHeight(); y++)
+             {for (int x = 0; x < image.GetWidth(); x++){
+             if (y  < 17){m_alphachannel[y * image.GetWidth() + x] = 255;}
+              else{m_alphachannel[y * image.GetWidth() + x] = 0;}}}
+
+
+             wxCursor mycursornow(image);*/
+             this->SetCursor(wxCursor(wxCURSOR_HAND));
+
+
+
             MovingABCTrack = BVabctracks[mypossibleABCtrack];
+
             click_relx = BVabctracks[mypossibleABCtrack].x - mouseX;
             click_rely = BVabctracks[mypossibleABCtrack].y - mouseY;
+
+
             BVabctracks.erase(BVabctracks.begin()+mypossibleABCtrack);
             abctrackclicked = true;
+
             this->Refresh();
      }
     //
@@ -676,18 +702,19 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
              DrawOneMidiTrack(dc, 12, 12, BVabctracks[mypossibleMidiInABCTrack].miditrackinfo[whichmidi].miditrack , mymidiinstrument);
              wxImage image(bitmap.ConvertToImage());
 
-          unsigned char* m_alphachannel = new unsigned char[image.GetWidth() * image.GetHeight()];
-          for (int y = 0; y < image.GetHeight(); y++)
-         {for (int x = 0; x < image.GetWidth(); x++){
-          int dx = x - 12;
-          int dy = y - 12;
-          if (dx * dx + dy * dy <= 12*12){m_alphachannel[y * image.GetWidth() + x] = 255;}
-           else{m_alphachannel[y * image.GetWidth() + x] = 0;}}}
+             unsigned char* m_alphachannel = new unsigned char[image.GetWidth() * image.GetHeight()];
+             for (int y = 0; y < image.GetHeight(); y++)
+            {for (int x = 0; x < image.GetWidth(); x++){
+             int dx = x - 12;
+             int dy = y - 12;
+             if (dx * dx + dy * dy <= 12*12){m_alphachannel[y * image.GetWidth() + x] = 255;}
+             else{m_alphachannel[y * image.GetWidth() + x] = 0;}}}
 
              image.SetAlpha(m_alphachannel);
              wxCursor mycursornow(image);
 
              this->SetCursor(mycursornow);
+             this->WarpPointer(mouseX-12, mouseY-12);
 
              MovingMidiTrack = BVabctracks[mypossibleMidiInABCTrack].miditrackinfo[whichmidi];
             // MovingMidiTrackNumber = BVabctracks[mypossibleMidiInABCTrack].miditracks[whichmidi];
@@ -829,7 +856,7 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
     {
         if (myBrute->DoIHaveAMidi())
         {
-           wxFileDialog *openDialog = new wxFileDialog(this, wxT("Load Mapping~"), wxT(""), wxT(""), wxT("Mapping Files (*.txt)|*.txt"), wxFD_OPEN);
+           wxFileDialog *openDialog = new wxFileDialog(this, wxT("Load Mapping~"), wxT(""), wxT(""), wxT("Mapping Files (*.map)|*.map|Mapping Files (*.txt)|*.txt"), wxFD_OPEN);
            int response = openDialog->ShowModal();
            if (response == wxID_OK)
            {
@@ -850,7 +877,8 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
         if (myBrute->DoIHaveAMidi())
         {
 
-           wxFileDialog *openDialog = new wxFileDialog(this, wxT("Save Mapping~"), wxT(""), wxT(""), wxT("Mapping Files (*.txt)|*.txt"), wxFD_SAVE);
+           wxFileDialog *openDialog = new wxFileDialog(this, wxT("Save Mapping~"), wxT(""), wxT(""), wxT("Mapping Files (*.map)|*.map|Mapping Files (*.txt)|*.txt"), wxFD_SAVE);
+
            int response = openDialog->ShowModal();
            if (response == wxID_OK)
            {
@@ -1055,6 +1083,39 @@ wxPanel(parent)
        int dy = y - 12;
        if (dx * dx + dy * dy <= 12*12){m_alphachannel[y * image.GetWidth() + x] = 255;}
        else{m_alphachannel[y * image.GetWidth() + x] = 0;}}}
+
+
+    int drumtype = 0;
+    char defaultdrumhandling[127] = "nosplit";
+    char ABCstyle[127] = "Rocks";
+    char defaulttranscriber[127] = "Himbeertony";
+    char dummy[127];
+    std::ifstream defaultsfile;
+    defaultsfile.open("default.config");
+    if (!defaultsfile.fail() )
+    {
+        std::cout << "Using default.config" << std::endl;
+        defaultsfile >> dummy;
+        defaultsfile >> drumtype >> defaultdrumhandling;
+        defaultsfile >> dummy;
+        defaultsfile >> ABCstyle;
+        defaultsfile >> dummy;
+        defaultsfile >> defaulttranscriber;
+        defaultsfile.close();
+    }
+    myABCHeader.Transcriber = defaulttranscriber;
+
+
+    //ABCStyleNames[ m_ABCnamingscheme ]
+
+    for (size_t i = 0; i < ABCStyleNames.size(); i++)
+        if (ABCstyle == ABCStyleNames[i]) m_ABCnamingscheme = i;
+
+    //myBrute->m_MappingText << "Pitch: " << myABCHeader.globalpitch << std::endl;
+
+    // remark .. think about adding compressor values!!!
+
+    //myBrute->m_MappingText << "Style: " << ABCStyleNames[ m_ABCnamingscheme ]
 }
 
 /*
@@ -1191,6 +1252,20 @@ void BandView::DrawOneMidiTrack(wxDC& dc, int x, int y, int i, size_t midiinstru
     }
  }
 
+  void BandView::DrawOneInstrument(wxMemoryDC & dc, int x, int y, wxString mytext, bool muted)
+ {
+    dc.SetBrush(*wxWHITE_BRUSH); // blue filling
+    dc.SetPen( wxPen( wxColor(255,175,175), 1 ) ); // 10-pixels-thick pink outline
+    dc.DrawRectangle( x, y, 97, 18 );
+    dc.DrawText(mytext, x+3, y+1);
+    if (muted)
+    {
+        dc.SetPen ( wxPen( wxColor(0,0,0), 2 ) );
+        dc.DrawLine( x,y, x+97, y+18  );
+        dc.DrawLine( x+97,y, x, y+18 );
+    }
+
+ }
 
  void BandView::DrawLotroInstruments(wxDC& dc)
  {

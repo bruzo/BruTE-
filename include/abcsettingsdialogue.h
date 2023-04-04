@@ -23,6 +23,9 @@ public:
     wxStaticBox * songnamebox;
     wxTextCtrl * songname;
 
+    wxStaticBox * globalpitchbox;
+    wxTextCtrl * globalpitchtext;
+
  //   wxTextCtrl *tcvol;
  //   wxStaticBox * stpan;
  //   wxTextCtrl * tcpan;
@@ -64,6 +67,9 @@ ABCSettingsDialogue::ABCSettingsDialogue( int * naming, ABCHeader * abcheader)
   songnamebox = new wxStaticBox(panel, -1, wxT("Songname"), wxPoint(x,y), wxSize(sx,sy), wxTE_READONLY);
   songname = new wxTextCtrl(panel, -1, (abcheader[0].SongName ), wxPoint(x+19, y+20), wxSize(sx-25, sy-25) );
 
+  x = 5; y = 120; sx = 60; sy = 45;
+  globalpitchbox = new wxStaticBox(panel, -1, wxT("Pitch"), wxPoint(x,y), wxSize(sx,sy), wxTE_READONLY);
+  globalpitchtext = new wxTextCtrl(panel, -1, std::to_string(abcheader[0].globalpitch), wxPoint(x+19, y+20), wxSize(sx-25, sy-25));
 
   okButton = new wxButton(this, wxID_OK, wxT("Ok"),wxDefaultPosition, wxSize(70, 30));
 
@@ -83,6 +89,7 @@ ABCSettingsDialogue::ABCSettingsDialogue( int * naming, ABCHeader * abcheader)
   *naming = namingscheme->GetSelection();
   abcheader[0].Transcriber = transcribername->GetValue();
   abcheader[0].SongName = songname->GetValue();
+  abcheader[0].globalpitch = wxAtoi(globalpitchtext->GetValue());
 
   Destroy();
 }

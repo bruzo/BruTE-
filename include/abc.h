@@ -238,8 +238,8 @@ void ABCInput::LoadABC(std::stringstream * abctext)
        clavi.resize(38, -1);
 
         // this claviature holds tone starting velocities
-       std::vector<int16_t> clavivel;
-       clavivel.resize(38, 0);
+       std::vector<int64_t> clavivel(38,0);
+       //clavivel.resize(38, 0);
 
        // Now go through this abc track
        for (auto line : mytracklines)

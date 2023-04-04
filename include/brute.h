@@ -2640,7 +2640,7 @@ void Brute::GenerateABC()
             int thispartnumber = lotroinstrumentadd[thisinstrument]+1;
             while ( StyleParts[thispartnumber] != -1) thispartnumber++;
             StyleParts[thispartnumber] = abctrack;   // now we know which X:   refers to which abctrack number
-            std::cout << " Adding to " << thispartnumber << "  " << abctrack << std::endl;
+           // std::cout << " Adding to " << thispartnumber << "  " << abctrack << std::endl;
         }
 
         for (size_t i = 0; i < StyleParts.size(); i++)
@@ -2648,7 +2648,7 @@ void Brute::GenerateABC()
             if (StyleParts[i] > -1)
                 StyleOrder.push_back(i);
         }
-        std::cout << "Style Order Size " << StyleOrder.size() << std::endl;
+       // std::cout << "Style Order Size " << StyleOrder.size() << std::endl;
     }
 
     if (ABCstyle == 2)
@@ -2660,7 +2660,7 @@ void Brute::GenerateABC()
             int thispartnumber = bardeninstrumentadd[thisinstrument];
             while ( StyleParts[thispartnumber] != -1) thispartnumber++;
             StyleParts[thispartnumber] = abctrack;   // now we know which X:   refers to which abctrack number
-            std::cout << " Adding to " << thispartnumber << "  " << abctrack << std::endl;
+         //   std::cout << " Adding to " << thispartnumber << "  " << abctrack << std::endl;
         }
 
         for (size_t i = 0; i < StyleParts.size(); i++)
@@ -2668,7 +2668,7 @@ void Brute::GenerateABC()
             if (StyleParts[i] > -1)
                 StyleOrder.push_back(i);
         }
-        std::cout << "Style Order Size " << StyleOrder.size() << std::endl;
+       // std::cout << "Style Order Size " << StyleOrder.size() << std::endl;
     }
 
 
@@ -2696,7 +2696,7 @@ void Brute::GenerateABC()
       {
           curabctrack = StyleParts[StyleOrder[abctrack]];
           m_ABCText << "X:" << StyleOrder[abctrack] << std::endl;
-          m_ABCText << "T: " << m_Mapping.m_songname << " " << abcnamingstyleinstrumentnames[ABCstyle][   m_Mapping.m_instrumap[  StyleParts[StyleOrder[abctrack]] ]   ] << " " <<  durstring << std::endl;
+          m_ABCText << "T: " << m_Mapping.m_songname << " " << abcnamingstyleinstrumentnames[ABCstyle][   m_Mapping.m_instrumap[  StyleParts[StyleOrder[abctrack]] ]   ] << " (" <<  durstring << ")" <<std::endl;
           m_ABCText << "Z: Transcribed with BruTE " << m_Mapping.m_panningmap[curabctrack] << " " << m_Mapping.m_zpanningmap[curabctrack] << " " << m_Mapping.m_idmap[curabctrack] << std::endl;
           m_ABCText << "L: 1/4" << std::endl;
           m_ABCText << "Q: 125" << std::endl;
