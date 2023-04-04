@@ -111,11 +111,14 @@ public:
 
 private:
 
+
     int m_ABCnamingscheme = 0;
     std::string Transcriber = "Himbeertony";
 
     int m_volume=100;
     int m_panning=100;
+
+    wxFont m_myfont;
 
     // some useful events
     /*
@@ -132,6 +135,7 @@ private:
      wxBitmap * m_bitmap;
      wxImage * m_image;
      unsigned char * m_alphachannel;
+     wxString m_abcfilename = "";
 
     DECLARE_EVENT_TABLE()
 };
@@ -533,6 +537,28 @@ void BandView::mouseRightDown(wxMouseEvent& event)
          GainSettingsDialogue * newgains = new GainSettingsDialogue(lotroinstrumentclickednumber, &relativegain[lotroinstrumentclickednumber], &fadeouts[lotroinstrumentclickednumber] ); if (newgains == NULL) {}
      }
 
+    // clicking ABC export
+    if ((mouseX>400) && (mouseY > 505) && (mouseX < 435) && (mouseY < 540))    // 157 + 100 REDO ABC
+    {
+        if (myBrute->DoIHaveAMidi())
+        {
+
+           if ( m_abcfilename.size() > 1)
+           {
+               // set the ABC output file name
+               GenerateConfigHeader();   // this is just a placeholder real deal should come from bandview
+               AppendMapping();
+
+               myBrute->Transcode(&myBrute->m_MappingText);
+            //   myBrute->GenerateABC();
+
+               std::ofstream abcoutfile;
+               abcoutfile.open(m_abcfilename);
+               abcoutfile << myBrute->m_ABCText.rdbuf();
+               abcoutfile.close();
+           }
+        }
+    }
 
 }
 
@@ -570,6 +596,7 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
           int mymidiinstrument = myBrute->GetMidiInstrument( mypossiblemiditrack );
           bool myisdrum = myBrute->GetMidiIsDrum(mypossiblemiditrack);
           if (myisdrum) mymidiinstrument = 201;
+
           DrawOneMidiTrack(dc, 12, 12, mypossiblemiditrack , mymidiinstrument );
           wxImage image(bitmap.ConvertToImage());
 
@@ -646,7 +673,7 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
              dc.Clear();
              int mymidiinstrument = BVabctracks[mypossibleMidiInABCTrack].miditrackinfo[whichmidi].midiinstrument;
              if (BVabctracks[mypossibleMidiInABCTrack].miditrackinfo[whichmidi].isdrum) mymidiinstrument = 201;
-             DrawOneMidiTrack(dc, 12, 12, BVabctracks[mypossibleMidiInABCTrack].miditrackinfo[whichmidi].miditrack , mymidiinstrument );
+             DrawOneMidiTrack(dc, 12, 12, BVabctracks[mypossibleMidiInABCTrack].miditrackinfo[whichmidi].miditrack , mymidiinstrument);
              wxImage image(bitmap.ConvertToImage());
 
           unsigned char* m_alphachannel = new unsigned char[image.GetWidth() * image.GetHeight()];
@@ -840,15 +867,17 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
     }
 
     // clicking ABC export
-    if ((mouseX>400) && (mouseY > 505) && (mouseX < 435) && (mouseY < 540))    // 157 + 100
+    if (((mouseX>400) && (mouseY > 505) && (mouseX < 435) && (mouseY < 540)) && ( !CRTLIsDown ))    // 157 + 100
     {
         if (myBrute->DoIHaveAMidi())
         {
-            // std::cout << " ABC save clicked " << std::endl;
-           wxFileDialog *openDialog = new wxFileDialog(this, wxT("Export ABC File~"), wxT(""), wxT(""), wxT("ABC Files (*.abc)|*.abc"), wxFD_SAVE);
-           int response = openDialog->ShowModal();
-           if (response == wxID_OK)
-           {
+
+
+             // std::cout << " ABC save clicked " << std::endl;
+             wxFileDialog *openDialog = new wxFileDialog(this, wxT("Export ABC File~"), wxT(""), wxT(""), wxT("ABC Files (*.abc)|*.abc"), wxFD_SAVE);
+             int response = openDialog->ShowModal();
+             if (response == wxID_OK)
+             {
                // set the ABC output file name
                GenerateConfigHeader();   // this is just a placeholder real deal should come from bandview
                AppendMapping();
@@ -860,8 +889,14 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
                abcoutfile.open(openDialog->GetPath());
                abcoutfile << myBrute->m_ABCText.rdbuf();
                abcoutfile.close();
-           }
+               m_abcfilename = openDialog->GetPath();
+             }
         }
+    }
+
+    if (((mouseX>400) && (mouseY > 505) && (mouseX < 435) && (mouseY < 540)) && ( CRTLIsDown ))    // 157 + 100
+    {
+        m_abcfilename = "";
     }
 
 
@@ -1032,6 +1067,7 @@ void BandView::paintEvent(wxPaintEvent & evt)
 {
     wxPaintDC dc(this);
     render(dc);
+    m_myfont = dc.GetFont();
 }
 
 /*
@@ -1100,6 +1136,10 @@ void BandView::DrawOneMidiTrack(wxDC& dc, int x, int y, int i, size_t midiinstru
    dc.DrawCircle( wxPoint(x,y), 12); /* radius */ // );
    std::stringstream mytext;
    mytext << i;
+
+   //wxFont font(9, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
+   //dc.SetFont(font);
+
    dc.DrawText(mytext.str(), x-4,y-6);
  }
 
@@ -1131,6 +1171,9 @@ void BandView::DrawOneMidiTrack(wxDC& dc, int x, int y, int i, size_t midiinstru
    dc.DrawCircle( wxPoint(x,y), 12); /* radius */ // );
    std::stringstream mytext;
    mytext << i;
+
+  // wxFont font(9, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
+   dc.SetFont( m_myfont );         //dc2.GetFont());
    dc.DrawText(mytext.str(), x-4,y-6);
  }
 
