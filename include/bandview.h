@@ -625,26 +625,8 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
      if ((mypossibleABCtrack !=1000)  && ( CRTLIsDown == false))
      {
            // std::cout << " Selected ABC Track " << mypossibleABCtrack << std::endl;
-/*
-             wxBitmap bitmap(320,32);
-             wxMemoryDC dc;
-             dc.SelectObject(bitmap);
-             dc.SetBackground(*wxWHITE_BRUSH);  //   *wxTRANSPARENT_BRUSH);
-             dc.Clear();
 
-             wxImage image(bitmap.ConvertToImage());
-
-             unsigned char* m_alphachannel = new unsigned char[image.GetWidth() * image.GetHeight()];
-             for (int y = 0; y < image.GetHeight(); y++)
-             {for (int x = 0; x < image.GetWidth(); x++){
-             if (y  < 17){m_alphachannel[y * image.GetWidth() + x] = 255;}
-              else{m_alphachannel[y * image.GetWidth() + x] = 0;}}}
-
-
-             wxCursor mycursornow(image);*/
-             this->SetCursor(wxCursor(wxCURSOR_HAND));
-
-
+            this->SetCursor(wxCursor(wxCURSOR_HAND));
 
             MovingABCTrack = BVabctracks[mypossibleABCtrack];
 
@@ -1578,6 +1560,8 @@ void BandView::OnDropFiles(wxDropFilesEvent& event) {
        myaudioplayerAL->SendABC(&myBrute->m_ABCText);
        myaudioplayerAL->GetABC()->UpdateToneCounts();
        myaudioplayerAL->Play();
+     //         myaudioplayerAL->PlayLoop();
+
        myaudioplayerAL->audio_playing = 1;
        BVabctracks.resize(myaudioplayerAL->GetNumberOfTracks());
        for (size_t i = 0; i < BVabctracks.size(); i++)

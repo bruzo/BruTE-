@@ -11,6 +11,7 @@
 #include "abcheadert.h"
 
 
+
 typedef std::tuple< int64_t, int64_t, int64_t, int, int, float > ToneTuple;
 
 
@@ -28,6 +29,8 @@ public:
 
    std::vector< std::vector<uint32_t> > m_ToneCounts;  // to measure occupancy in 50ms blocks
    std::vector< uint32_t> m_TotalToneCounts;
+   std::string  CorrectForMaestro(std::string abctext);
+
 
 
    std::size_t Nabctracks();
@@ -183,13 +186,76 @@ std::size_t ABCInput::Nabctracks()
     return m_Nabctracks;
 }
 
+std::string ABCInput::CorrectForMaestro(std::string abctext)
+{
+   std::stringstream inabc(abctext);
+   std::stringstream outabc("");
+   std::string line;
+   while (std::getline( inabc , line))
+   {
+       if ( line.find("|") != std::string::npos )
+       {
+          // ok we have a abc line with tone information
+         // std::vector<char> pitchchangedup = {};
+         // std::vector<char> pitchchangeddown = {};
+          std::vector<int> tones(line.size());
 
+          for (size_t i = 0; i < line.size()-1; i++)
+          {
+              tones[i] = LetterIndex(line[i]);
+          }
+
+          for (size_t i = 0; i < line.size()-1; i++)
+          {
+              if ((line[i]=='^') && (tones[i+1]>-1))
+              {
+                  for (size_t j = i+2; j < line.size()-1; j++)
+                  {
+                      if ((tones[j] == tones[i+1]) && (line[j-1]!='^'))
+                      {
+                          line.insert(j, "^");
+                          tones.insert(tones.begin() + j, -1);
+                      }
+                  }
+              }
+          }
+      //    std::cout << line << std::endl;
+          outabc << line << std::endl;
+       }
+       else
+       {
+       outabc << line << std::endl;
+       }
+   }
+   return outabc.str();
+}
 
 // Parse an ABC from a Stringstream
 void ABCInput::LoadABC(std::stringstream * abctext)
 {
    // cast input stream into a std::string
    std::string ABCString = abctext->str();
+
+   // Check if this ABC was made with BrutE
+   bool Maestro = false;
+   bool Firefern = false;
+   if ( ABCString.find("Bruzo") == std::string::npos )
+   {
+       if (ABCString.find("Maestro")!= std::string::npos ) Maestro = true;
+
+       if (ABCString.find("Firefern")!=std::string::npos ) Firefern = true;
+   }
+
+   if (Maestro)
+   {
+       std::cout << " Was made with Maestro " << std::endl;
+       ABCString = CorrectForMaestro(ABCString);
+   }
+
+   if (Firefern)
+   {
+       std::cout << " Was made with Firefern " << std::endl;
+   }
 
    this->m_Nabctracks = Frequency_Substr(ABCString, "X:");
  //  std::cout << "ABC IMPORT The ABC has " <<  this->m_Nabctracks << " Tracks." << std::endl;
@@ -212,6 +278,8 @@ void ABCInput::LoadABC(std::stringstream * abctext)
 
        // We start with 0 tones in this track of course
        m_ABCTonesvector[abctrack].resize(0);
+   //    m_ABCTonesvector[abctrack].clear();
+     //  m_ABCTonesvector[abctrack].reserve(1000);
 
        // we break it down into a list of lines
        std::stringstream alllines;
@@ -220,6 +288,8 @@ void ABCInput::LoadABC(std::stringstream * abctext)
        std::vector< std::string > mytracklines;
        std::vector< std::string > mytrackheader;
        ABCSplitHeaderBody(alllines, mytracklines, mytrackheader);
+
+      // std::cout << "ABC cut down " << std::endl;
 
        // Assign header info to this abctrack header
        for (auto line : mytrackheader) m_abcheaders[abctrack].ParseLine(line);
@@ -235,11 +305,11 @@ void ABCInput::LoadABC(std::stringstream * abctext)
 
        // this claviature holds tone starting times in samples @44.1KHz ( currenttime *0.5 * 44100 )
        std::vector<int64_t> clavi;
-       clavi.resize(38, -1);
+       clavi.resize(38); for (size_t i= 0; i < clavi.size(); i++) clavi[i] = -1;
 
         // this claviature holds tone starting velocities
-       std::vector<int64_t> clavivel(38,0);
-       //clavivel.resize(38, 0);
+       std::vector<int64_t> clavivel;
+       clavivel.resize(38); for (size_t i=0; i < clavivel.size(); i++) clavivel[i]=0;
 
        // Now go through this abc track
        for (auto line : mytracklines)
@@ -254,6 +324,7 @@ void ABCInput::LoadABC(std::stringstream * abctext)
                  currentvelocity = Velocity( line );
            } else
            {
+
               // is this a break?
               if (IsBreak(line))
               {
@@ -262,10 +333,13 @@ void ABCInput::LoadABC(std::stringstream * abctext)
               {
               // if it is not a break and not a tempo change and we eliminated everything .. this should be a tone
 
-                 // std::cout << line << std::endl;
+                //  std::cout << line << std::endl;
                   myduration = ChordDuration(line) * beat_to_seconds ;
-
+               //   std::cout << "Duration " << myduration << "  beatstosecs" << beat_to_seconds  <<  std::endl;
                   std::vector<int16_t> pitches = GetPitches2(line);
+             //     std::cout << "Pitches ";
+               //   for (size_t i = 0; i < pitches.size(); i++) std::cout << pitches[i] <<  "  ";
+               //   std::cout << std::endl;
 
 
                   while (pitches.size() > 0)   // process them after each other
@@ -288,7 +362,7 @@ void ABCInput::LoadABC(std::stringstream * abctext)
                           int64_t myqduration = ( currenttime * 44100 - clavi[mypitch] ) + myduration * 44100;
 
 
-                          m_ABCTonesvector[abctrack].push_back(
+                          m_ABCTonesvector[abctrack].emplace_back(
                                std::make_tuple(
                                  clavi[mypitch], clavi[mypitch],  // starting time 2 times (redundant to be removed )
                                  myqduration,  // ending time
@@ -315,7 +389,7 @@ void ABCInput::LoadABC(std::stringstream * abctext)
    {
        std::sort( m_ABCTonesvector[i].begin(), m_ABCTonesvector[i].end() );
    }
-
+   std::cout << "ABC Tones read in " << std::endl;
 }
 
 void ABCInput::LoadABC(std::string filename)

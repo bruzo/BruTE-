@@ -629,6 +629,7 @@ std::map<std::string, int> VelocityValues =
               {"+ffff+", 9}
 };
 
+
 // string split function
 std::vector<std::string> split(const std::string& s, char delimiter)
 {
@@ -637,11 +638,39 @@ std::vector<std::string> split(const std::string& s, char delimiter)
    std::istringstream tokenStream(s);
    while (std::getline(tokenStream, token, delimiter))
    {
-      if (token!="")
-       tokens.push_back(token);
+     if (token!="")
+       tokens.emplace_back(token);
    }
    return tokens;
 }
+
+
+/*
+std::vector<std::string> split(const std::string& s, char delimiter)
+{
+   std::vector<std::string> tokens(0);
+   std::string token = "";
+
+   for (size_t i = 0; i < s.size(); i++ )
+   {
+       if (s[i] != delimiter)
+       {
+           token = token + s[i];
+       }
+       else
+       {
+           if (token!="")
+           {
+
+
+            tokens.push_back(token);
+            token = "";
+           }
+       }
+   }
+   return tokens;
+}
+*/
 
 std::string maketime( double mseconds )
 {
@@ -884,6 +913,8 @@ int GetABCInstrumentFromTLine(std::string line)
 
 double EvaluateDurationString(std::string input)
 {
+
+   // std::cout << "Eval String " << input <<  "   " << std::endl;
     // if the length is 0 this is easy
     if (input.length() == 0) return 1.0;
 
@@ -897,7 +928,7 @@ double EvaluateDurationString(std::string input)
 
 
     // Now Check if this is a fraction
-    if (input.find('/') >= 0)   // this is a fraction
+    if (input.find('/') !=  std::string::npos)   // this is a fraction
     {
         std::vector<std::string> twovalues = split(input, '/');
         if (twovalues.size()>1)
@@ -911,7 +942,8 @@ double EvaluateDurationString(std::string input)
     }
     else  // this is just a number
     {
-        std::stoi(input);
+       // std::cout << "Returning a " << std::stoi(input) << std::endl;;
+        return std::stoi(input);
     }
     // we have no idea what this means .... we're returning a full tone ...
     return 1.;
@@ -921,10 +953,11 @@ double EvaluateDurationString(std::string input)
 double ChordDuration(std::string input)
 {
     std::string myinput = input;
-    std::vector< char > forbidden = { 'C', 'c', 'D', 'd', 'E', 'e', 'F', 'f', 'G', 'g', 'A', 'a', 'B', 'b', '^', '_', '[', ']', '=', ',', '-', ("'")[0] };
+    std::vector< char > forbidden = { 'C', 'c', 'D', 'd', 'E', 'e', 'F', 'f', 'G', 'g', 'A', 'a', 'B', 'b', '^', '_', '[', ']', '=', ',', '-', '\'' };
     // first Replace all Characters with spaces
 
     size_t digits = 0;
+    size_t divisors = 0;
     for (size_t i = 0; i < myinput.length(); i++)
     {
         for (size_t j = 0; j < forbidden.size(); j++)
@@ -933,8 +966,9 @@ double ChordDuration(std::string input)
             myinput[i] = ' ';
         }
         if (isdigit(myinput[i])) digits++;
+        if (myinput[i]=='/') divisors++;
     }
-    if (digits == 0) return 1.0;
+    if ((digits == 0)&&(divisors==0)) return 1.0;
     //then split into an array by the spaces
     std::string myduration = split(myinput, ' ')[0];
     return EvaluateDurationString(myduration); // and then just use the first duration
@@ -1024,11 +1058,35 @@ void ABCSplitHeaderBody(std::stringstream& alllines, std::vector< std::string>& 
          }
          else
          {
+            if (line.size()>0)
+            {
+
             auto lines = split(line, ' ');
+
             for ( auto element : lines)
             {
-               if (( element != "|" ) && ( element != "|]"))
-                     mytracklines.push_back(element);
+               if (element.size() > 0)
+               {
+                 if (element !="|")
+                 {
+                    if (!((element.size()==2)&&(element =="|]")))
+                    {
+                        if (!((element.size()==2)&&(element =="\n")))
+                        {
+                         //   std::cout << element << std::endl;
+                            if (element[0] == '\t')
+                            {
+                               mytracklines.push_back(element.substr(1));
+                            }
+                            else
+                            {
+                               mytracklines.push_back(element);
+                            }
+                        }
+                    }
+                 }
+               }
+            }
             }
          }
      }
@@ -1147,10 +1205,108 @@ std::deque<int> GetPitches(std::string input)
     return returnvalue;
 }
 
+bool IsLetter(char input)
+{
+    const std::vector<char> pitchchars =    {'C','D','E','F','G','A', 'B', 'c', 'd', 'e', 'f', 'g', 'a', 'b'};
+    bool returnvalue = false;
+    for (size_t i = 0; i < pitchchars.size(); i++) if (pitchchars[i]==input) returnvalue = true;
+    return returnvalue;
+}
 
+int LetterIndex(char input)
+{
+    int returnvalue = -1;
+    const std::vector<char> pitchchars =    {'C','D','E','F','G','A', 'B', 'c', 'd', 'e', 'f', 'g', 'a', 'b'};
+    for (size_t i = 0; i < pitchchars.size(); i++) if (pitchchars[i]==input) returnvalue = i;
+    if ( returnvalue> -1)
+    {
+        return (returnvalue%12);
+    }
+    else
+    {
+        return returnvalue;
+    }
+}
+
+bool IsOctave(char input)
+{
+    if (input == ',') return true;
+    if (input == '\'') return true;
+    return false;
+}
+
+
+int16_t Charvalue(char input)
+{
+    const std::vector<char> pitchchars =     {'C','D','E','F','G','A', 'B', 'c', 'd', 'e', 'f', 'g', 'a', 'b', '^', '_', ',', '\'', '-' };
+    const std::vector<int16_t> pitchval =    {0  ,2  ,4  ,5  ,7  ,9  ,11  ,12  ,14  ,16  , 17 , 19 ,  21,  23,  1 , -1, -12 , 12, 100  };
+    for (size_t i = 0; i < pitchchars.size(); i++) if (pitchchars[i] == input) return pitchval[i];
+    return 0;
+}
+
+/*
+std::vector<int16_t> GetPitches3(std::string input)
+{
+
+    std::vector<int16_t) valueline( input.size() );
+    for (size_t i = 0; i < input.size(); i++) valueline[i] = Charvalue(input[i]);
+
+
+    size_t pos = 0;
+    if (input[pos]=="[") pos+=1;
+
+    while (pos < input.size())
+    {
+        // check for modchars move only if one of those is found
+        if ( input [pos] == modchars[0])
+        {
+            pitch = pitch + modpitch[0];
+            pos++;
+        }
+        else
+        {
+            if (input[pos] == modchars[1])
+            {
+                pitch = pitch + modpitch[1];
+                pos++;
+            }
+        }
+
+        // check for Letter
+        bool found = false;
+        size_t index = 0;
+        for (size_t j = 0;  < pitchchars.size(); j++)
+        {
+            if (input[pos] == pitchchars[j]){found = true; index=j;}
+        }
+        if (found)
+        {
+            pitch = pitch + pitchval[index];
+            pos++;
+        }
+
+        // check for octave
+        if (input[pos] == ochars[0])
+        {
+            pitch = pitch + ovals[0];
+            pos++;
+        }
+        else
+        {
+            if (input[pos] == ochars[1])
+            {
+                pitch = pitch + ovals[1];
+                pos++;
+            }
+        }
+
+
+    }
+}*/
 
 std::vector<int16_t> GetPitches2(std::string input)
 {
+    //std::cout <<"Input:" <<  input << std::endl;
     std::string myinput = input;
     std::vector< char > forbidden = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '/', '[', ']'};
     // first replace all non-pitch information ( duration and chord brackets with spaces
@@ -1160,12 +1316,39 @@ std::vector<int16_t> GetPitches2(std::string input)
             if (myinput[i]==forbidden[j])
                myinput[i] = ' ';
     }
-
+    //std::cout <<"Input adjusted " << myinput << std::endl;
     // now make sure continuation signs are distinguishable
     for (size_t i=0; i < myinput.length(); i++)
     {
         if ( myinput[i]=='-' ) myinput.insert(i+1, " ");
     }
+
+    // now we need to make sure that tones without a duration (1) are splitted
+    for (size_t i=0; i < myinput.length()-1; i++)
+    {
+        if ( IsLetter(myinput[i]) && IsLetter(myinput[i+1]))
+             {
+                 myinput.insert(i+1, " ");
+             }
+        if ( IsOctave(myinput[i]) && IsLetter(myinput[i+1]))
+            {
+                myinput.insert(i+1, " ");
+            }
+        if ( (myinput[i]=='-') && IsLetter(myinput[i+1]))
+        {
+            myinput.insert(i+1, " ");
+        }
+        if (  IsOctave(myinput[i]) && (myinput[i+1]=='-') )
+        {
+            myinput.insert(i+1," ");
+        }
+        if ( IsLetter(myinput[i]) && (myinput[i+1]=='-'))
+        {
+            myinput.insert(i+1," ");
+        }
+    }
+   // std::cout << "Adjusted myinput " << myinput << std::endl;
+
     std::vector<std::string> mytokens = split(myinput, ' ');
 
     // now parse the objects
@@ -1194,9 +1377,22 @@ std::vector<int16_t> GetPitches2(std::string input)
                 waslastapitch = 1;  // now the last one was a pitch
                 // first find if this is transposed one up or down
                 int relpitch = 0;
-                if (mytokens[i][0]=='^') relpitch = 1;
-                if (mytokens[i][0]=='_') relpitch = -1;
-                mytokens[i].erase(0,1);
+
+                if (mytokens[i][0]=='^')
+                {
+                    relpitch = 1;
+                    mytokens[i].erase(0,1);
+                }
+                if (mytokens[i][0]=='_')
+                {
+                    relpitch = -1;
+                    mytokens[i].erase(0,1);
+                }
+                if (mytokens[i][0]=='=')
+                {
+                    mytokens[i].erase(0,1);
+                }
+
 
                 // now we definitely have to start with a letter
                 if ( mytokens[i][0] == 'C' ) relpitch += 12;

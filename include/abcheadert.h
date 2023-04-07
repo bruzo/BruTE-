@@ -38,13 +38,14 @@ private:
     int m_ID = 0;
     int m_Speed = 125;
     double m_UnitLength = 1.0/8.0;
+    double m_Measure = 1.0;
     int m_Xnumber;
     int m_Instrument=0;
 };
 
 double ABCHeaderT::GetBeatsToSeconds()
 {
-    return 60.0/m_Speed;  // probably only correct for BruTE tunes ...
+    return 60.0/m_Speed * m_UnitLength / 0.25 * m_Measure ;  // probably only correct for BruTE tunes ...
 }
 
 void ABCHeaderT::SetInstrument(int i)
@@ -137,8 +138,10 @@ void ABCHeaderT::ParseLine(std::string line)
         // Q: field
         if (line[0]=='Q')
         {
+            size_t j = 2;
+            for (size_t i = 0; i < line.size(); i++) if (line[i]=='=') j = i;
             try {
-                m_Speed = std::stoi(line.substr(2));
+                m_Speed = std::stoi(line.substr(j));
             }
             catch (const std::invalid_argument& ia)
             {
@@ -172,6 +175,7 @@ void ABCHeaderT::ParseLine(std::string line)
                catch (const std::out_of_range& oor){}
             }
             m_UnitLength = unit;
+           // std::cout << "Unit " << m_UnitLength << std::endl;
         }
 
         // see if we can find stereo positions in here
@@ -257,6 +261,34 @@ void ABCHeaderT::ParseLine(std::string line)
             catch (const std::invalid_argument& ia){ m_Instrument = 0;}
             catch (const std::out_of_range& oor){m_Instrument = 0;}
         }
+
+                // L: field
+        if (line[0]=='M')
+        {
+            auto factors = split(line.substr(2),'/');
+            double unit = 1.0;
+            if (factors.size()> 0)
+            {
+               try
+               {
+                   unit = unit * std::stoi(factors[0]);
+               }
+               catch (const std::invalid_argument& ia){}
+               catch (const std::out_of_range& oor){}
+            }
+            if (factors.size()>1)
+            {
+               try
+               {
+                   unit = unit / std::stoi(factors[1]);
+               }
+               catch (const std::invalid_argument& ia){}
+               catch (const std::out_of_range& oor){}
+            }
+            m_Measure = unit;
+            //std::cout << "Unit " << m_UnitLength << std::endl;
+        }
+
     }
 }
 

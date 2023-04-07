@@ -81,6 +81,7 @@ public:
     int GetXNumber(size_t track);
     int GetPanning(size_t track);
     int GetZPanning(size_t track);
+        void PlayLoop();
 
     void UpdateABC(std::stringstream * abctext);
 
@@ -133,7 +134,7 @@ private:
 
     std::vector<uint64_t> trackpositions;
 
-    void PlayLoop();
+
 
     std::vector<float> m_envelope; // constains the envelop multiply function to be used for sending the tone
 
@@ -375,6 +376,12 @@ void AudioPlayerAL::SetEnvelope(int Instrument, uint32_t duration, uint32_t samp
 void AudioPlayerAL::PlayLoop()
 {
     // read current time
+    m_ABC_Play_Start = std::chrono::high_resolution_clock::now();
+    m_ABC_Play_LastUpdate = m_ABC_Play_Start;
+
+    trackpositions.resize(m_Nabctracks);
+    std::fill( trackpositions.begin(), trackpositions.end(), 0 );
+
 
     while (m_stop == 0)
     {
@@ -382,7 +389,7 @@ void AudioPlayerAL::PlayLoop()
        // Get current time
        std::chrono::time_point<std::chrono::high_resolution_clock> updatetime = std::chrono::high_resolution_clock::now();
 
-       // Delta Time from last update:
+       // Delta Time from last update and from playstart
        std::chrono::duration<double> DT = updatetime - m_ABC_Play_LastUpdate;
        std::chrono::duration<double> ST = updatetime - m_ABC_Play_Start;
 
@@ -400,9 +407,14 @@ void AudioPlayerAL::PlayLoop()
 
                int instrument = std::get<3>(myabc->m_ABCTonesvector[i][trackpositions[i]]);
                int pitch = std::get<4>(myabc->m_ABCTonesvector[i][trackpositions[i]]) - 36;
-               if (instrument == 10) pitch = 0;
+               if (pitch < 0) pitch = 0;
+               if (pitch > 37) pitch = 37;
+
+               if (instrument == 10) pitch = 0;  // Cowbell and Moor Cowbell
                if (instrument == 9) pitch = 0;
                int velocity = std::get<5>(myabc->m_ABCTonesvector[i][trackpositions[i]]);
+               if (velocity < 0) velocity = 0;
+               if (velocity > 9) velocity = 9;
                size_t duration = std::get<2>(myabc->m_ABCTonesvector[i][trackpositions[i]]);
 
                trackpositions[i]++;   // next tone
