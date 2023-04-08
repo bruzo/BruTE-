@@ -914,7 +914,7 @@ int GetABCInstrumentFromTLine(std::string line)
 double EvaluateDurationString(std::string input)
 {
 
-   // std::cout << "Eval String " << input <<  "   " << std::endl;
+    //std::cout << "Eval String " << input <<  "   " << std::endl;
     // if the length is 0 this is easy
     if (input.length() == 0) return 1.0;
 
@@ -952,8 +952,9 @@ double EvaluateDurationString(std::string input)
 
 double ChordDuration(std::string input)
 {
+   // std::cout << input << std::endl;
     std::string myinput = input;
-    std::vector< char > forbidden = { 'C', 'c', 'D', 'd', 'E', 'e', 'F', 'f', 'G', 'g', 'A', 'a', 'B', 'b', '^', '_', '[', ']', '=', ',', '-', '\'' };
+    std::vector< char > forbidden = { 'C', 'c', 'D', 'd', 'E', 'e', 'F', 'f', 'G', 'g', 'A', 'a', 'B', 'b', '^', '_', '[', ']', '=', ',', '-', '\'', 'z' };
     // first Replace all Characters with spaces
 
     size_t digits = 0;
@@ -968,9 +969,14 @@ double ChordDuration(std::string input)
         if (isdigit(myinput[i])) digits++;
         if (myinput[i]=='/') divisors++;
     }
-    if ((digits == 0)&&(divisors==0)) return 1.0;
+    if ((digits == 0)&&(divisors==0))
+    {
+     //   std::cout << "No Digits, returning 1.0 "<< std::endl;
+        return 1.0;
+    }
     //then split into an array by the spaces
     std::string myduration = split(myinput, ' ')[0];
+  //  std::cout << "Querying:" << myduration << std::endl;
     return EvaluateDurationString(myduration); // and then just use the first duration
 }
 
@@ -1220,7 +1226,7 @@ int LetterIndex(char input)
     for (size_t i = 0; i < pitchchars.size(); i++) if (pitchchars[i]==input) returnvalue = i;
     if ( returnvalue> -1)
     {
-        return (returnvalue%12);
+        return (returnvalue%8);
     }
     else
     {
@@ -1233,6 +1239,15 @@ bool IsOctave(char input)
     if (input == ',') return true;
     if (input == '\'') return true;
     return false;
+}
+
+bool IsRel(char input)
+{
+    bool returnvalue = false;
+    if (input=='^') returnvalue = true;
+    if (input=='=') returnvalue = true;
+    if (input=='_') returnvalue = true;
+    return returnvalue;
 }
 
 
@@ -1308,7 +1323,7 @@ std::vector<int16_t> GetPitches2(std::string input)
 {
     //std::cout <<"Input:" <<  input << std::endl;
     std::string myinput = input;
-    std::vector< char > forbidden = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '/', '[', ']'};
+    std::vector< char > forbidden = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '/', '[', ']', 'z'};
     // first replace all non-pitch information ( duration and chord brackets with spaces
     for (size_t i = 0; i < myinput.length(); i++)
     {
@@ -1346,8 +1361,12 @@ std::vector<int16_t> GetPitches2(std::string input)
         {
             myinput.insert(i+1," ");
         }
+        if ( IsLetter(myinput[i]) && (IsRel( myinput[i+1] )))  // letter followed by =^_
+        {
+            myinput.insert(i+1," ");
+        }
     }
-   // std::cout << "Adjusted myinput " << myinput << std::endl;
+  //  std::cout << "Adjusted myinput " << myinput << std::endl;
 
     std::vector<std::string> mytokens = split(myinput, ' ');
 

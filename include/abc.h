@@ -186,6 +186,7 @@ std::size_t ABCInput::Nabctracks()
     return m_Nabctracks;
 }
 
+/*
 std::string ABCInput::CorrectForMaestro(std::string abctext)
 {
    std::stringstream inabc(abctext);
@@ -228,7 +229,116 @@ std::string ABCInput::CorrectForMaestro(std::string abctext)
        }
    }
    return outabc.str();
+}*/
+
+std::string ABCInput::CorrectForMaestro(std::string abctext)
+{
+   std::stringstream inabc(abctext);
+   std::stringstream outabc("");
+   std::string line;
+   std::vector<int> status(12,1);
+   const std::vector<std::string> prefix = {"_","=","^"};
+   outabc << "%Maestro" << std::endl;
+   while (std::getline( inabc , line))
+   {
+      // std::cout << "Original Line " << std::endl;
+    //  std::cout << line << std::endl;
+
+       if (line[0] == '\t' ) line = line.substr(1);
+
+       if ((line[0] != '%')&&(line.size()>0)) // we discard comments and empty lines
+       {
+          // std::cout << "New Line " << std::endl;
+
+           if ((line[0] == 'X' )&&(line[1]==':'))
+           {
+               outabc << std::endl;
+           }
+
+           if (line[1]==':') // we keep header lines
+           {
+               outabc << line << std::endl;
+        //      std::cout << line << std::endl;
+           }
+           else
+           {
+              // this is a songbody line, we break it down into singular instructions
+              auto lines = split(line, ' ');
+              for (auto myline : lines)
+              {
+                  // if we hit the end of a measure we wipe the status of ^_=
+                  if (myline[0]=='|')
+                  {
+                      // wiping status
+                      for (size_t k = 0; k < status.size(); k++) status[k] = 1;
+                  }
+                  else
+                  {
+                     if ((myline[0] == '+')|(myline[0]=='z')) // this is a velocity change, so we just keep it
+                     {
+                 //       std::cout << myline << std::endl;
+                         outabc << myline << std::endl;
+                     }
+                     else
+                     {
+                         // this is either a chord or a singular tone
+                         if (myline[0] != '[')
+                         {
+                             // singular tone
+                             bool changed = false;
+                             if (myline[0] == '^') {
+                                    status[LetterIndex(myline[1])] = 2; changed = true;
+                             }
+                             if (myline[0] == '=') {
+                                    status[LetterIndex(myline[1])] = 1; changed = true;
+                             }
+                             if (myline[0] == '_') {
+                                    status[LetterIndex(myline[1])] = 0; changed = true;
+                             }
+                             if (changed)
+                             {
+                                 outabc <<"[" << myline << "]"  <<std::endl;
+                      //           std::cout << "[" <<myline << "]" <<std::endl;
+                             }
+                             else
+                             {
+                                 outabc <<"[" << prefix[ status[LetterIndex(myline[0])] ] << myline <<"]" << std::endl;
+                        //         std::cout<<"[" << prefix[ status[LetterIndex(myline[0])] ] << myline << "]"<<std::endl;
+                             }
+                         }
+                         else
+                         {   // we now go through char by char
+                             for (size_t k =1; k < myline.size()-1; k++)
+                             {
+                                 // is this a letter not preceeded by a relative changer?
+                                 if (( LetterIndex(myline[k])>-1 ) && (  !IsRel(  myline[k-1] )  ))
+                                 {
+                                     // then insert one!
+                                     myline.insert(k, prefix[  status[LetterIndex(myline[k]) ]]  );
+                                 }
+                                 // is this a letter preceeded by a relative changer?
+                                 if (( LetterIndex(myline[k])>-1 ) && (  IsRel(  myline[k-1] )  ))
+                                 {
+                                     // we keep this but we need to  keep track of changers
+                                     if (myline[k-1]=='^') status[LetterIndex(myline[k])] = 2;
+                                     if (myline[k-1]=='=') status[LetterIndex(myline[k])] = 1;
+                                     if (myline[k-1]=='_') status[LetterIndex(myline[k])] = 0;
+                                 }
+                             }
+                             outabc << myline << std::endl;
+                         //    std::cout << myline << std::endl;
+                         }
+                     }
+                  }
+              }
+           }
+       }
+   }
+   outabc << std::endl;
+   outabc << std::endl;
+   return outabc.str();
 }
+
 
 // Parse an ABC from a Stringstream
 void ABCInput::LoadABC(std::stringstream * abctext)
@@ -333,13 +443,13 @@ void ABCInput::LoadABC(std::stringstream * abctext)
               {
               // if it is not a break and not a tempo change and we eliminated everything .. this should be a tone
 
-                //  std::cout << line << std::endl;
+              //    std::cout << line << std::endl;
                   myduration = ChordDuration(line) * beat_to_seconds ;
-               //   std::cout << "Duration " << myduration << "  beatstosecs" << beat_to_seconds  <<  std::endl;
+              //    std::cout << "Duration " << myduration << "  beatstosecs" << beat_to_seconds  <<  std::endl;
                   std::vector<int16_t> pitches = GetPitches2(line);
-             //     std::cout << "Pitches ";
-               //   for (size_t i = 0; i < pitches.size(); i++) std::cout << pitches[i] <<  "  ";
-               //   std::cout << std::endl;
+               //   std::cout << "Pitches ";
+              //    for (size_t i = 0; i < pitches.size(); i++) std::cout << pitches[i] <<  "  ";
+            //      std::cout << std::endl;
 
 
                   while (pitches.size() > 0)   // process them after each other

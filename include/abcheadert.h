@@ -34,7 +34,7 @@ public:
 
 private:
     int m_StereoPosition = 0;
-    int m_DepthPosition = 0;
+    int m_DepthPosition = 300;
     int m_ID = 0;
     int m_Speed = 125;
     double m_UnitLength = 1.0/8.0;
@@ -45,7 +45,7 @@ private:
 
 double ABCHeaderT::GetBeatsToSeconds()
 {
-    return 60.0/m_Speed * m_UnitLength / 0.25 * m_Measure ;  // probably only correct for BruTE tunes ...
+    return 60.0/m_Speed * m_UnitLength / 0.25 / m_Measure ;  // probably only correct for BruTE tunes ...
 }
 
 void ABCHeaderT::SetInstrument(int i)
@@ -247,6 +247,13 @@ void ABCHeaderT::ParseLine(std::string line)
                    m_DepthPosition = 300;
                    m_ID = -1;
                }
+           }
+           else
+           {
+               // this is not enough arguments anyway
+               m_StereoPosition = 0;
+               m_DepthPosition = 300;
+               m_ID = -1;
            }
          //  std::cout << m_StereoPosition << "  " << m_DepthPosition << "  " << m_ID << std::endl;
         }
