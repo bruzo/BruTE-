@@ -16,8 +16,6 @@ typedef std::tuple< int64_t, int64_t, int64_t, int, int, float > ToneTuple;
 
 
 
-
-
 class ABCInput
 {
 public:
@@ -382,6 +380,7 @@ void ABCInput::LoadABC(std::stringstream * abctext)
    uint64_t finalsample = 0;
 
    // ABCTracks[0] is the header of the ABC, usually containing information about the ABC transcoding program that was used, doesn't matter to us
+   #pragma omp parallel for
    for (size_t abctrack = 0; abctrack < m_Nabctracks; abctrack++)
    {
 

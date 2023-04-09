@@ -19,6 +19,7 @@
 #include "abcheader.h"
 #include "gainsettingsdialogue.h"
 #include "abcsettingsdialogue.h"
+#include "settingsdialogue.h"
 
 
 /* m_directmapping  .. to map one input pitch to one specific output pitch .. for cowbell, student fiddle and very custom drum mapping */
@@ -210,16 +211,30 @@ void BandView::OnKeyUp(wxKeyEvent & event)
    event.Skip();
 }
 
+/*
+void BandView::BackGroundThead()
+{
+
+}*/
+
 void BandView::LiveUpdateAudio()
 {
    if ( myaudioplayerAL->audio_playing == 1 )   // check if we are playing
    {
+     /*
       GenerateConfigHeader();
       AppendMapping();
       myBrute->Transcode(&myBrute->m_MappingText);
+      double f = myaudioplayerAL->Position();
+
    //   int64_t realduration;
     //  myMidiPreview->GeneratePreviewMidi2(&myBrute->m_ABCText, &realduration );
       myaudioplayerAL->UpdateABC(&myBrute->m_ABCText);
+      myaudioplayerAL->GetABC()->UpdateToneCounts();
+      myaudioplayerAL->Play();
+      myaudioplayerAL->Seek(f);
+      std::cout << "We were at position " << f << std::endl;
+      myaudioplayerAL->Seek(f);*/
    }
 }
 
@@ -753,6 +768,7 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
 
     if (( mouseY > 580 ) && (mouseY<630) && ( mouseX > 100 ) && ( mouseX < 790 ))
     {
+     //  std::cout << "Seeking to " << ((mouseX-100.0)/690.0) << std::endl;
         myaudioplayerAL->Seek( ((mouseX-100.0)/690.0)  );
     }
 
@@ -921,6 +937,21 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
             if (abcsettings == NULL) {};
         }
     }
+
+    // clicking Settings
+    if ((mouseX>550) && (mouseY > 505) && (mouseX < 600) && (mouseY < 540))    // 157 + 100
+    {
+        if (myBrute->DoIHaveAMidi())
+        {
+            std::cout << " Settings clicked " << std::endl;
+            //
+            SettingsDialogue * settings = new SettingsDialogue( &myBrute->nthreads );
+            if (settings == NULL) {};
+           // if (abcsettings == NULL) {};
+        }
+    }
+
+
  }
 
  void BandView::mouseLeftUp(wxMouseEvent& event)
@@ -952,7 +983,7 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
 
              miditrackclicked = false;
              this->Refresh();
-             //LiveUpdateAudio();
+             LiveUpdateAudio();
          }
      }
 
@@ -1438,6 +1469,14 @@ void BandView::render(wxDC&  dc)
     dc.DrawLine( x -5, y - 5, x - 5, y + 20);           // 100, 505, 135, 540
     dc.DrawRectangle( x-4, y - 4, 8 + sx, 23);
     dc.DrawText(wxT("ABC Settings"), x, y);
+
+    x = 550; sx = 50;
+    dc.DrawLine( x-5, y - 5, x + 5 + sx, y - 5 );
+    dc.DrawLine( x-5, y +20, x + 5 + sx, y +20 );
+    dc.DrawLine( x + 5 + sx, y-5, x + 5 + 30, y+20);
+    dc.DrawLine( x -5, y - 5, x - 5, y + 20);           // 100, 505, 135, 540
+    dc.DrawRectangle( x-4, y - 4, 8 + sx, 23);
+    dc.DrawText(wxT("Settings"), x, y);
 
     // draw a line
     dc.SetPen( wxPen( wxColor(0,0,0), 3 ) ); // black line, 3 pixels thick

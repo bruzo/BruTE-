@@ -81,7 +81,7 @@ public:
     int GetXNumber(size_t track);
     int GetPanning(size_t track);
     int GetZPanning(size_t track);
-        void PlayLoop();
+    void PlayLoop();
 
     void UpdateABC(std::stringstream * abctext);
 
@@ -182,13 +182,17 @@ int AudioPlayerAL::GetZPanning(size_t track)
 
 void AudioPlayerAL::UpdateABC(std::stringstream * abctext)
 {
-    float position = Position();
+   // float position = Position();
+    //std::cout << "Was at " << position << " of " << m_durationseconds << std::endl;
     Stop();
     std::this_thread::sleep_for(std::chrono::milliseconds(2));
     std::this_thread::sleep_for(std::chrono::milliseconds(2));
     SendABC(abctext);
-    Play();
-    Seek(position);
+    //Play();
+    //std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    //std::cout << "Seeking to " << position << " of " << m_durationseconds << std::endl;
+   // Seek(position);
+
 }
 
 void AudioPlayerAL::SetInstrument(int id, int instrument)
@@ -287,6 +291,7 @@ void AudioPlayerAL::Stop()
 
 void AudioPlayerAL::Seek(float f)
 {
+ //  std::cout << "Seek called " << f << "  " << f*m_durationseconds << std::endl;
    std::chrono::time_point<std::chrono::high_resolution_clock> thisisnow = std::chrono::high_resolution_clock::now();
    thisisnow -= std::chrono::milliseconds(static_cast<uint32_t>(f * m_durationseconds*1000));
    m_mute = 1;
@@ -317,7 +322,8 @@ float AudioPlayerAL::Position()
 
     for (size_t i = 0; i < trackpositions.size(); i++)
     {
-        if (  static_cast<uint64_t>(std::get<0>(myabc->m_ABCTonesvector[i][trackpositions[i]])) > position ) position = std::get<0>(myabc->m_ABCTonesvector[i][trackpositions[i]]);
+        int mypos =trackpositions[i];
+        if (  static_cast<uint64_t>(std::get<0>(myabc->m_ABCTonesvector[i][mypos])) > position ) position = std::get<0>(myabc->m_ABCTonesvector[i][mypos]);
         if (  static_cast<uint64_t>(std::get<0>(myabc->m_ABCTonesvector[i][myabc->m_ABCTonesvector[i].size()-1])) > ending ) ending = std::get<0>(myabc->m_ABCTonesvector[i][myabc->m_ABCTonesvector[i].size()-1]);
     }
     return (1.0f * position)/ending;

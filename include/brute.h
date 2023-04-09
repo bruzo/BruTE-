@@ -22,6 +22,9 @@
 #include <list>
 #include <omp.h>
 #include <sstream>
+#include <chrono>
+#include "omp.h"
+
 
 
 class Brute
@@ -98,10 +101,13 @@ public:
 
     // list of the pitches used in a track
     std::vector< std::vector < bool > > m_samplesused;
+    size_t nthreads = 1;
 
 private:
     // MidiFile instance to deal with the midi file
     smf::MidiFile m_Midi;
+
+
 
     // list of midi channel instruments
     std::vector<int> m_midiinstruments = {};
@@ -274,6 +280,11 @@ void Brute::Transcode(std::stringstream * mapping)
 {
     if (DoIHaveAMidi())
     {
+       omp_set_num_threads( nthreads );
+
+       // Measure total conversion time
+       auto starttime = std::chrono::high_resolution_clock::now();
+
        // parse the mapping text into the configfile
        ParseConfig(mapping);
 
@@ -322,7 +333,16 @@ void Brute::Transcode(std::stringstream * mapping)
 
        // Pre-Generate duration string names
        GenerateDurationNames();
+       auto endtime = std::chrono::high_resolution_clock::now();
+       double timeInSeconds = std::chrono::duration<double>(endtime - starttime).count();
+       std::cout << "Transcoding Duration " << timeInSeconds << std::endl;
+
+   //    starttime = std::chrono::high_resolution_clock::now();
        GenerateABC(); // this is just the ABC in memory
+   //    endtime = std::chrono::high_resolution_clock::now();
+   //    timeInSeconds = std::chrono::duration<double>(endtime - starttime).count();
+   //    std::cout << "ABC Generation " << timeInSeconds << std::endl;
+
     }
 }
 
@@ -1414,7 +1434,7 @@ void Brute::GenerateQuantizedNotes2()
 	m_qnoteend2.resize(nabctracks);
 	m_qnotestarterror2.resize(nabctracks);
 	m_qnoteenderror2.resize(nabctracks);
-	#pragma omp parallel for
+	//#pragma omp parallel for
 	for ( size_t abctrack = 0; abctrack < nabctracks; abctrack++)
 	{
 	   // every ABC track has different number of miditracks
@@ -1496,7 +1516,7 @@ void Brute::MapToRegister2()
     m_projectedvelocity.resize(nabctracks);
 
     // allocate registers and set them to zero
-    #pragma omp parallel for
+    //#pragma omp parallel for
     for (size_t i = 0; i < nabctracks; i++)
     {
 		m_projectedmissmatch[i].resize(m_registerlength);
@@ -1526,7 +1546,7 @@ void Brute::MapToRegister2()
     // Now write all the tones in the register
     // Loop over all abctracks
     m_log << "Mapping Info " << std::endl;
-    // #pragma omp parallel for
+    //#pragma omp parallel for
     for (size_t abctrack = 0; abctrack < nabctracks; abctrack++)
     {
         // Loop over the miditracks in this abctrack
@@ -1655,14 +1675,14 @@ void Brute::GenerateRoughChordLists()
     m_log << "Breaking registers into chords." << std::endl;
     std::cout << " Breaking registers into chords." << std::endl;
     m_chordlists.resize( abctracks );  // one list per track
-    //#pragma omp parallel for
+    #pragma omp parallel for
     for (int abctrack = 0; abctrack < abctracks; abctrack++)
     {
         // make chord, decide how long it is and then put it to the list
         // at this stage we loose some velocity and missmatch info
-        std::cout << " Track " << abctrack << std::endl;
+        //std::cout << " Track " << abctrack << std::endl;
         // make sure to wipe chords from a former run
-        m_chordlists.at(abctrack).clear();
+        m_chordlists[abctrack].clear();
 
         // first chord is special ( no continuation check )
         {
@@ -1677,7 +1697,7 @@ void Brute::GenerateRoughChordLists()
 
             for (int pitch = 0; pitch < 38; pitch++)
             {
-                if ( m_register.at(abctrack).at(pitch).at(0)  > 0. )
+                if ( m_register[abctrack][pitch][0]  > 0. )
                 {
                     // this register is pressed ( tone is played )
                     mychord.npitches.push_back(pitch);
@@ -1763,7 +1783,7 @@ void Brute::ChordJoinDurations()
     int abctracks = static_cast<int> ( m_Mapping.m_instrumap.size());
 
     // Loop over ABC Tracks
-   // #pragma omp parallel for
+    #pragma omp parallel for
     for (int abctrack=0; abctrack < abctracks; abctrack++)
     {
         // std::cout << m_chordlists[abctrack].size() << std::endl;
@@ -1849,7 +1869,7 @@ void Brute::CorrectMissmatch()
 
     m_log << "Correcting starting times for chords." << std::endl;
     // Loop over ABC Tracks
-   // #pragma omp parallel for
+    #pragma omp parallel for
     for (int abctrack=0; abctrack < abctracks; abctrack++)
     {
         // Missmatch of first slot is an issue, we just ignore it!
@@ -2268,7 +2288,6 @@ void Brute::CheckForInialShortTone()
         current->duration += tooshort;
      }
     }
-
 }
 
 void Brute::Check_for_too_long_tones()
@@ -2447,7 +2466,7 @@ bool Brute::AllChordsOK()
     int abctracks = static_cast<int> ( m_Mapping.m_instrumap.size());
 
     // Loop over ABC Tracks
-    #pragma omp parallel for
+    //#pragma omp parallel for
     for (int abctrack=0; abctrack < abctracks; abctrack++)
     {
         std::list<ChordL>::iterator current;
@@ -2802,7 +2821,7 @@ void Brute::GenerateNoteSelection2()
 {
 	size_t abctracks = m_Mapping.m_instrumap.size();
 	m_selected.resize(abctracks);
-	#pragma omp parallel for
+	// #pragma omp parallel for
 	for (size_t abctrack = 0; abctrack<abctracks; abctrack++)
 	{
        size_t miditracks = m_Mapping.m_trackmap[abctrack].size();
