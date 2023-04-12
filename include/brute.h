@@ -86,6 +86,8 @@ public:
     int GetTonePitch(int miditrack, int tone);
     int GetGlobalMaxVel();
 
+    int GetOctavePitch(int miditrack);
+
     void DeleteMidi();
 
     std::vector<int> m_pitchbendcounter;
@@ -218,6 +220,11 @@ private:
 
 };
 
+int Brute::GetOctavePitch(int miditrack)
+{
+    return int(double(m_avpitches[miditrack])/double(m_avpitchc[miditrack])/12);
+}
+
 void Brute::Tonality()
 {
 
@@ -284,6 +291,9 @@ void Brute::Transcode(std::stringstream * mapping)
 
        // Measure total conversion time
        auto starttime = std::chrono::high_resolution_clock::now();
+
+
+       // InitializeHumanization();
 
        // parse the mapping text into the configfile
        ParseConfig(mapping);
@@ -668,7 +678,7 @@ void Brute::LoadMidi(char * mymidiname)
        if ( mylasttone < m_toneends[i].back()) mylasttone = m_toneends[i].back();
     }
 
-    m_mylasttone = mylasttone / (timetoticks * 26460.0);
+    m_mylasttone = mylasttone / ( timetoticks * 26460.0);
 
 
     // Determine granularity of the tone histogram and reserve the space
@@ -1099,12 +1109,15 @@ void Brute::ParseConfig(std::stringstream * mappingtext)
 
 float myrandom()
 {
-    float myvalue = 0.;
-    for (int r = 0; r < 20; r++)
+    double myvalue = 0.;
+    double norm = pow(3, 0.5);
+    const int quality = 100;
+    for (int r = 0; r < quality; r++)
     {
-        myvalue += (std::rand()%1000)*0.001 - 0.5;
+        double randval = (static_cast<double>(std::rand())/RAND_MAX)*2.0-1.0;
+        myvalue += norm* randval / sqrt(quality);
     }
-    return myvalue;
+    return static_cast<float>(myvalue);
 }
 
 
@@ -1151,6 +1164,52 @@ void Brute::CopyMidiInfoToTracks()
 	m_tonestarts2.resize(nabctracks);
 	m_toneends2.resize(nabctracks);
 	double dzminstep = m_minstep/m_Mapping.m_oversampling;
+
+
+/*
+    float resolution = 0.05;
+    size_t hqsize = static_cast<size_t> ((m_mylasttone+10) / resolution );
+
+	std::vector<std::vector<float>> offsets(nabctracks);
+	for (size_t i = 0; i < nabctracks; i++) offsets[i].resize(hqsize);
+
+    std::vector<float> amplitudes(nabctracks, 200.0);
+    std::vector<float> shifts(nabctracks, 0.);
+
+	std::vector<std::vector<float>> correlations = {};
+	correlations.resize(nabctracks);
+	for (size_t i = 0; i < nabctracks; i++)
+	{
+	    correlations[i].resize(nabctracks);
+        for (size_t j = 0; j < nabctracks; j++)
+        {
+            correlations[i][j] = 0.01;
+            if (j == i) { correlations[i][j] = 0.001; }
+        }
+	    offsets[i].resize(hqsize);
+	    offsets[i][0] = 0.;
+	}
+	// now go through time
+    for (size_t t = 1; t < hqsize; t++)
+    {
+        for (size_t abctrack = 0; abctrack < nabctracks; abctrack++)
+        {
+            // new point is old point + new random +
+            offsets[abctrack][t] = offsets[abctrack][t-1] + myrandom()*amplitudes[abctrack] + shifts[abctrack];
+            for (size_t k = 0; k < nabctracks; k++)
+            {
+                offsets[abctrack][t] += (-offsets[abctrack][t-1] + offsets[k][t-1]) * correlations[abctrack][k];
+            }
+        }
+    }
+    for (size_t abctrack = 0; abctrack < nabctracks; abctrack++)
+    {
+            std::cout << "Total Offset " << abctrack << " " << offsets[abctrack][hqsize-1] << std::endl;
+    }
+
+    double tohq = 1.0 / (timetoticks * 26460.0 * resolution);
+*/
+
 	for (size_t abctrack = 0; abctrack < nabctracks; abctrack++)
 	{
 	   size_t miditracks = m_Mapping.m_trackmap[abctrack].size();
@@ -1171,6 +1230,13 @@ void Brute::CopyMidiInfoToTracks()
              int myvelocity = m_velocities[thismiditrack][j];
              double tonestart = m_tonestarts[thismiditrack][j];
              double toneend   = m_toneends[thismiditrack][j];
+
+/*
+             double myoffset = offsets[abctrack][ static_cast<size_t>( tonestart*tohq  ) ];
+             tonestart += myoffset;
+             toneend   += myoffset;
+*/
+
               // at this stage we can split tones into Trillers and apply pitchbends, we may also may apply min/max tone duration here
 
              if (m_Mapping.m_trillermap[abctrack][miditrack] > 0.01)
@@ -1429,6 +1495,7 @@ void Brute::GenerateQuantizedNotes2()
 	// current cheap version of humanization .. will be changed!!!
 	std::vector< double > oldhuman(3,0);
 
+
 	// we need all abctracks of course
 	m_qnotestart2.resize( nabctracks);
 	m_qnoteend2.resize(nabctracks);
@@ -1477,7 +1544,7 @@ void Brute::GenerateQuantizedNotes2()
             m_qnotestart2[abctrack][miditrack][j]=qstart;
             m_qnoteend2[abctrack][miditrack][j]=qend;
 
-            if (qend > m_maxduration) m_maxduration = qend + m_Mapping.m_DATA_maxdelay;
+            if (qend + m_Mapping.m_DATA_maxdelay > m_maxduration) m_maxduration = qend + m_Mapping.m_DATA_maxdelay;
 	      }
 	   }
 	}
@@ -2648,6 +2715,7 @@ void Brute::GenerateABC()
 
     std::vector< int > StyleParts;
     std::vector< int > StyleOrder = {};
+    std::vector<int> realorder={};
    // std::vector< size_t > StyleToABC; StyleToABC.resize(300); for (size_t i = 0; i < StyleToABC.size(); i++) StyleToABC[i]=0;
 
     if (ABCstyle == 1)
@@ -2670,29 +2738,39 @@ void Brute::GenerateABC()
        // std::cout << "Style Order Size " << StyleOrder.size() << std::endl;
     }
 
-    if (ABCstyle == 2)
+    if (ABCstyle == 2) // Meisterbarden Style .. sorted by ID
     {
-        StyleParts.resize(300); for (size_t i = 0; i < StyleParts.size(); i++) StyleParts[i]=-1;
-        for (int abctrack = 0; abctrack < abctracks; abctrack++)
-        {
-            int thisinstrument = m_Mapping.m_instrumap[abctrack];
-            int thispartnumber = bardeninstrumentadd[thisinstrument];
-            while ( StyleParts[thispartnumber] != -1) thispartnumber++;
-            StyleParts[thispartnumber] = abctrack;   // now we know which X:   refers to which abctrack number
-         //   std::cout << " Adding to " << thispartnumber << "  " << abctrack << std::endl;
-        }
+		std::vector<int> IDs(abctracks);
+		std::vector<int> Indices(abctracks);
 
-        for (size_t i = 0; i < StyleParts.size(); i++)
-        {
-            if (StyleParts[i] > -1)
-                StyleOrder.push_back(i);
-        }
-       // std::cout << "Style Order Size " << StyleOrder.size() << std::endl;
+		for (int abctrack=0; abctrack < abctracks; abctrack++)
+		{
+			IDs[abctrack] = m_Mapping.m_idmap[abctrack];
+			Indices[abctrack] = abctrack;
+		}
+		while (IDs.size()>0)
+		{
+			int nextelement = IDs[0];
+			int ni = 0;
+			// find next element
+			for (size_t k = 1; k < IDs.size(); k++)
+			{
+				if (IDs[k] < nextelement)
+				{
+					ni = k;
+					nextelement = IDs[k];
+				}
+			}
+			realorder.push_back(Indices[ni]);
+			IDs.erase(IDs.begin()+ni);
+			Indices.erase(Indices.begin()+ni);
+	    }
+
     }
 
 
 
-
+    std::vector<int> alreadyused={};
     for (int abctrack=0; abctrack < abctracks; abctrack++)
     {
       int curabctrack = abctrack;
@@ -2724,9 +2802,13 @@ void Brute::GenerateABC()
       }
       if (ABCstyle == 2) // Meisterbarden
       {
-          curabctrack = StyleParts[StyleOrder[abctrack]];
-          m_ABCText << "X:" << StyleOrder[abctrack] << std::endl;
-          m_ABCText << "T: " << m_Mapping.m_songname << " " << abcnamingstyleinstrumentnames[ABCstyle][   m_Mapping.m_instrumap[  StyleParts[StyleOrder[abctrack]] ]   ] << " " <<  durstring << std::endl;
+          curabctrack = realorder[abctrack]; //StyleParts[StyleOrder[abctrack]];
+          int myX = bardeninstrumentadd[m_Mapping.m_instrumap[curabctrack]]+1;
+          while (AlreadyIn(myX, alreadyused)) myX++;
+          alreadyused.push_back(myX);
+          m_ABCText << "X:" <<  myX << std::endl;
+
+          m_ABCText << "T: " << m_Mapping.m_songname << " " << abcnamingstyleinstrumentnames[ABCstyle][   m_Mapping.m_instrumap[ curabctrack ]   ] << " " <<  durstring << std::endl;
           m_ABCText << "Z: Transcribed with BruTE " << m_Mapping.m_panningmap[curabctrack] << " " << m_Mapping.m_zpanningmap[curabctrack] << " " << m_Mapping.m_idmap[curabctrack] << std::endl;
           m_ABCText << "L: 1/4" << std::endl;
           m_ABCText << "Q: 125" << std::endl;

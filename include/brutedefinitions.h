@@ -1467,4 +1467,14 @@ bool IsTone(std::string input)
     else return false;
 }
 
+bool AlreadyIn(int myX,std::vector<int> alreadyused)
+{
+	bool returnvalue = false;
+	for (size_t k = 0; k < alreadyused.size(); k++)
+	{
+		if (myX == alreadyused[k]) returnvalue = true;
+	}
+	return returnvalue;
+}
+
 #endif
