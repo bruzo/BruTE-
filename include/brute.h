@@ -104,12 +104,15 @@ public:
     // list of the pitches used in a track
     std::vector< std::vector < bool > > m_samplesused;
     size_t nthreads = 1;
+    
+    void SetSeed(int seed);
+    int GetSeed();
 
 private:
     // MidiFile instance to deal with the midi file
     smf::MidiFile m_Midi;
 
-
+    int m_seed = 1;
 
     // list of midi channel instruments
     std::vector<int> m_midiinstruments = {};
@@ -219,6 +222,16 @@ private:
     int Tonality_Pitch_Trunced(int mypitch, double rpitch, double timep);
 
 };
+
+void Brute::SetSeed(int seed)
+{
+	m_seed = seed;
+}
+
+int Brute::GetSeed()
+{
+   return m_seed;	
+}
 
 int Brute::GetOctavePitch(int miditrack)
 {
@@ -1023,8 +1036,7 @@ void Brute::GenerateDefaultConfig( )
             m_MappingText << "polyphony 6 top  % options: top removes tones from higher pitch first, bottom lower pitch first" << std::endl;
 
             m_MappingText << "duration 2" << std::endl;
-            m_MappingText << "panning 64" << std::endl;
-
+            m_MappingText << "panning 64 300 " << i << std::endl;
 
 
             m_MappingText << "% panning 64 is stereo center, values range from 0 (far left) to 127 (far right) - used in audio preview" << std::endl;
@@ -1164,51 +1176,81 @@ void Brute::CopyMidiInfoToTracks()
 	m_tonestarts2.resize(nabctracks);
 	m_toneends2.resize(nabctracks);
 	double dzminstep = m_minstep/m_Mapping.m_oversampling;
+	float resolution = 0.15;  // we use 
+
+	// check if we need to do the freefolkization
+	bool doff = false;
+	size_t hqsize = static_cast<size_t> ((m_mylasttone*(1.5)) / resolution );
+
+	for (size_t i = 0; i < nabctracks; i++) if (m_Mapping.m_hamp[i] > 0) doff=true;
+	std::vector<std::vector<float>> offsets;
+	offsets.resize(nabctracks);
+	srand(GetSeed());
+
+    if (doff)
+    {
+        std::cout << "Yeah someone enabled Freefolkization!! " << std::endl;
 
 
-/*
-    float resolution = 0.05;
-    size_t hqsize = static_cast<size_t> ((m_mylasttone+10) / resolution );
 
-	std::vector<std::vector<float>> offsets(nabctracks);
-	for (size_t i = 0; i < nabctracks; i++) offsets[i].resize(hqsize);
+       // need to reshuffle the couplings to match to IDs .. or do that in the writing out part!!!
+       std::vector<std::vector<float>> couplings;
+       couplings.resize(nabctracks);
+       for (size_t i = 0; i < nabctracks; i++) couplings[i].resize(nabctracks, 1.0);
+       for (size_t i = 0; i < nabctracks; i++)
+       {
+		 size_t idi = m_Mapping.m_idmap[i];
+		 
+         for (size_t j = 0; j < nabctracks; j++)
+         {
+		    size_t tid = m_Mapping.m_idmap[j];
+		    
+		    for (size_t k = 0; k < m_Mapping.m_couplingid[i].size(); k++)
+		    {
+			   if (tid == m_Mapping.m_couplingid[i][k]) couplings[i][j] = m_Mapping.m_coupling[i][k];	
+			}
+		 }
+       }
 
-    std::vector<float> amplitudes(nabctracks, 200.0);
-    std::vector<float> shifts(nabctracks, 0.);
 
-	std::vector<std::vector<float>> correlations = {};
-	correlations.resize(nabctracks);
-	for (size_t i = 0; i < nabctracks; i++)
-	{
-	    correlations[i].resize(nabctracks);
-        for (size_t j = 0; j < nabctracks; j++)
-        {
-            correlations[i][j] = 0.01;
-            if (j == i) { correlations[i][j] = 0.001; }
-        }
-	    offsets[i].resize(hqsize);
-	    offsets[i][0] = 0.;
-	}
+	   for (size_t i = 0; i < nabctracks; i++) offsets[i].resize(hqsize);
+
+       std::vector<float> amplitudes = m_Mapping.m_hamp;  //(nabctracks, 200.0);
+       std::vector<float> shifts = m_Mapping.m_hshift;    //(nabctracks, 0.);
+
+       for (size_t i = 0; i < nabctracks; i++)
+       {
+	       offsets[i].resize(hqsize);
+	       offsets[i][0] = myrandom()*amplitudes[i];
+	       offsets[i][1] = myrandom()*amplitudes[i] + offsets[i][0];
+       }
+
 	// now go through time
-    for (size_t t = 1; t < hqsize; t++)
-    {
-        for (size_t abctrack = 0; abctrack < nabctracks; abctrack++)
-        {
+       for (size_t t = 2; t < hqsize; t++)
+       {
+          for (size_t abctrack = 0; abctrack < nabctracks; abctrack++)
+          {
             // new point is old point + new random +
-            offsets[abctrack][t] = offsets[abctrack][t-1] + myrandom()*amplitudes[abctrack] + shifts[abctrack];
+      //      offsets[abctrack][t] = (1.00008) *offsets[abctrack][t-1] +  offsets[abctrack][t-1] * myrandom()*amplitudes[abctrack] + shifts[abctrack];
+            float corr = couplings[abctrack][abctrack];
+            offsets[abctrack][t] = offsets[abctrack][t-1] + corr *  myrandom()*amplitudes[abctrack] + (1.0-corr) * (offsets[abctrack][t-1]-offsets[abctrack][t-2])  + shifts[abctrack];  // random walk with amplitude and shift
+
             for (size_t k = 0; k < nabctracks; k++)
-            {
-                offsets[abctrack][t] += (-offsets[abctrack][t-1] + offsets[k][t-1]) * correlations[abctrack][k];
+            {  
+                offsets[abctrack][t] += ( -offsets[abctrack][t-1] + offsets[k][t-1] ) * couplings[abctrack][k];
             }
-        }
-    }
-    for (size_t abctrack = 0; abctrack < nabctracks; abctrack++)
-    {
+          }
+       }
+       for (size_t abctrack = 0; abctrack < nabctracks; abctrack++)
+       {
             std::cout << "Total Offset " << abctrack << " " << offsets[abctrack][hqsize-1] << std::endl;
-    }
+       }
+
+     }
+
+
 
     double tohq = 1.0 / (timetoticks * 26460.0 * resolution);
-*/
 
 	for (size_t abctrack = 0; abctrack < nabctracks; abctrack++)
 	{
@@ -1231,11 +1273,21 @@ void Brute::CopyMidiInfoToTracks()
              double tonestart = m_tonestarts[thismiditrack][j];
              double toneend   = m_toneends[thismiditrack][j];
 
-/*
-             double myoffset = offsets[abctrack][ static_cast<size_t>( tonestart*tohq  ) ];
-             tonestart += myoffset;
-             toneend   += myoffset;
-*/
+             if (doff){
+                    size_t myposition = static_cast<size_t>(tonestart * tohq);
+                    if (myposition < hqsize  )
+                    {
+
+
+                       double myoffset = offsets[abctrack][ myposition ];
+                       tonestart += myoffset;
+                       toneend   += myoffset;
+                    }
+                    else
+                    {
+                        std::cout << "OUT OF RANGE" << std::endl;
+                    }
+             }
 
               // at this stage we can split tones into Trillers and apply pitchbends, we may also may apply min/max tone duration here
 
@@ -1307,7 +1359,7 @@ void Brute::CopyMidiInfoToTracks()
                    mys.push_back(toneend);
                    myv.push_back(myv.back());
 
-                   if ( mybends.size() == 0) // no bend in this tone, so all is fine
+                   if (( mybends.size() == 0) | (method < 1)) // no bend in this tone or no processing wanted, so all is fine
                    {
                       m_pitches2[abctrack][miditrack].push_back(mypitch);
                       m_velocities2[abctrack][miditrack].push_back(myvelocity);

@@ -8,7 +8,7 @@
 class SettingsDialogue : public wxDialog
 {
 public:
-    SettingsDialogue(size_t * nthreads);
+    SettingsDialogue(size_t * nthreads, int * seed);
 
     void OnButtonOK(wxCommandEvent& event);
 
@@ -16,6 +16,9 @@ public:
 
     wxStaticBox * threadsbox;
     wxTextCtrl * threadsnumber;
+    
+    wxStaticBox * seedbox;
+    wxTextCtrl * seedv;
 
  //   wxTextCtrl *tcvol;
  //   wxStaticBox * stpan;
@@ -32,7 +35,7 @@ EVT_BUTTON(wxID_OK, SettingsDialogue::OnButtonOK)
 END_EVENT_TABLE()
 
 
-SettingsDialogue::SettingsDialogue( size_t * nthreads )
+SettingsDialogue::SettingsDialogue( size_t * nthreads, int * seed )
        : wxDialog(NULL, -1, wxT("Settings"), wxDefaultPosition, wxSize(350, 270))
 {
 
@@ -45,6 +48,11 @@ SettingsDialogue::SettingsDialogue( size_t * nthreads )
   x = 5; y = 20; sx = 100; sy = 45;
   threadsbox = new wxStaticBox(panel, -1, wxT("Threads"), wxPoint(x, y), wxSize(sx, sy), wxTE_READONLY);
   threadsnumber = new wxTextCtrl(panel, -1, std::to_string( nthreads[0] ), wxPoint(x+19, y+20), wxSize(sx-25, sy-25) );
+
+  x = 120; y = 20; sx = 100; sy = 45;
+  seedbox = new wxStaticBox(panel, -1, wxT("RNG Seed"), wxPoint(x, y), wxSize(sx, sy), wxTE_READONLY);
+  seedv = new wxTextCtrl(panel, -1, std::to_string( seed[0] ), wxPoint(x+19, y+20), wxSize(sx-25, sy-25) );
+
 
   okButton = new wxButton(this, wxID_OK, wxT("Ok"),wxDefaultPosition, wxSize(70, 30));
 
@@ -59,6 +67,7 @@ SettingsDialogue::SettingsDialogue( size_t * nthreads )
   ShowModal();
 
   nthreads[0] = wxAtoi(threadsnumber->GetValue());
+  seed[0] = wxAtoi(seedv->GetValue());
 
   Destroy();
 }

@@ -48,6 +48,13 @@ public:
    std::vector < int > m_polymap;    // polyphony per itrack
    std::vector < int > m_polymapdir; //  play the high (top=0) or low (bottom=1) notes of reduced polyphones
    std::vector < int > m_instrumap;  //  instrument per itrack
+
+   // freefolkization
+   std::vector < float > m_hamp;      // amplitude
+   std::vector < float > m_hshift;    // time shift
+   std::vector < std::vector < float > > m_coupling;
+   std::vector < std::vector < size_t > > m_couplingid;
+
    std::vector < int > m_durmap;     //  minimal note duration per itrack
    std::vector < int > m_durmaxmap;  //  maximal note duration per itrack
    std::vector < int > m_drumforcowbellmap; // changes the name in the abc for tracks with value 1 to cowbell instead of drums (for easier cowbells)
@@ -144,6 +151,12 @@ private:
 
     // Singular variables
     int m_minstrument;
+
+    float m_myhamp;
+    float m_myhshift;
+    std::vector<float> m_mycoupling;
+    std::vector<size_t> m_mycouplingid;
+
     int m_mpitch;
     int m_mvol;
     int m_mpoly;
@@ -386,6 +399,10 @@ void ConfigFile::ParseConfigMapping(std::stringstream * mappingtext)
     m_trackdivide.resize(0);    //  divide track into parts ( 0 don't, >1  )
     m_trackdividepart.resize(0);//  part n of trackdivide ( eg: 1 of 2 ...)
     m_instrumap.resize(0);      //  instrument per itrack
+    m_hamp.resize(0);
+    m_hshift.resize(0);
+    m_coupling.resize(0);
+    m_couplingid.resize(0);
     m_durmap.resize(0);         //   minimal note duration per itrack
     m_durmaxmap.resize(0);      //   maximal note duration per itrack
     m_drumstylemap.resize(0);   //   drum style per miditrack in itrack
@@ -424,6 +441,11 @@ void ConfigFile::ParseConfigMapping(std::stringstream * mappingtext)
     // singular variables to default
 
     m_minstrument = 0;
+    m_myhamp = 0;
+    m_myhshift = 0;
+    m_mycoupling.resize(0);
+    m_mycouplingid.resize(0);
+
     m_mpitch = 0;
     m_mvol = 0;
     m_mpoly = 0;
@@ -522,6 +544,11 @@ if (thisline.size() > 0)
              m_arpeggioinc = 1;
              m_mtd = 0;
 
+             m_myhamp = 0;
+             m_myhshift = 0;
+             m_mycoupling.resize(0);
+             m_mycouplingid.resize(0);
+
              m_idurationsplit = 0; // default is not to split
              m_idurationsplitpart = 0; // default is first part
              m_idurationpart = 0; // first part
@@ -598,10 +625,33 @@ if (thisline.size() > 0)
              m_durationsplitpartmap=AppendIU(m_durationsplitpartmap, m_idurationsplitpartmap);
              m_alignmap  =AppendIU(m_alignmap, m_ialignmap);
              m_mtdmap    =AppendI(m_mtdmap, m_mtd);
+             m_hamp.push_back(m_myhamp);
+             m_hshift.push_back(m_myhshift);
+             m_coupling.push_back(m_mycoupling);
+             m_couplingid.push_back(m_mycouplingid);
 
          }
 
          }
+
+         if (thisline[0] == "ffamp")
+         {
+             m_myhamp = atof(thisline[1].c_str());
+         }
+         if (thisline[0] == "ffshift")
+         {
+             m_myhshift = atof(thisline[1].c_str());
+         }
+         if (thisline[0] == "ffcoupling")
+         {
+             size_t entries = (thisline.size()-1) / 2;
+             for (size_t k = 0; k < entries; k++)
+             {
+				m_mycouplingid.push_back( atoi(thisline[2*k+1].c_str())   );
+                m_mycoupling.push_back(  atof(thisline[2*k+2].c_str())   );
+			}
+         }
+
          if (thisline[0] == "polyphony"){
              m_mpoly = atoi(thisline[1].c_str());
              if (thisline[2] == "top") m_mpolyd = 1;
@@ -972,6 +1022,15 @@ void ConfigFile::ImportConfigFile(char * infilename)
 
 
     // singular variables to default
+    m_myhamp = 0;
+    m_myhshift = 0;
+    m_mycoupling.resize(0);
+    m_mycouplingid.resize(0);
+
+    m_hamp.resize(0);
+    m_hshift.resize(0);
+    m_coupling.resize(0);
+    m_couplingid.resize(0);
 
     m_minstrument = 0;
     m_mpitch = 0;
@@ -1089,6 +1148,10 @@ if (thisline.size() > 0)
              m_itrackvoices.resize(0);
              m_itrackvoice.resize(0);
              m_ialignmap.resize(0);
+             m_myhamp = 0;
+             m_myhshift = 0;
+             m_mycoupling.resize(0);
+             m_mycouplingid.resize(0);
          }
             if (thisline[1] == "end")
          {
@@ -1129,10 +1192,38 @@ if (thisline.size() > 0)
              m_durationsplitpartmap=AppendIU(m_durationsplitpartmap, m_idurationsplitpartmap);
              m_alignmap  =AppendIU(m_alignmap, m_ialignmap);
              m_mtdmap    =AppendI(m_mtdmap, m_mtd);
+             m_hamp.push_back(m_myhamp);
+             m_hshift.push_back(m_myhshift);
+             m_coupling.push_back(m_mycoupling);
+             m_couplingid.push_back(m_mycouplingid);
 
          }
 
          }
+
+
+         if (thisline[0] == "ffamp")
+         {
+             m_myhamp = atof(thisline[1].c_str());
+         }
+         if (thisline[0] == "ffshift")
+         {
+             m_myhshift = atof(thisline[1].c_str());
+         }
+         if (thisline[0] == "ffcoupling")
+         {
+             
+             size_t entries = ( thisline.size()-1 ) / 2;
+             
+             for (size_t k = 0; k < entries; k++)
+             {
+				m_mycouplingid.push_back( atoi(thisline[2*k+1].c_str())   );
+                m_mycoupling.push_back(  atof(thisline[2*k+2].c_str())   );
+			 }    
+			          
+             
+         }
+
          if (thisline[0] == "polyphony"){
              m_mpoly = atoi(thisline[1].c_str());
              if (thisline[2] == "top") m_mpolyd = 1;

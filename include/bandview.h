@@ -20,6 +20,8 @@
 #include "gainsettingsdialogue.h"
 #include "abcsettingsdialogue.h"
 #include "settingsdialogue.h"
+#include "humanization.h"
+#include "humanization_light.h"
 
 
 /* m_directmapping  .. to map one input pitch to one specific output pitch .. for cowbell, student fiddle and very custom drum mapping */
@@ -268,6 +270,14 @@ void BandView::LiveUpdateAudio()
 
         bvmappingtext << "panning " <<  -int( 100 * ((BVabctracks[i].x-100)/590.0 - 0.5)   ) << "  " << BVabctracks[i].y  << "  " << BVabctracks[i].id << std::endl;
 
+        // freefolkization
+        bvmappingtext << "ffamp " << std::to_string(BVabctracks[i].hamp) << std::endl;
+        bvmappingtext << "ffshift " << std::to_string(BVabctracks[i].hshift ) << std::endl;
+        bvmappingtext << "ffcoupling ";
+        for (size_t k = 0; k < BVabctracks[i].hcoupling.size(); k++) bvmappingtext <<  BVabctracks[k].id  << "  " << BVabctracks[i].hcoupling[k] << "  ";
+        bvmappingtext << std::endl;
+
+
 
         if (BVabctracks[i].instrument != 8) // for all instruments except drums we can just write the instrument
         {
@@ -337,7 +347,11 @@ void BandView::GetMapping()
         newabctrack.polydirection = myBrute->m_Mapping.m_polymapdir[i];
         newabctrack.duration_min = myBrute->m_Mapping.m_durmap[i];
         newabctrack.duration_max = myBrute->m_Mapping.m_durmaxmap[i];
-        newabctrack.id = m_globalid; m_globalid++;
+        //newabctrack.id = m_globalid; m_globalid++;
+        newabctrack.id = myBrute->m_Mapping.m_idmap[i];
+        newabctrack.hamp = myBrute->m_Mapping.m_hamp[i];
+        newabctrack.hshift = myBrute->m_Mapping.m_hshift[i];
+        newabctrack.hcoupling = myBrute->m_Mapping.m_coupling[i];
 
         BVabctracks.push_back(newabctrack);
 
@@ -780,6 +794,7 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
             myaudioplayerAL->Stop();
             myaudioplayerAL->audio_playing=0;
 
+
             this->Refresh();
         }
         else
@@ -800,6 +815,9 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
             myaudioplayerAL->SendABC(&myBrute->m_ABCText);
             myaudioplayerAL->GetABC()->UpdateToneCounts();
             myaudioplayerAL->Play();
+            for (size_t i = 0; i < BVabctracks.size(); i++)
+               myaudioplayerAL->SetMute(BVabctracks[i].id, BVabctracks[i].muted);
+
 
             myaudioplayerAL->audio_playing = 1;
 
@@ -945,12 +963,35 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
         {
             std::cout << " Settings clicked " << std::endl;
             //
-            SettingsDialogue * settings = new SettingsDialogue( &myBrute->nthreads );
+            int seed = myBrute->GetSeed();
+            SettingsDialogue * settings = new SettingsDialogue( &myBrute->nthreads, &seed );
+            myBrute->SetSeed(seed);
             if (settings == NULL) {};
            // if (abcsettings == NULL) {};
         }
     }
 
+    if ((mouseX>620) && (mouseY > 505) && (mouseX < 710) && (mouseY < 540) && ( CRTLIsDown ) )    // 157 + 100
+    {
+        if (myBrute->DoIHaveAMidi())
+        {
+            std::cout << " Free Folkization clicked " << std::endl;
+            //
+            HumanizationDialogue * settings = new HumanizationDialogue( BVabctracks );
+            if (settings == NULL) {};
+
+        }
+    }
+    if ((mouseX>620) && (mouseY > 505) && (mouseX < 710) && (mouseY < 540) && ( !CRTLIsDown ) )    // 157 + 100
+    {
+        if (myBrute->DoIHaveAMidi())
+        {
+            std::cout << " Free Folkization Light clicked " << std::endl;
+            //
+            HumanizationLightDialogue * settings = new HumanizationLightDialogue( BVabctracks );
+            if (settings == NULL) {};
+        }
+    }
 
  }
 
@@ -1012,7 +1053,14 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
              newplayer.y = mouseY-click_rely;
              click_relx = 0;
              click_rely = 0;
-             newplayer.id = m_globalid; m_globalid++;
+             size_t largestID = 0;
+             for (size_t mm = 0; mm < BVabctracks.size(); mm++) if (largestID < BVabctracks[mm].id) largestID = BVabctracks[mm].id;
+
+             newplayer.id = largestID+1;
+             m_globalid++;
+
+
+
              newplayer.instrument = lotroinstrumentclickednumber;
          //    newplayer.miditracks = {};
              BVabctracks.push_back(newplayer);
@@ -1477,6 +1525,14 @@ void BandView::render(wxDC&  dc)
     dc.DrawLine( x -5, y - 5, x - 5, y + 20);           // 100, 505, 135, 540
     dc.DrawRectangle( x-4, y - 4, 8 + sx, 23);
     dc.DrawText(wxT("Settings"), x, y);
+
+    x = 620; sx = 90;
+    dc.DrawLine( x-5, y - 5, x + 5 + sx, y - 5 );
+    dc.DrawLine( x-5, y +20, x + 5 + sx, y +20 );
+    dc.DrawLine( x + 5 + sx, y-5, x + 5 + 30, y+20);
+    dc.DrawLine( x -5, y - 5, x - 5, y + 20);           // 100, 505, 135, 540
+    dc.DrawRectangle( x-4, y - 4, 8 + sx, 23);
+    dc.DrawText(wxT("Free Folkization"), x, y);
 
     // draw a line
     dc.SetPen( wxPen( wxColor(0,0,0), 3 ) ); // black line, 3 pixels thick

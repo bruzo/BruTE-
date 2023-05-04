@@ -17,6 +17,10 @@ public:
    // std::vector<int> miditracks = {};
     std::vector<BandViewMidiTrack> miditrackinfo = {};
     bool muted = false;
+
+    float hamp = 0.;   // amplitude of missmatch
+    float hshift = 0.; // tendency to shift
+    std::vector<float> hcoupling = {}; // coupling strength to deviation of others
 };
 
 #endif // BANDVIEWABCTRACK_H_INCLUDED

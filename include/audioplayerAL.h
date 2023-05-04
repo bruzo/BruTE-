@@ -47,6 +47,7 @@
 #include <chrono>
 #include <thread>
 #include <tuple>
+#include <mutex>
 
 //
 
@@ -55,7 +56,7 @@
 
 typedef std::tuple< int64_t, int64_t, int64_t, int, int, float > ToneTuple;
 
-
+std::mutex m;
 
 class AudioPlayerAL
 {
@@ -301,17 +302,22 @@ void AudioPlayerAL::Seek(float f)
 
    // now we need to set the pointers to the right position
 
+
    std::chrono::duration<double> ST = m_ABC_Play_LastUpdate - m_ABC_Play_Start;
    uint64_t st = uint64_t(ST.count()) * uint64_t(44100);  // Starting Time in samples
    for (size_t i = 0; i < m_Nabctracks; i++)
    {
-      trackpositions[i]=0;
       // we skip ahead in time
-      while (( trackpositions[i] < myabc->m_ABCTonesvector[i].size()  ) && ( static_cast<uint64_t>(std::get<0>(myabc->m_ABCTonesvector[i][trackpositions[i]])) < st  ))
+      size_t mytrackposition = 0;
+      while (( mytrackposition < myabc->m_ABCTonesvector[i].size()  ) && ( static_cast<uint64_t>(std::get<0>(myabc->m_ABCTonesvector[i][mytrackposition])) < st  ))
       {
-         trackpositions[i]++;
+         mytrackposition++;
       }
+      m.lock();
+      trackpositions[i] = mytrackposition;
+      m.unlock();
    }
+
    m_mute = 0;
 }
 
@@ -392,6 +398,7 @@ void AudioPlayerAL::PlayLoop()
     while (m_stop == 0)
     {
 
+
        // Get current time
        std::chrono::time_point<std::chrono::high_resolution_clock> updatetime = std::chrono::high_resolution_clock::now();
 
@@ -423,7 +430,9 @@ void AudioPlayerAL::PlayLoop()
                if (velocity > 9) velocity = 9;
                size_t duration = std::get<2>(myabc->m_ABCTonesvector[i][trackpositions[i]]);
 
+               m.lock();
                trackpositions[i]++;   // next tone
+               m.unlock();
 
                if ((m_mute == 0) && ( m_mutes[i] == 0))
                {
@@ -517,7 +526,7 @@ void AudioPlayerAL::PlayLoop()
        // Wait a little and recall this routine if we are not supposed to stop yet
        m_ABC_Play_LastUpdate = updatetime;
        std::this_thread::sleep_for(std::chrono::milliseconds(2));
-
+       m.unlock();
     }
 }
 
