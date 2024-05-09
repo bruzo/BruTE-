@@ -1,26 +1,20 @@
 #include <wx/wx.h>
 #include "stdio.h"
+#include <iostream>
 #include <string>
 #include <list>
+
+#ifdef win32
 #include "windows.h"
 #include "commctrl.h"
+#endif
 
 #include "include/brute.h"
 #include "include/brutedefinitions.h"
-
-#include "include/midipreview.h"
-
+//#include "include/midipreview.h"
 #include "include/bandview.h"
-
-//#include "audioplayer.h"
-
 #include "include/audioplayerAL.h"
-
 #include "include/miditrackview.h"
-
-// #include <SDL.h>
-
-//#include "include/audioplayer.h"
 
 
 
@@ -32,19 +26,14 @@ class Notepad : public wxFrame {
 
         Brute * myBrute;  // instance of the conversion class, for simplicity this is public for now
 
-        MidiPreview * myMidiPreview; // the object that will be handling the midi preview
+//        MidiPreview * myMidiPreview; // the object that will be handling the midi preview
 
         MidiTrackView * myMidiTrackView;
 
         wxFrame *frame;
         BandView * bandview;
-       // AudioPlayer * myaudioplayer;
         AudioPlayerAL * myaudioplayerAL;
 
-//        SDL_AudioDeviceID myaudio;
-//        Uint32 wav_length;
-//        Uint8 *wav_buffer;
-//        SDL_AudioSpec audiowant, audiohave;
         int audio_playing = 0;   // 0 is not playing at the moment
 
     private:
@@ -59,10 +48,8 @@ class Notepad : public wxFrame {
 
         wxTextCtrl *text; // the main text area
 
-
         void OnMidiFileSelect(wxCommandEvent &event); // the click event for "Select Midi File"
         void OnExit(wxCommandEvent &event); // the click event for "close"
-
         void OnDefaultMap(wxCommandEvent &event); // the click event to generate the default map
         void EmptyMap();
         void OnUpdateMap(wxCommandEvent &event);
@@ -72,14 +59,13 @@ class Notepad : public wxFrame {
         void OnOpen(wxCommandEvent &event); // the click event for "map open"
 
         void OnSelectABCFile(wxCommandEvent &event); // click event for selecting ABC file name
-        void OnTranscode(wxCommandEvent &event); // the click event for "transcode"
+    //    void OnTranscode(wxCommandEvent &event); // the click event for "transcode"
 
         void OnPlaywithABCPlayer(wxCommandEvent &event); // click event for playing with ABC Player
         void OnWavRender(wxCommandEvent &event); // click event for Rendering a WAVE File
         void OnPlayDirectly(wxCommandEvent &event); // click event to play directly
 
         void OnLogFile(wxCommandEvent &event); // click event to open the logfile
-
 
 
         // declare some ID values for our menu items
@@ -99,9 +85,6 @@ class Notepad : public wxFrame {
             idPushMap = 2200,
         };
 
-        // this bit's important~
-        // it's a macro, which is basically saying we want to define some events
-        // (events such as clicking menu items in the menu)
         DECLARE_EVENT_TABLE()
 };
 
@@ -112,7 +95,7 @@ BEGIN_EVENT_TABLE(Notepad, wxFrame) // begin the event table for our Notepad cla
     EVT_MENU(idExit, Notepad::OnExit) // set an event for exit
     EVT_MENU(idMidiFileSelect, Notepad::OnMidiFileSelect) // set an event for MidiFileSelect
     EVT_MENU(idSelectABCFile, Notepad::OnSelectABCFile) // set an event for ABC File Select
-    EVT_MENU(idTranscode, Notepad::OnTranscode)         // set an event for Transcoding
+  //  EVT_MENU(idTranscode, Notepad::OnTranscode)         // set an event for Transcoding
     EVT_MENU(idLogFile, Notepad::OnLogFile)
     EVT_MENU(idDefaultMap, Notepad::OnDefaultMap)
     EVT_MENU(idPlaywithABCPlayer, Notepad::OnPlaywithABCPlayer)
@@ -124,19 +107,12 @@ END_EVENT_TABLE() // end the event table
 
 
 
-
-
-
-// our constructor, which does all this stuff for the wxFrame constructor
-// this makes it easier to simply create our notepad object later~
-Notepad::Notepad() : wxFrame(NULL, wxID_ANY, wxT("BruTE++ 0.001"), wxDefaultPosition, wxSize(650,500)) {
+Notepad::Notepad() : wxFrame(NULL, wxID_ANY, wxT("BruTE++AL 0.01"), wxDefaultPosition, wxSize(650,500)) {
     this->menu = new wxMenuBar(); // instantiate our menu bar
 
     this->file = new wxMenu(); // instantiate our file menu for our menu bar
 
     this->file->Append(idMidiFileSelect, wxT("Select Midi File\tCtrl-M"));  // Select Midi File
-//    this->file->Append(idOpen, wxT("&Open Mapping File\tCtrl-O"));
-//    this->file->Append(idSave, wxT("&Save Mapping File\tCtrl-S"));
 
     this->file->AppendSeparator(); // add a separator (between our file I/O options and our exit option
     this->file->Append(idExit, wxT("E&xit\tCtrl-F4")); // add an exit option to the file menu
@@ -149,8 +125,8 @@ Notepad::Notepad() : wxFrame(NULL, wxID_ANY, wxT("BruTE++ 0.001"), wxDefaultPosi
     this->menu->Append(abcmap, wxT("&Map"));
 
     this->transcode = new wxMenu();
-    this->transcode->Append(idSelectABCFile, wxT("&Define ABC output file\tCtrl-A"));
-    this->transcode->Append(idTranscode, wxT("&Transcode\tCtrl-T"));
+    this->transcode->Append(idSelectABCFile, wxT("&Save ABC file\tCtrl-A"));
+    // this->transcode->Append(idTranscode, wxT("&Transcode\tCtrl-T"));
     this->menu->Append(transcode, wxT("&Transcode"));
 
     this->band = new wxMenu();
@@ -225,10 +201,7 @@ void Notepad::OnSelectABCFile(wxCommandEvent &event)
         // set the ABC output file name
         this->ABCFileName = openDialog->GetPath();
     }
-}
 
-void Notepad::OnTranscode(wxCommandEvent &event)
-{
     m_log.clear();
     // 1st get a stringstream of the Notepad Text, then parse the mapping
     std::stringstream mappingstream(  std::string(this->text->GetValue().mb_str())  );
@@ -263,7 +236,8 @@ void Notepad::OnPlaywithABCPlayer(wxCommandEvent &event)
     // play with ABC Player
     std::cout << " Play with ABC Player " << std::endl;
 
-    system("new.abc");
+    auto reported = system("new.abc");
+    if ( reported > 0) { std::cout << " Issue with Playing " << std::endl; }
 
 }
 
@@ -273,7 +247,7 @@ void Notepad::OnWavRender(wxCommandEvent &event)
     if (myBrute->DoIHaveAMidi() && myBrute->DoIHaveAMap())
     {
        myBrute->GenerateABC();
-       myMidiPreview->GeneratePreviewMidi(&myBrute->m_ABCText, int64_t( myBrute->m_globalmaxtick/0.36) );
+   //    myMidiPreview->GeneratePreviewMidi(&myBrute->m_ABCText, int64_t( myBrute->m_globalmaxtick/0.36) );
       // myaudioplayer->Play();
       myaudioplayerAL->SendABC(&myBrute->m_ABCText);
       myaudioplayerAL->Play();
@@ -291,13 +265,13 @@ void Notepad::OnWavRender(wxCommandEvent &event)
 
 void Notepad::OnPlayDirectly(wxCommandEvent &event)
 {
- //   myaudioplayer->Stop();
     myaudioplayerAL->Stop();
 }
 
 void Notepad::OnLogFile(wxCommandEvent &event)
 {
     // Play directly
+    // auto logfiledisplay = new wxTextCtrl(m_log);
 }
 
 void Notepad::OnDefaultMap(wxCommandEvent &event)
@@ -325,7 +299,8 @@ void Notepad::EmptyMap()
 // Take the text from the m_Mappingtext to the Notepad
 void Notepad::OnUpdateMap(wxCommandEvent &event)
 {
-    myBrute->GenerateEmptyConfig();   // this is just a placeholder real deal should come from bandview
+    //this->bandview->MakeMappingHeader();  // myBrute->GenerateEmptyConfig();   // this is just a placeholder real deal should come from bandview
+    this->bandview->GenerateConfigHeader();
     this->bandview->AppendMapping();  // as Bandview has a pointer to myBrute it can add the mapping text to the map itself
 
     this->text->Clear();
@@ -347,17 +322,16 @@ void Notepad::OnExit(wxCommandEvent &event) {
     this->Destroy(); // close the window, and get clear any resources used (eg, memory)
 }
 
-// now all that's left is the implementation! we need to create our MainApp class
 class MainApp : public wxApp {
 
 
-    public: // remember this from part 2? very simple from here on in, we're almost done
+    public:
         virtual bool OnInit();
 };
 
 bool MainApp::OnInit() {
 
-    // create a new Notepad (we used a wxFrame in part 2)
+    // create a new Notepad
 
     Notepad *main = new Notepad();
     main->Show(true); // show it
@@ -365,7 +339,7 @@ bool MainApp::OnInit() {
     // to make sure that there is no default ABCName
     main->ABCFileName = "";
 
-    main->myMidiPreview = new MidiPreview();
+   // main->myMidiPreview = new MidiPreview();
     main->myBrute = new Brute;
 
    // main->myaudioplayer = new AudioPlayer(main->myBrute, main->myMidiPreview);
@@ -376,9 +350,13 @@ bool MainApp::OnInit() {
     // Make the BandView Window
     wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
     main->frame = new wxFrame((wxFrame *)NULL, -1,  wxT("Hello wxDC"), wxPoint(200,50), wxSize(1050,700));
-    main->bandview = new BandView( (wxFrame*) main->frame, main->myBrute, main->myMidiPreview, main->myMidiTrackView, main->myaudioplayerAL);
+    main->bandview = new BandView( (wxFrame*) main->frame, main->myBrute, main->myMidiTrackView, main->myaudioplayerAL);
+
+
     sizer->Add(main->bandview, 1, wxEXPAND);
+
     main->frame->SetSizer(sizer);
+
     main->frame->SetAutoLayout(true);
     main->frame->Show();
 

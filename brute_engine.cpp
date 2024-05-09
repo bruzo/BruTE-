@@ -1,12 +1,13 @@
 #include "stdio.h"
 #include "string.h"
-#include "brute.h"
+#include "include/brute.h"
 
 
 int main(int argc, char** argv)
 {
    // Invoke an Instance of the Brute-Class
-   Brute myBrute;
+   //Brute myBrute;
+   Brute* myBrute = new Brute;
 
 
    // classic midival equivalency
@@ -17,13 +18,13 @@ int main(int argc, char** argv)
          std::cout << "Emulating former midival.exe" << std::endl;
 
          char midiname[8] = "mid.mid";
-         myBrute.LoadMidi(midiname);
+         myBrute->LoadMidi(midiname);
 
          char outallname[12] = "out_txt.all";
-         myBrute.ExportOutAll(outallname);
+         myBrute->ExportOutAll(outallname);
 
          char defaultconfig[11] = "out.config";
-         myBrute.ExportDefaultConfig(defaultconfig);
+         myBrute->ExportDefaultConfig(defaultconfig);
 
          //std::cout << myBrute.m_Midi.size() << std::endl;
       }
@@ -38,26 +39,50 @@ int main(int argc, char** argv)
          m_log << "Emulating former remap.exe" << std::endl;
 
          char midiname[8] = "mid.mid";
-         myBrute.LoadMidi(midiname);
+         myBrute->LoadMidi(midiname);
          m_log << "Midi loaded " << std::endl;
+         std::cout << "Midi loaded " << std::endl;
 
          char defaultconfig[12] = "out.config\0";
-         myBrute.ImportConfig(defaultconfig);
+         myBrute->ImportConfig(defaultconfig);
+         std::cout << "config imported" << std::endl;
 
+         std::cout << &myBrute->m_MappingText << std::endl;
+
+         myBrute->Transcode(   &myBrute->m_MappingText );
+         std::cout << "transcoded" << std::endl;
+
+               std::ofstream abcoutfile;
+               abcoutfile.open("new.abc");
+               abcoutfile << myBrute->m_ABCText.rdbuf();
+               abcoutfile.close();
+      }
+   return 0;
+}
+
+
+
+
+/*
          // in case it's wanted break up bended tones
-         if ( myBrute.m_Mapping.m_dopitchbends ) myBrute.PitchBends();
+         //  if ( myBrute.m_Mapping.m_dopitchbends ) myBrute.PitchBends();
 
          // this starts the tone quantization
-         myBrute.GenerateQuantizedNotes();
+         myBrute.GenerateQuantizedNotes2();
+         std::cout << "time quantized " << std::endl;
 
          // this creates the reduced selection for the abctracks (alternate, split, durationsplit)
-         myBrute.GenerateNoteSelection();
+         myBrute.GenerateNoteSelection2();
+         std::cout << "tones mapped to instruments" << std::endl;
 
          // map the tones on the grid
-         myBrute.MapToRegister();
+         myBrute.MapToRegister2();
+         std::cout << "squeezing it all together" << std::endl;
 
          // break it into lists of chords with duration
          myBrute.GenerateRoughChordLists();
+
+         std::cout << "chord list generated" << std::endl;
 
          // now we need to adjust Chords in time to get them to not have a missmatch if possible and also make sure they are
          // long enough
@@ -92,6 +117,5 @@ int main(int argc, char** argv)
          logfile.clear();
          logfile << m_log.rdbuf();
          logfile.close();
-      }
-   return 0;
-}
+
+*/
