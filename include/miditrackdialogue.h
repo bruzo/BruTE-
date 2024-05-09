@@ -6,6 +6,31 @@
 #include "bandviewabctrack.h"
 #include "brutedefinitions.h"
 
+
+class SampleInfo : public wxFrame
+{
+public:
+    SampleInfo(std::string Input) : wxFrame(NULL, wxID_ANY, "Miditrack Info")
+    {
+        // create a text control with the multi-line style
+        m_textCtrl = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE);
+
+
+        m_textCtrl->SetValue(Input);
+
+        // add the text control to a sizer
+        wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
+        sizer->Add(m_textCtrl, 1, wxEXPAND | wxALL, 10);
+
+        // set the sizer for the frame
+        SetSizer(sizer);
+    }
+
+private:
+    wxTextCtrl* m_textCtrl;
+};
+
+
 class MidiTrackDialogue : public wxDialog
 {
 public:
@@ -32,12 +57,34 @@ public:
   wxStaticBox * stdmap;
   wxTextCtrl *tcdmap;
 
+  wxStaticBox * pitchbend;
+  wxTextCtrl * pitchbendqduration;
+  wxStaticBox * pitchbendmethod;
+  wxTextCtrl * pitchbendmethodvalue;
+  wxComboBox * pitchbendcombo;
 
+  wxStaticBox * triller;
+  wxTextCtrl * trillerfreq;
+
+  wxStaticBox * dusplit;
+  wxTextCtrl * durationsplitl;
+  wxTextCtrl * durationsplitp;
+
+  wxStaticBox * directmapping;
+  wxTextCtrl * directm;
+  wxComboBox * directms;
+  wxTextCtrl * drumm;
+  wxComboBox * drumms;
+  wxCheckBox * directbox;
+
+
+  wxButton* sampleinfobutton;
 
   BandViewMidiTrack * thisMiditrack;
 
   void OnButtonOK(wxCommandEvent& event);
 
+  void ShowInfo(wxCommandEvent& event);
 /*
   enum MenuControls {
          idButtonOK = 1001,
@@ -52,8 +99,23 @@ BEGIN_EVENT_TABLE(MidiTrackDialogue, wxDialog)
 EVT_BUTTON(wxID_OK, MidiTrackDialogue::OnButtonOK)
 END_EVENT_TABLE()
 
+void MidiTrackDialogue::ShowInfo(wxCommandEvent& event)
+{
+        std::string Message = "";
+
+        for (size_t i = 0; i < thisMiditrack->samples->size(); i++  )
+            if (thisMiditrack->samples->at(i)) Message = Message + std::to_string(i) + "   " + GMdrumnames[i] + "\t";
+
+        Message = Message + "\n\n";
+      //  for (size_t i = 0; i < LotroDrumSampleNames.size(); i++)
+      //      Message = Message + LotroDrumSampleNames[i] + "  " + "\t";
+
+        SampleInfo* frame = new SampleInfo(Message);
+        frame->Show();
+}
+
 MidiTrackDialogue::MidiTrackDialogue(BandViewMidiTrack * myMidiTrack, BandViewABCTrack * myABCTrack)
-       : wxDialog(NULL, -1, wxT("Midi Track Settings"), wxDefaultPosition, wxSize(350, 270))
+       : wxDialog(NULL, -1, wxT("Midi Track Settings"), wxDefaultPosition, wxSize(350, 400))
 {
   thisMiditrack = myMidiTrack;
   wxPanel *panel = new wxPanel(this, -1);
@@ -87,7 +149,8 @@ MidiTrackDialogue::MidiTrackDialogue(BandViewMidiTrack * myMidiTrack, BandViewAB
 
   x = 170; y = 70; sx = 70; sy = 45;
   stdelay = new wxStaticBox(panel, -1, wxT("Delay"), wxPoint(x,y), wxSize(sx,sy), wxTE_READONLY);
-  tcdelay = new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->delay ) , wxPoint(x+10, y+20), wxSize(45,20));
+  wxString delvalue; delvalue.Printf("%.2f", myMidiTrack->delay);
+  tcdelay = new wxTextCtrl(panel, -1, delvalue , wxPoint(x+10, y+20), wxSize(45,20));
 
   if ( myABCTrack->instrument == 8 ) // this midi is associated to a drum, so we have to allow picking a drum map
   {
@@ -96,6 +159,97 @@ MidiTrackDialogue::MidiTrackDialogue(BandViewMidiTrack * myMidiTrack, BandViewAB
       tcdmap = new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->drummapping ) , wxPoint(x+10, y+20), wxSize(45,20));
   }
 
+  // Pitchbends only make sense for non-drum tracks so we use the same space
+  if (( myMidiTrack->haspitchbends )&&(myABCTrack->instrument != 8))
+  {
+	  x = 5; y = 170; sx = 155; sy = 45;
+	  pitchbend = new wxStaticBox(panel, -1, wxT("Pitchbends (min duration)"), wxPoint(x,y), wxSize(sx,sy), wxTE_READONLY);
+
+      std::vector<wxString> items =  {"No Bending", "Round to 8", "Round to 12", "Truncate to 8", "Truncate to 12"};
+	  pitchbendcombo = new wxComboBox(panel, -1, "", wxPoint(x+10,y+18), wxSize(95,20), items.size(),  items.data(), wxCB_DROPDOWN | wxCB_READONLY);
+
+      x = x+100; y = 170; sx = 120; sy = 45;
+	  pitchbendqduration = new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->pitchbendqduration) , wxPoint(x+10, y+20), wxSize(35,20));
+
+	 // pitchbendmethodvalue = new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->pitchbendmethod) , wxPoint(x+10, y+20), wxSize(45,20));
+
+        // Set the first item as the default selection
+      pitchbendcombo->SetSelection(myMidiTrack->pitchbendmethod);
+
+  }
+
+  x = 5; y = 220; sx = 70; sy = 45;
+  triller = new wxStaticBox(panel, -1, wxT("Triller"), wxPoint(x,y), wxSize(sx,sy), wxTE_READONLY);
+  wxString tvalue;
+  tvalue.Printf("%.2f",myMidiTrack->triller);
+  trillerfreq = new wxTextCtrl(panel, -1, tvalue , wxPoint(x+10, y+20), wxSize(45,20));
+
+  x = 90; y = 220; sx = 155; sy = 45;
+  dusplit = new wxStaticBox(panel, -1, wxT("Duration Split time/part"), wxPoint(x,y), wxSize(sx,sy), wxTE_READONLY);
+  durationsplitl = new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->durationsplitlength), wxPoint(x+10, y+20), wxSize(45,sy-25));
+  durationsplitp = new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->durationsplitpart), wxPoint(x+95, y+20), wxSize(45,sy-25));
+
+  x = 5; y = 270; sx = 300; sy = 45;
+  directmapping = new wxStaticBox(panel, -1, wxT("Direct Mapping"), wxPoint(x,y), wxSize(sx,sy), wxTE_READONLY);
+
+
+  std::vector<wxString> dkeys = {};
+  std::vector<int> dkeyvalues = {};
+
+  dkeys.push_back("No Mapping");
+  dkeyvalues.push_back(0);
+
+  int dkeycurrentpos = 0;
+
+  for (size_t i = 0; i < thisMiditrack->samples->size(); i++  )
+  {
+      if (thisMiditrack->samples->at(i))
+      {
+          if (myMidiTrack->drumtone ==static_cast<int>(i))
+          {
+              dkeycurrentpos = dkeys.size();
+          }
+          if (myABCTrack->instrument == 8)
+          {
+             dkeys.push_back(GMDrumNames[i] + " " + std::to_string(i));
+             dkeyvalues.push_back(i);
+          }
+          else
+          {
+              dkeys.push_back(std::to_string(i));
+              dkeyvalues.push_back(i);
+          }
+      }
+  }
+
+  std::vector<wxString> ditems =  {};
+  if ( myABCTrack->instrument == 8)
+  {
+     for (size_t i = 0; i < LotroDrumSampleNames.size(); i++) ditems.push_back( LotroDrumSampleNames[i] )  ;
+  }
+  else
+  {
+     if ( myABCTrack->instrument == 13) // student fiddle
+     {
+        for (size_t i = 0; i < LotroStudentFiddleSampleNames.size(); i++) ditems.push_back( LotroStudentFiddleSampleNames[i] )  ;
+     }
+     else
+     {
+        for (size_t i = 0; i < LotroToneSampleNames.size(); i++) ditems.push_back( LotroToneSampleNames[i] )  ;
+     }
+  }
+
+  // drumm = new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->drumtone), wxPoint(x+10, y+20), wxSize(45,sy-25));
+  directms = new wxComboBox(panel, -1, "", wxPoint(x+10,y+20), wxSize(130,20), dkeys.size(),  dkeys.data(), wxCB_DROPDOWN | wxCB_READONLY);
+  directms->SetSelection( dkeycurrentpos  );
+  //directm =new wxTextCtrl(panel, -1, std::to_string(myMidiTrack->directmapping), wxPoint(x+85, y+20), wxSize(45,sy-25));
+
+  drumms =   new wxComboBox(panel, -1, "", wxPoint(x+145,y+20), wxSize(150,20), ditems.size(),  ditems.data(), wxCB_DROPDOWN | wxCB_READONLY);
+  drumms->SetSelection( myMidiTrack->directmapping + 1 );
+
+
+ // sampleinfobutton = new wxButton(panel, -1, wxT("Info"), wxPoint(x+250, y+20), wxSize(40,sy-25));
+ // sampleinfobutton->Bind(wxEVT_BUTTON, &ShowInfo, this);
 
   okButton = new wxButton(this, wxID_OK, wxT("Ok"),wxDefaultPosition, wxSize(70, 30));
 
@@ -115,8 +269,27 @@ MidiTrackDialogue::MidiTrackDialogue(BandViewMidiTrack * myMidiTrack, BandViewAB
   thisMiditrack->alternatemypart = wxAtoi(alternatepart->GetValue());
   thisMiditrack->alternateparts = wxAtoi(alternateparts->GetValue());
   thisMiditrack->split = wxAtoi(splitnumber->GetValue());
-  thisMiditrack->delay = wxAtoi(tcdelay->GetValue());
-  thisMiditrack->drummapping = wxAtoi(tcdmap->GetValue());
+  thisMiditrack->delay = wxAtof(tcdelay->GetValue());
+
+  if ( myABCTrack->instrument == 8 ) // this midi is associated to a drum, so we have to allow picking a drum map
+  {
+     thisMiditrack->drummapping = wxAtoi(tcdmap->GetValue());
+  }
+  if (( myMidiTrack->haspitchbends )&&(myABCTrack->instrument != 8))
+  {
+      thisMiditrack->pitchbendqduration = wxAtoi(pitchbendqduration->GetValue());
+      thisMiditrack->pitchbendmethod = pitchbendcombo->GetSelection();
+  }
+  thisMiditrack->triller = wxAtof(trillerfreq->GetValue());
+  thisMiditrack->durationsplitlength = wxAtoi(durationsplitl->GetValue());
+  thisMiditrack->durationsplitpart = wxAtoi(durationsplitp->GetValue());
+
+//  thisMiditrack->drumtone = wxAtoi(drumm->GetValue());
+  thisMiditrack->drumtone = dkeyvalues[directms->GetSelection()];
+
+
+  thisMiditrack->directmapping = drumms->GetSelection()-1;
+  //thisMiditrack->directmapping = wxAtoi(directm->GetValue());
 
   Destroy();
 }

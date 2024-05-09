@@ -11,7 +11,7 @@ public:
     int miditrack;          // the id of the miditrack in the BruTE midi tracklist
     int midiinstrument;     // the numeric value of the original midi instrument
     int pitch=0;
-    int delay=0;
+    float delay=0;
     int drummapping = 0;
 
     bool isdrum=false;
@@ -20,6 +20,20 @@ public:
     int alternateparts=1;
     int alternatemypart=1;
     int split = 0;
+
+    bool haspitchbends = false;
+
+    int pitchbendqduration = 0;
+    int pitchbendmethod = 0;
+    float triller = 0;
+
+    int durationsplitlength = 0;
+    int durationsplitpart = 0;
+
+    int directmapping = -1;
+    int drumtone = -1;
+
+    std::vector < bool > * samples;
 };
 
 #endif

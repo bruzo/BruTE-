@@ -1,28 +1,28 @@
 #ifndef OVERLOADPICTURE_H_INCLUDED
 #define OVERLOADPICTURE_H_INCLUDED
 
-#include "midipreview.h"
+
 
 class OverLoadPicture
 {
 public:
 
-   OverLoadPicture(MidiPreview * myMidiPreviewp);
+   OverLoadPicture();
 
-   MidiPreview * myMidiPreview;
+  // MidiPreview * myMidiPreview;
 
-   UpdateView();
+   void UpdateView();
 
 //   wxBitmap m_BitMap("well", 690,100, wxBITMAP_SCREEN_DEPTH);
 
 };
 
-OverLoadPicture::OverLoadPicture(MidiPreview * myMidiPreviewp)
+OverLoadPicture::OverLoadPicture()
 {
-    myMidiPreview = myMidiPreviewp;
+   // myMidiPreview = myMidiPreviewp;
 }
 
-OverLoadPicture::UpdateView()
+void OverLoadPicture::UpdateView()
 {
     wxMemoryDC dc;
 //    dc.SelectObject(m_BitMap);

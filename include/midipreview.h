@@ -18,8 +18,6 @@
 // #define TSF_IMPLEMENTATION
 // #include "tsf.h"
 
-typedef std::tuple< int64_t, int64_t, int64_t, int, int, float > ToneTuple;
-
 class MidiPreview
 {
 public:
@@ -436,12 +434,12 @@ void MidiPreview::GeneratePreviewMidi2(std::stringstream * abctext, int64_t * bu
                        int64_t myqduration = (currenttime * 22050 - clavi[mypitch]) + myduration*22050;
                        myqduration = (int64_t(myqduration/100 + 0.5))*100;
                        m_ABCTones[ztrack].push_back( std::make_tuple(
-                              myqduration+mypitch,
-                              clavi[mypitch],
-                              myqduration,
-                              0,
-                              mypitch+36,
-                              clavivel[mypitch]
+                              static_cast<int64_t>(myqduration+mypitch),
+                              static_cast<int64_t>(clavi[mypitch]),
+                              static_cast<int64_t>(myqduration),
+                              static_cast<int32_t>(0),
+                              static_cast<int32_t>(mypitch+36),
+                              static_cast<float>(clavivel[mypitch])
                                      ));
 
                                      // we will add the unique identifier here to make it possible to sort by the identifier and avoid multiple renderings

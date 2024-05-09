@@ -11,24 +11,27 @@
 #include "abctrackdialogue.h"
 #include "bandviewabctrack.h"
 #include "bandviewmiditrack.h"
-// #include "audioplayer.h"
 #include "audioplayerAL.h"
-#include "midipreview.h"
+//#include "midipreview.h"
 #include "audiencedialogue.h"
 #include "overloadpicture.h"
 #include "miditrackview.h"
 #include "abcheader.h"
 #include "gainsettingsdialogue.h"
+#include "abcsettingsdialogue.h"
+#include "settingsdialogue.h"
+#include "humanization.h"
+#include "humanization_light.h"
 
 
-//#include "include/brute.h"
+/* m_directmapping  .. to map one input pitch to one specific output pitch .. for cowbell, student fiddle and very custom drum mapping */
 
 
 class BandView : public wxPanel
 {
 
 public:
-    BandView(wxFrame* parent, Brute * myBrute, MidiPreview * myMidiPreview, MidiTrackView * myMidiTrackViewp, AudioPlayerAL * myAudioPlayerAL);
+    BandView(wxFrame* parent, Brute * myBrute, MidiTrackView * myMidiTrackViewp, AudioPlayerAL * myAudioPlayerAL);
 
     void paintEvent(wxPaintEvent & evt);
     void paintNow();
@@ -36,11 +39,14 @@ public:
     void render(wxDC& dc);
     void DrawLotroInstruments(wxDC& dc);
     void DrawOneInstrument(wxDC& dc, int x, int y, wxString mytext, bool muted);
+    void DrawOneInstrument(wxMemoryDC & dc, int x, int y, wxString mytext, bool muted);
     void DrawMidiTracks(wxDC& dc);
     void DrawOneMidiTrack(wxDC& dc, int x, int y, int i, size_t midiinstrumentnumber);
+    void DrawOneMidiTrack(wxMemoryDC& dc, int x, int y, int i, size_t midiinstrumentnumber);
     void DrawABCTracks(wxDC& dc);
 
     void AppendMapping();   // this will write the mapping info into the brute instance
+
     void GetMapping();
     void GenerateConfigHeader();
 
@@ -54,7 +60,7 @@ public:
     Brute * myBrute;  // our instance of Brute
    // AudioPlayer * myaudioplayer; // our instance of the AudioPlayer
     AudioPlayerAL * myaudioplayerAL;
-    MidiPreview * myMidiPreview;
+    // MidiPreview * myMidiPreview;
 
     void mouseLeftDown(wxMouseEvent& event);
     void mouseLeftUp(wxMouseEvent& event);
@@ -107,6 +113,17 @@ public:
     bool m_ABCMODE = false;
     bool m_MIDIMODE = true;
 
+private:
+
+
+    int m_ABCnamingscheme = 0;
+    std::string Transcriber = "Himbeertony";
+
+    int m_volume=100;
+    int m_panning=100;
+
+    wxFont m_myfont;
+
     // some useful events
     /*
      void mouseMoved(wxMouseEvent& event);
@@ -118,6 +135,11 @@ public:
      void keyPressed(wxKeyEvent& event);
      void keyReleased(wxKeyEvent& event);
      */
+
+     wxBitmap * m_bitmap;
+     wxImage * m_image;
+     unsigned char * m_alphachannel;
+     wxString m_abcfilename = "";
 
     DECLARE_EVENT_TABLE()
 };
@@ -191,18 +213,34 @@ void BandView::OnKeyUp(wxKeyEvent & event)
    event.Skip();
 }
 
+/*
+void BandView::BackGroundThead()
+{
+
+}*/
+
 void BandView::LiveUpdateAudio()
 {
    if ( myaudioplayerAL->audio_playing == 1 )   // check if we are playing
    {
-      myBrute->GenerateEmptyConfig();
+     /*
+      GenerateConfigHeader();
       AppendMapping();
       myBrute->Transcode(&myBrute->m_MappingText);
-      int64_t realduration;
-      myMidiPreview->GeneratePreviewMidi2(&myBrute->m_ABCText, &realduration );
+      double f = myaudioplayerAL->Position();
+
+   //   int64_t realduration;
+    //  myMidiPreview->GeneratePreviewMidi2(&myBrute->m_ABCText, &realduration );
       myaudioplayerAL->UpdateABC(&myBrute->m_ABCText);
+      myaudioplayerAL->GetABC()->UpdateToneCounts();
+      myaudioplayerAL->Play();
+      myaudioplayerAL->Seek(f);
+      std::cout << "We were at position " << f << std::endl;
+      myaudioplayerAL->Seek(f);*/
    }
 }
+
+
 
  void BandView::AppendMapping()
  {
@@ -231,6 +269,16 @@ void BandView::LiveUpdateAudio()
         bvmappingtext << std::endl;
 
         bvmappingtext << "panning " <<  -int( 100 * ((BVabctracks[i].x-100)/590.0 - 0.5)   ) << "  " << BVabctracks[i].y  << "  " << BVabctracks[i].id << std::endl;
+
+        // freefolkization
+        bvmappingtext << "ffamp " << std::to_string(BVabctracks[i].hamp) << std::endl;
+        bvmappingtext << "ffshift " << std::to_string(BVabctracks[i].hshift ) << std::endl;
+        bvmappingtext << "ffcoupling ";
+        for (size_t k = 0; k < BVabctracks[i].hcoupling.size(); k++) bvmappingtext <<  BVabctracks[k].id  << "  " << BVabctracks[i].hcoupling[k] << "  ";
+        bvmappingtext << std::endl;
+
+
+
         if (BVabctracks[i].instrument != 8) // for all instruments except drums we can just write the instrument
         {
          bvmappingtext << "instrument " << lotroinstruments[BVabctracks[i].instrument] << std::endl;
@@ -253,12 +301,21 @@ void BandView::LiveUpdateAudio()
             bvmappingtext << "alternate " << BVabctracks[i].miditrackinfo[j].alternateparts << " " << BVabctracks[i].miditrackinfo[j].alternatemypart << std::endl;
            if (BVabctracks[i].miditrackinfo[j].split > 0)
             bvmappingtext << "split " << BVabctracks[i].miditrackinfo[j].split << std::endl;
+           if (BVabctracks[i].miditrackinfo[j].triller > 0.01)
+            bvmappingtext << "triller " << BVabctracks[i].miditrackinfo[j].triller << std::endl;
+           if (BVabctracks[i].miditrackinfo[j].pitchbendmethod > 0)
+            bvmappingtext << "pitchbendinfo " << BVabctracks[i].miditrackinfo[j].pitchbendqduration  << "  "  << BVabctracks[i].miditrackinfo[j].pitchbendmethod << std::endl;
+           if (BVabctracks[i].miditrackinfo[j].durationsplitlength > 0)
+            bvmappingtext << "durationsplit " << BVabctracks[i].miditrackinfo[j].durationsplitlength << "  "  << BVabctracks[i].miditrackinfo[j].durationsplitpart << std::endl;
+           if (BVabctracks[i].miditrackinfo[j].directmapping > -1)
+           {
+               bvmappingtext << "directmapping " << BVabctracks[i].miditrackinfo[j].drumtone << "  " << BVabctracks[i].miditrackinfo[j].directmapping << std::endl;
+           }
            if ((midioriginal >= 0)&&(midioriginal < 128))
             bvmappingtext << "% Miditrack original Instrument " << GMinstrument[ midioriginal ] << std::endl;
            bvmappingtext << "miditrack " << BVabctracks[i].miditrackinfo[j].miditrack << " pitch " << BVabctracks[i].miditrackinfo[j].pitch << " volume " << BVabctracks[i].miditrackinfo[j].volume << " delay " << BVabctracks[i].miditrackinfo[j].delay << " prio 1" << std::endl;
         }
         bvmappingtext << "abctrack end" << std::endl;
-       // if (BVabctracks[i].muted) bvmappingtext << "*" << std::endl;
         bvmappingtext << std::endl;
         bvmappingtext << std::endl;
      }
@@ -290,7 +347,11 @@ void BandView::GetMapping()
         newabctrack.polydirection = myBrute->m_Mapping.m_polymapdir[i];
         newabctrack.duration_min = myBrute->m_Mapping.m_durmap[i];
         newabctrack.duration_max = myBrute->m_Mapping.m_durmaxmap[i];
-        newabctrack.id = m_globalid; m_globalid++;
+        //newabctrack.id = m_globalid; m_globalid++;
+        newabctrack.id = myBrute->m_Mapping.m_idmap[i];
+        newabctrack.hamp = myBrute->m_Mapping.m_hamp[i];
+        newabctrack.hshift = myBrute->m_Mapping.m_hshift[i];
+        newabctrack.hcoupling = myBrute->m_Mapping.m_coupling[i];
 
         BVabctracks.push_back(newabctrack);
 
@@ -314,6 +375,16 @@ void BandView::GetMapping()
             newmiditrack.split = myBrute->m_Mapping.m_splitvoicemap[i][j];
             newmiditrack.delay = myBrute->m_Mapping.m_delaymap[i][j];
             newmiditrack.drummapping = myBrute->m_Mapping.m_drumstylemap[i][j];
+            newmiditrack.triller = myBrute->m_Mapping.m_trillermap[i][j];
+            newmiditrack.pitchbendqduration = myBrute->m_Mapping.m_pitchbendmap[i][j];
+            newmiditrack.pitchbendmethod = myBrute->m_Mapping.m_pitchbendmethodmap[i][j];
+            newmiditrack.durationsplitlength = myBrute->m_Mapping.m_durationsplitmap[i][j];
+            newmiditrack.durationsplitpart = myBrute->m_Mapping.m_durationsplitpartmap[i][j];
+
+            newmiditrack.haspitchbends = (myBrute->m_pitchbendcounter[newmiditrack.miditrack] > 0);
+            newmiditrack.directmapping = myBrute->m_Mapping.m_directmapping[i][j];
+            newmiditrack.drumtone      = myBrute->m_Mapping.m_drumsingleinstrument[i][j];
+            newmiditrack.samples = &myBrute->m_samplesused[ myBrute->m_Mapping.m_trackmap[i][j] ];
 
             BVabctracks[i].miditrackinfo.push_back(newmiditrack);
         }
@@ -442,7 +513,7 @@ void BandView::mouseRightDown(wxMouseEvent& event)
     int mouseY = pt.y - this->GetScreenPosition().y;
 
     size_t mypossibleMidiInABCTrack = MidiTrackInABCTrackPicked(mouseX, mouseY);
-    if (mypossibleMidiInABCTrack != 1000)
+    if ((mypossibleMidiInABCTrack != 1000) &&(m_ABCMODE == false))
     {
          // std::cout << "Someone Picked a MidiTrack in an ABC Track" << std::endl;
          size_t whichmidi = WhichMidiTrackInABCTrackPicked(mouseX, mouseY);
@@ -455,7 +526,7 @@ void BandView::mouseRightDown(wxMouseEvent& event)
     }
 
     size_t mypossibleABCTrack = ABCTrackPicked(mouseX, mouseY);
-    if (mypossibleABCTrack != 1000)
+    if ((mypossibleABCTrack != 1000)  && (m_ABCMODE == false))
     {
         //std::cout << "Right Click on ABCtrack " << mypossibleABCTrack << std::endl;
         ABCTrackDialogue * custom = new ABCTrackDialogue( &BVabctracks[mypossibleABCTrack] );
@@ -466,9 +537,9 @@ void BandView::mouseRightDown(wxMouseEvent& event)
     if (( mouseY > 545 ) && (mouseY < 570 ) && ( mouseX > 440) && (mouseX < 500))
     {
         // audience right clicked
-        AudienceDialogue * myaudience = new AudienceDialogue( &myMidiPreview->m_volume, &myMidiPreview->m_panning );
-        myaudioplayerAL->SetVolume(myMidiPreview->m_volume);
-        myaudioplayerAL->SetGlobalPanning(myMidiPreview->m_panning);
+        AudienceDialogue * myaudience = new AudienceDialogue( &m_volume, &m_panning );         if (myaudience == NULL) {};
+        myaudioplayerAL->SetVolume(m_volume);
+        myaudioplayerAL->SetGlobalPanning(m_panning);
     }
 
          // check for miditrack picked
@@ -477,7 +548,7 @@ void BandView::mouseRightDown(wxMouseEvent& event)
      {
          std::cout << " Asking for Midi Track " << mypossiblemiditrack << std::endl;
 
-         MidiTrackView * newview = new MidiTrackView(myBrute, mypossiblemiditrack);
+         MidiTrackView * newview = new MidiTrackView(myBrute, mypossiblemiditrack); if (newview == NULL) {}
         // this->SetCursor(wxCursor(wxCURSOR_HAND));
         // miditrackclicked = true;
         // miditrackclickednumber = mypossiblemiditrack;
@@ -488,13 +559,49 @@ void BandView::mouseRightDown(wxMouseEvent& event)
      {
          // an instrument was picked, so put hand icon
          this->SetCursor(wxCursor(wxCURSOR_HAND));
+
          lotroinstrumentclicked = false;
          lotroinstrumentclickednumber = mypossiblelotroinstrument;
          click_relx = 50;
          click_rely = 10;
-         float fadeout;
-         GainSettingsDialogue * newgains = new GainSettingsDialogue(lotroinstrumentclickednumber, &relativegain[lotroinstrumentclickednumber], &fadeouts[lotroinstrumentclickednumber] );
+         GainSettingsDialogue * newgains = new GainSettingsDialogue(lotroinstrumentclickednumber, &relativegain[lotroinstrumentclickednumber], &fadeouts[lotroinstrumentclickednumber] ); if (newgains == NULL) {}
      }
+
+    // clicking ABC export
+    if ((mouseX>400) && (mouseY > 505) && (mouseX < 435) && (mouseY < 540))    // 157 + 100 REDO ABC
+    {
+        if (myBrute->DoIHaveAMidi())
+        {
+
+           if ( m_abcfilename.size() > 1)
+           {
+               // set the ABC output file name
+               GenerateConfigHeader();   // this is just a placeholder real deal should come from bandview
+               AppendMapping();
+
+               myBrute->Transcode(&myBrute->m_MappingText);
+            //   myBrute->GenerateABC();
+
+               std::ofstream abcoutfile;
+               abcoutfile.open(m_abcfilename);
+               abcoutfile << myBrute->m_ABCText.rdbuf();
+               abcoutfile.close();
+           }
+        }
+    }
+
+    if ((mouseX>620) && (mouseY > 505) && (mouseX < 710) && (mouseY < 540)  )    // 157 + 100
+    {
+        if (myBrute->DoIHaveAMidi())
+        {
+            std::cout << " Free Folkization clicked " << std::endl;
+            //
+            HumanizationDialogue * settings = new HumanizationDialogue( BVabctracks );
+            if (settings == NULL) {};
+            CRTLIsDown = false;
+        }
+    }
+
 }
 
 void BandView::mouseLeftDown(wxMouseEvent& event)
@@ -520,7 +627,35 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
      if (mypossiblemiditrack != 1000)
      {
          std::cout << " Selected Midi Track " << mypossiblemiditrack << std::endl;
-         this->SetCursor(wxCursor(wxCURSOR_HAND));
+//         this->SetCursor(wxCursor(wxCURSOR_HAND));
+          wxBitmap bitmap(32,32);
+          wxMemoryDC dc;
+          dc.SelectObject(bitmap);
+          dc.SetBackground(*wxBLACK_BRUSH);  //   *wxTRANSPARENT_BRUSH);
+          dc.Clear();
+
+
+          int mymidiinstrument = myBrute->GetMidiInstrument( mypossiblemiditrack );
+          bool myisdrum = myBrute->GetMidiIsDrum(mypossiblemiditrack);
+          if (myisdrum) mymidiinstrument = 201;
+
+          DrawOneMidiTrack(dc, 12, 12, mypossiblemiditrack , mymidiinstrument );
+          wxImage image(bitmap.ConvertToImage());
+
+          unsigned char* m_alphachannel = new unsigned char[image.GetWidth() * image.GetHeight()];
+          for (int y = 0; y < image.GetHeight(); y++)
+         {for (int x = 0; x < image.GetWidth(); x++){
+          int dx = x - 12;
+          int dy = y - 12;
+          if (dx * dx + dy * dy <= 12*12){m_alphachannel[y * image.GetWidth() + x] = 255;}
+           else{m_alphachannel[y * image.GetWidth() + x] = 0;}}}
+
+          image.SetAlpha(m_alphachannel);
+          wxCursor mycursornow(image);
+          this->SetCursor(mycursornow);
+          this->WarpPointer(mouseX-12, mouseY-12);
+
+       //  delete[] m_alphachannel;
          miditrackclicked = true;
          miditrackclickednumber = mypossiblemiditrack;
      }
@@ -531,12 +666,18 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
      if ((mypossibleABCtrack !=1000)  && ( CRTLIsDown == false))
      {
            // std::cout << " Selected ABC Track " << mypossibleABCtrack << std::endl;
+
             this->SetCursor(wxCursor(wxCURSOR_HAND));
+
             MovingABCTrack = BVabctracks[mypossibleABCtrack];
+
             click_relx = BVabctracks[mypossibleABCtrack].x - mouseX;
             click_rely = BVabctracks[mypossibleABCtrack].y - mouseY;
+
+
             BVabctracks.erase(BVabctracks.begin()+mypossibleABCtrack);
             abctrackclicked = true;
+
             this->Refresh();
      }
     //
@@ -565,7 +706,7 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
 
      // check for Midi in ABC Track picked
      size_t mypossibleMidiInABCTrack = MidiTrackInABCTrackPicked(mouseX, mouseY);
-     if (mypossibleMidiInABCTrack != 1000)
+     if ((mypossibleMidiInABCTrack != 1000) && ( !CRTLIsDown ) && (!ShiftIsDown))
      {
          // std::cout << "Someone Picked a MidiTrack in an ABC Track" << std::endl;
          size_t whichmidi = WhichMidiTrackInABCTrackPicked(mouseX, mouseY);
@@ -573,7 +714,31 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
          {
              // std::cout <<"Someone Picked Miditrack " << whichmidi << " in ABC Track " << mypossibleMidiInABCTrack;
 
-             this->SetCursor(wxCursor(wxCURSOR_HAND));
+
+             wxBitmap bitmap(32,32);
+             wxMemoryDC dc;
+             dc.SelectObject(bitmap);
+             dc.SetBackground(*wxBLACK_BRUSH);  //   *wxTRANSPARENT_BRUSH);
+             dc.Clear();
+             int mymidiinstrument = BVabctracks[mypossibleMidiInABCTrack].miditrackinfo[whichmidi].midiinstrument;
+             if (BVabctracks[mypossibleMidiInABCTrack].miditrackinfo[whichmidi].isdrum) mymidiinstrument = 201;
+             DrawOneMidiTrack(dc, 12, 12, BVabctracks[mypossibleMidiInABCTrack].miditrackinfo[whichmidi].miditrack , mymidiinstrument);
+             wxImage image(bitmap.ConvertToImage());
+
+             unsigned char* m_alphachannel = new unsigned char[image.GetWidth() * image.GetHeight()];
+             for (int y = 0; y < image.GetHeight(); y++)
+            {for (int x = 0; x < image.GetWidth(); x++){
+             int dx = x - 12;
+             int dy = y - 12;
+             if (dx * dx + dy * dy <= 12*12){m_alphachannel[y * image.GetWidth() + x] = 255;}
+             else{m_alphachannel[y * image.GetWidth() + x] = 0;}}}
+
+             image.SetAlpha(m_alphachannel);
+             wxCursor mycursornow(image);
+
+             this->SetCursor(mycursornow);
+             this->WarpPointer(mouseX-12, mouseY-12);
+
              MovingMidiTrack = BVabctracks[mypossibleMidiInABCTrack].miditrackinfo[whichmidi];
             // MovingMidiTrackNumber = BVabctracks[mypossibleMidiInABCTrack].miditracks[whichmidi];
 
@@ -585,6 +750,43 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
              this->Refresh();
          }
      }
+
+     if ((mypossibleMidiInABCTrack != 1000) && ( CRTLIsDown ) && (!ShiftIsDown))
+     {
+         size_t whichmidi = WhichMidiTrackInABCTrackPicked(mouseX, mouseY);
+         if ( whichmidi != 1000)
+         {
+             // we decided to split a midi track into the singular instruments, but we should only do that for drums right now
+             BandViewMidiTrack TempMidi = BVabctracks[mypossibleMidiInABCTrack].miditrackinfo[whichmidi];
+             BVabctracks[mypossibleMidiInABCTrack].miditrackinfo.erase( BVabctracks[mypossibleMidiInABCTrack].miditrackinfo.begin() + whichmidi );
+             int drummapping = TempMidi.drummapping;
+
+             for (size_t i = 0; i < TempMidi.samples->size(); i++)
+             {
+                 if (TempMidi.samples->at(i))
+                    {
+                        TempMidi.drumtone = i;
+                        TempMidi.directmapping = myBrute->m_Mapping.m_drumsmapd[drummapping][i];
+
+                        BVabctracks[mypossibleMidiInABCTrack].miditrackinfo.push_back(TempMidi);
+                    }
+             }
+
+             this->Refresh();
+         }
+     }
+
+     if ((mypossibleMidiInABCTrack != 1000) && ( !CRTLIsDown ) && (ShiftIsDown))
+     {
+         size_t whichmidi = WhichMidiTrackInABCTrackPicked(mouseX, mouseY);
+         if ( whichmidi != 1000)
+         {
+             // we decided to split a midi track into the singular instruments, but we should only do that for drums right now
+             BandViewMidiTrack TempMidi = BVabctracks[mypossibleMidiInABCTrack].miditrackinfo[whichmidi];
+             BVabctracks[mypossibleMidiInABCTrack].miditrackinfo.push_back(TempMidi);
+             this->Refresh();
+         }
+     }
      /*
     bool abctrackclicked = false;
     size_t abctrackclickednumber;
@@ -592,6 +794,7 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
 
     if (( mouseY > 580 ) && (mouseY<630) && ( mouseX > 100 ) && ( mouseX < 790 ))
     {
+     //  std::cout << "Seeking to " << ((mouseX-100.0)/690.0) << std::endl;
         myaudioplayerAL->Seek( ((mouseX-100.0)/690.0)  );
     }
 
@@ -603,24 +806,31 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
             myaudioplayerAL->Stop();
             myaudioplayerAL->audio_playing=0;
 
+
             this->Refresh();
         }
         else
         if (myBrute->DoIHaveAMidi())
         {
 
-            myBrute->GenerateEmptyConfig();   // this is just a placeholder real deal should come from bandview
+            GenerateConfigHeader();
             AppendMapping();
+
 
             myBrute->Transcode(&myBrute->m_MappingText);
 
-//            myMidiPreview->GeneratePreviewMidi(&myBrute->m_ABCText, int64_t( myBrute->m_globalmaxtick/0.36) );
-            int64_t realduration;
-            myMidiPreview->GeneratePreviewMidi2(&myBrute->m_ABCText, &realduration );
 
+//            myMidiPreview->GeneratePreviewMidi(&myBrute->m_ABCText, int64_t( myBrute->m_globalmaxtick/0.36) );
+         //   int64_t realduration;
+            // myMidiPreview->GeneratePreviewMidi2(&myBrute->m_ABCText, &realduration );
 
             myaudioplayerAL->SendABC(&myBrute->m_ABCText);
+            myaudioplayerAL->GetABC()->UpdateToneCounts();
             myaudioplayerAL->Play();
+            for (size_t i = 0; i < BVabctracks.size(); i++)
+               myaudioplayerAL->SetMute(BVabctracks[i].id, BVabctracks[i].muted);
+
+
             myaudioplayerAL->audio_playing = 1;
 
             this->Refresh();
@@ -645,14 +855,14 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
           // this->myBrute = new(Brute);
            myBrute->LoadMidi(cstring);  // this loads the midi into the Brute instance
         }
-        myBrute->GenerateEmptyConfig();
+        GenerateConfigHeader();
         Refresh();
     }
 
     if ((mouseX>100) && (mouseY > 505) && (mouseX < 135) && (mouseY < 540))
     {
         // clear arrangement
-        myBrute->GenerateEmptyConfig();
+        GenerateConfigHeader();
         myBrute->ParseConfig(&myBrute->m_MappingText);
         GetMapping();
         Refresh();
@@ -674,7 +884,7 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
     {
         if (myBrute->DoIHaveAMidi())
         {
-           wxFileDialog *openDialog = new wxFileDialog(this, wxT("Load Mapping~"), wxT(""), wxT(""), wxT("Mapping Files (*.txt)|*.txt"), wxFD_OPEN);
+           wxFileDialog *openDialog = new wxFileDialog(this, wxT("Load Mapping~"), wxT(""), wxT(""), wxT("Mapping Files (*.map)|*.map|Mapping Files (*.txt)|*.txt"), wxFD_OPEN);
            int response = openDialog->ShowModal();
            if (response == wxID_OK)
            {
@@ -695,7 +905,8 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
         if (myBrute->DoIHaveAMidi())
         {
 
-           wxFileDialog *openDialog = new wxFileDialog(this, wxT("Save Mapping~"), wxT(""), wxT(""), wxT("Mapping Files (*.txt)|*.txt"), wxFD_SAVE);
+           wxFileDialog *openDialog = new wxFileDialog(this, wxT("Save Mapping~"), wxT(""), wxT(""), wxT("Mapping Files (*.map)|*.map|Mapping Files (*.txt)|*.txt"), wxFD_SAVE);
+
            int response = openDialog->ShowModal();
            if (response == wxID_OK)
            {
@@ -712,15 +923,17 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
     }
 
     // clicking ABC export
-    if ((mouseX>400) && (mouseY > 505) && (mouseX < 435) && (mouseY < 540))    // 157 + 100
+    if (((mouseX>400) && (mouseY > 505) && (mouseX < 435) && (mouseY < 540)) && ( !CRTLIsDown ))    // 157 + 100
     {
         if (myBrute->DoIHaveAMidi())
         {
-            // std::cout << " ABC save clicked " << std::endl;
-           wxFileDialog *openDialog = new wxFileDialog(this, wxT("Export ABC File~"), wxT(""), wxT(""), wxT("ABC Files (*.abc)|*.abc"), wxFD_SAVE);
-           int response = openDialog->ShowModal();
-           if (response == wxID_OK)
-           {
+
+
+             // std::cout << " ABC save clicked " << std::endl;
+             wxFileDialog *openDialog = new wxFileDialog(this, wxT("Export ABC File~"), wxT(""), wxT(""), wxT("ABC Files (*.abc)|*.abc"), wxFD_SAVE);
+             int response = openDialog->ShowModal();
+             if (response == wxID_OK)
+             {
                // set the ABC output file name
                GenerateConfigHeader();   // this is just a placeholder real deal should come from bandview
                AppendMapping();
@@ -732,19 +945,68 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
                abcoutfile.open(openDialog->GetPath());
                abcoutfile << myBrute->m_ABCText.rdbuf();
                abcoutfile.close();
-           }
+               m_abcfilename = openDialog->GetPath();
+             }
         }
+    }
+
+    if (((mouseX>400) && (mouseY > 505) && (mouseX < 435) && (mouseY < 540)) && ( CRTLIsDown ))    // 157 + 100
+    {
+        m_abcfilename = "";
     }
 
 
         // clicking ABC settings
-    if ((mouseX>450) && (mouseY > 530) && (mouseX < 435) && (mouseY < 540))    // 157 + 100
+    if ((mouseX>450) && (mouseY > 505) && (mouseX < 530) && (mouseY < 540))    // 157 + 100
     {
         if (myBrute->DoIHaveAMidi())
         {
-            // std::cout << " ABC save clicked " << std::endl;
+            std::cout << " ABC settings clicked " << std::endl;
+            //
+            ABCSettingsDialogue * abcsettings = new ABCSettingsDialogue(   &m_ABCnamingscheme , &myABCHeader );
+            if (abcsettings == NULL) {};
         }
     }
+
+    // clicking Settings
+    if ((mouseX>550) && (mouseY > 505) && (mouseX < 600) && (mouseY < 540))    // 157 + 100
+    {
+        if (myBrute->DoIHaveAMidi())
+        {
+            std::cout << " Settings clicked " << std::endl;
+            //
+            int seed = myBrute->GetSeed();
+            SettingsDialogue * settings = new SettingsDialogue( &myBrute->nthreads, &seed );
+            myBrute->SetSeed(seed);
+            if (settings == NULL) {};
+           // if (abcsettings == NULL) {};
+        }
+    }
+
+    if ((mouseX>620) && (mouseY > 505) && (mouseX < 710) && (mouseY < 540) && ( !CRTLIsDown ) )    // 157 + 100
+    {
+        if (myBrute->DoIHaveAMidi())
+        {
+            std::cout << " Free Folkization Light clicked " << std::endl;
+            //
+            HumanizationLightDialogue * settings = new HumanizationLightDialogue( BVabctracks );
+            if (settings == NULL) {};
+        }
+    }
+
+    if ((mouseX>620) && (mouseY > 505) && (mouseX < 710) && (mouseY < 540) && ( CRTLIsDown ) )    // 157 + 100
+    {
+        if (myBrute->DoIHaveAMidi())
+        {
+            std::cout << " Free Folkization clicked " << std::endl;
+            //
+            HumanizationDialogue * settings = new HumanizationDialogue( BVabctracks );
+            if (settings == NULL) {};
+            CRTLIsDown = false;
+        }
+    }
+
+
  }
 
  void BandView::mouseLeftUp(wxMouseEvent& event)
@@ -758,19 +1020,25 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
      if (miditrackclicked)
      {
          // find out if we hit an ABC Track
-         size_t mypossibleABCtrack = ABCTrackPicked(mouseX, mouseY);
+         size_t mypossibleABCtrack = ABCTrackPicked(mouseX+12, mouseY+12);
          if (mypossibleABCtrack !=1000)
          {
              // ok we dropped the Miditrack on an ABC Track
          //    BVabctracks[mypossibleABCtrack].miditracks.push_back(miditrackclickednumber);
              BandViewMidiTrack newtrack;
              newtrack.miditrack = miditrackclickednumber;
-             newtrack.midiinstrument = myBrute->GetMidiInstrument(miditrackclickednumber);
+             newtrack.midiinstrument = myBrute->GetMidiInstrument( miditrackclickednumber );
              newtrack.isdrum = myBrute->GetMidiIsDrum(miditrackclickednumber);
+             newtrack.haspitchbends = (myBrute->m_pitchbendcounter[newtrack.miditrack] > 0);
+             newtrack.samples = &myBrute->m_samplesused[ miditrackclickednumber ];
              BVabctracks[mypossibleABCtrack].miditrackinfo.push_back(newtrack);
+
+
+             std::cout << " Added Miditrack to ABCtrack " << mypossibleABCtrack << "  Midi " << miditrackclickednumber << std::endl;
+
              miditrackclicked = false;
              this->Refresh();
-             //LiveUpdateAudio();
+             LiveUpdateAudio();
          }
      }
 
@@ -799,7 +1067,14 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
              newplayer.y = mouseY-click_rely;
              click_relx = 0;
              click_rely = 0;
-             newplayer.id = m_globalid; m_globalid++;
+             size_t largestID = 0;
+             for (size_t mm = 0; mm < BVabctracks.size(); mm++) if (largestID < BVabctracks[mm].id) largestID = BVabctracks[mm].id;
+
+             newplayer.id = largestID+1;
+             m_globalid++;
+
+
+
              newplayer.instrument = lotroinstrumentclickednumber;
          //    newplayer.miditracks = {};
              BVabctracks.push_back(newplayer);
@@ -819,14 +1094,14 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
              BVabctracks.push_back(MovingABCTrack);
              abctrackclicked=false;
              this->Refresh();
-             myaudioplayerAL->SetPanning(  BVabctracks[ BVabctracks.size()-1 ].id  , -int( myMidiPreview->m_panning * ((BVabctracks[BVabctracks.size()-1].x-100)/590.0 - 0.5)   ));
+             myaudioplayerAL->SetPanning(  BVabctracks[ BVabctracks.size()-1 ].id  , -int( m_panning * ((BVabctracks[BVabctracks.size()-1].x-100)/590.0 - 0.5)   ));
          }
      }
      // someone is dropping a miditrack that was picked up from an ABC Track
      if (midiinabctrackclicked)
      {
 
-         size_t mypossibleABCtrack = ABCTrackPicked(mouseX, mouseY);
+         size_t mypossibleABCtrack = ABCTrackPicked(mouseX+12, mouseY+12);
          // dropping on an ABCtrack
          if (mypossibleABCtrack != 1000)
          {
@@ -845,7 +1120,7 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
      miditrackclicked = false;
  }
 
-BandView::BandView(wxFrame* parent, Brute * myBrutep, MidiPreview * myMidiPreviewp, MidiTrackView * myMidiTrackViewp, AudioPlayerAL * myAudioPlayerAL) :
+BandView::BandView(wxFrame* parent, Brute * myBrutep, MidiTrackView * myMidiTrackViewp, AudioPlayerAL * myAudioPlayerAL) :
 wxPanel(parent)
 {
     parent->SetLabel (wxT("Band View"));
@@ -853,7 +1128,6 @@ wxPanel(parent)
     myBrute = myBrutep;
    // myaudioplayer = myaudioplayerp;
     myaudioplayerAL = myAudioPlayerAL;
-    myMidiPreview = myMidiPreviewp;
     myMidiTrackView = myMidiTrackViewp;
 
 
@@ -869,6 +1143,54 @@ wxPanel(parent)
     DragAcceptFiles(true);
 
   //  Bind(wxEVT_KEY_DOWN, &BandView::OnKeyDown, this);
+
+
+    wxBitmap bitmap(32, 32);
+    wxMemoryDC dc(bitmap);
+    dc.SetBackground(*wxWHITE_BRUSH);
+    dc.Clear();
+    wxImage image(bitmap.ConvertToImage());
+
+    unsigned char* m_alphachannel = new unsigned char[image.GetWidth() * image.GetHeight()];
+    for (int y = 0; y < image.GetHeight(); y++)
+    {for (int x = 0; x < image.GetWidth(); x++){
+       int dx = x - 12;
+       int dy = y - 12;
+       if (dx * dx + dy * dy <= 12*12){m_alphachannel[y * image.GetWidth() + x] = 255;}
+       else{m_alphachannel[y * image.GetWidth() + x] = 0;}}}
+
+
+    int drumtype = 0;
+    char defaultdrumhandling[127] = "nosplit";
+    char ABCstyle[127] = "Rocks";
+    char defaulttranscriber[127] = "Himbeertony";
+    char dummy[127];
+    std::ifstream defaultsfile;
+    defaultsfile.open("default.config");
+    if (!defaultsfile.fail() )
+    {
+        std::cout << "Using default.config" << std::endl;
+        defaultsfile >> dummy;
+        defaultsfile >> drumtype >> defaultdrumhandling;
+        defaultsfile >> dummy;
+        defaultsfile >> ABCstyle;
+        defaultsfile >> dummy;
+        defaultsfile >> defaulttranscriber;
+        defaultsfile.close();
+    }
+    myABCHeader.Transcriber = defaulttranscriber;
+
+
+    //ABCStyleNames[ m_ABCnamingscheme ]
+
+    for (size_t i = 0; i < ABCStyleNames.size(); i++)
+        if (ABCstyle == ABCStyleNames[i]) m_ABCnamingscheme = i;
+
+    //myBrute->m_MappingText << "Pitch: " << myABCHeader.globalpitch << std::endl;
+
+    // remark .. think about adding compressor values!!!
+
+    //myBrute->m_MappingText << "Style: " << ABCStyleNames[ m_ABCnamingscheme ]
 }
 
 /*
@@ -881,6 +1203,7 @@ void BandView::paintEvent(wxPaintEvent & evt)
 {
     wxPaintDC dc(this);
     render(dc);
+    m_myfont = dc.GetFont();
 }
 
 /*
@@ -949,6 +1272,44 @@ void BandView::DrawOneMidiTrack(wxDC& dc, int x, int y, int i, size_t midiinstru
    dc.DrawCircle( wxPoint(x,y), 12); /* radius */ // );
    std::stringstream mytext;
    mytext << i;
+
+   //wxFont font(9, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
+   //dc.SetFont(font);
+
+   dc.DrawText(mytext.str(), x-4,y-6);
+ }
+
+ void BandView::DrawOneMidiTrack(wxMemoryDC& dc, int x, int y, int i, size_t midiinstrumentnumber)
+{
+   dc.SetBrush(*wxGREEN_BRUSH); // green filling
+
+   wxColor mycolor;
+   mycolor.Set("rgb(255,255,255)"); // default is white
+   if ( midiinstrumentnumber < 17) mycolor.Set("rgb(255,200,200)");  // pale red for pianos
+   if (( midiinstrumentnumber > 16) && ( midiinstrumentnumber < 25)) mycolor.Set("rgb(200,200,255)"); // pale blue  for organs
+   if (( midiinstrumentnumber > 24) && ( midiinstrumentnumber < 33)) mycolor.Set("rgb(255,150,150)"); // stronger red  for guitars
+   if (( midiinstrumentnumber > 32) && ( midiinstrumentnumber < 41)) mycolor.Set("rgb(255,100,100)"); // even stronger red  for base
+   if (( midiinstrumentnumber > 40) && ( midiinstrumentnumber < 49)) mycolor.Set("rgb(150,150,255)"); // stronger blue  for strings
+   if (( midiinstrumentnumber > 48) && ( midiinstrumentnumber < 57)) mycolor.Set("rgb(100,100,255)"); // even stronger blue  for ensemble
+   if (( midiinstrumentnumber > 56) && ( midiinstrumentnumber < 65)) mycolor.Set("rgb(200,255,200)"); // green  for brass
+   if (( midiinstrumentnumber > 64) && ( midiinstrumentnumber < 73)) mycolor.Set("rgb(150,255,150)"); // green  for reed
+   if (( midiinstrumentnumber > 72) && ( midiinstrumentnumber < 81)) mycolor.Set("rgb(100,255,100)"); // green  for pipes
+   if (( midiinstrumentnumber > 80) && ( midiinstrumentnumber < 97)) mycolor.Set("rgb(255,255,200)"); // green  for synth lead
+   if (( midiinstrumentnumber > 96) && ( midiinstrumentnumber < 105)) mycolor.Set("rgb(255,255,150)"); // green  for synth
+   if (( midiinstrumentnumber > 104) && ( midiinstrumentnumber < 113)) mycolor.Set("rgb(255,200,255)"); // green  for ethnic
+   if (midiinstrumentnumber == 201) mycolor.Set("rgb(150,150,150)"); // dark grey for Drums
+
+
+   dc.SetBrush(mycolor);
+
+
+   dc.SetPen( wxPen( wxColor(255,0,0), 1 ) ); // 5-pixels-thick red outline
+   dc.DrawCircle( wxPoint(x,y), 12); /* radius */ // );
+   std::stringstream mytext;
+   mytext << i;
+
+  // wxFont font(9, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
+   dc.SetFont( m_myfont );         //dc2.GetFont());
    dc.DrawText(mytext.str(), x-4,y-6);
  }
 
@@ -966,6 +1327,20 @@ void BandView::DrawOneMidiTrack(wxDC& dc, int x, int y, int i, size_t midiinstru
     }
  }
 
+  void BandView::DrawOneInstrument(wxMemoryDC & dc, int x, int y, wxString mytext, bool muted)
+ {
+    dc.SetBrush(*wxWHITE_BRUSH); // blue filling
+    dc.SetPen( wxPen( wxColor(255,175,175), 1 ) ); // 10-pixels-thick pink outline
+    dc.DrawRectangle( x, y, 97, 18 );
+    dc.DrawText(mytext, x+3, y+1);
+    if (muted)
+    {
+        dc.SetPen ( wxPen( wxColor(0,0,0), 2 ) );
+        dc.DrawLine( x,y, x+97, y+18  );
+        dc.DrawLine( x+97,y, x, y+18 );
+    }
+
+ }
 
  void BandView::DrawLotroInstruments(wxDC& dc)
  {
@@ -1025,7 +1400,6 @@ void BandView::DrawABCTracks(wxDC& dc)
    }
 }
 
-
 void BandView::GenerateConfigHeader()
 {
     myBrute->m_MappingText.str(std::string());
@@ -1062,7 +1436,7 @@ void BandView::GenerateConfigHeader()
         newdefaultsfile << "Himbeertony" << std::endl;
         newdefaultsfile.close();
     }
-    bool drumsplitting = true;
+    bool drumsplitting = true; if (drumsplitting == false ) {};
     if (strcmp("nosplit", defaultdrumhandling) >= 0)
         drumsplitting = false;
 
@@ -1072,7 +1446,7 @@ void BandView::GenerateConfigHeader()
 
     // remark .. think about adding compressor values!!!
 
-    myBrute->m_MappingText << "Style: " << ABCstyle << "  % Defaults for -a rock and a hard place-, others: TSO, Meisterbarden, Bara" << std::endl;
+    myBrute->m_MappingText << "Style: " << ABCStyleNames[ m_ABCnamingscheme ] << "  % Defaults for -a rock and a hard place-, others: TSO, Meisterbarden, Bara" << std::endl;
     myBrute->m_MappingText << "Volume: " << myABCHeader.globalvolume << "       % scaled, midi volume was " << myBrute->GetGlobalMaxVel() - 254 << std::endl;
 
     myBrute->m_MappingText << "Compress: 1.0" << "   % default : midi dynamics, between 0 and 1: smaller loudness differences, >1: increase loudness differences" << std::endl;
@@ -1082,6 +1456,7 @@ void BandView::GenerateConfigHeader()
     myBrute->m_MappingText << "Transcriber " << myABCHeader.Transcriber << std::endl;
     myBrute->m_MappingText << std::endl;
     myBrute->m_MappingText << std::endl;
+
 }
 
 void BandView::render(wxDC&  dc)
@@ -1157,6 +1532,22 @@ void BandView::render(wxDC&  dc)
     dc.DrawRectangle( x-4, y - 4, 8 + sx, 23);
     dc.DrawText(wxT("ABC Settings"), x, y);
 
+    x = 550; sx = 50;
+    dc.DrawLine( x-5, y - 5, x + 5 + sx, y - 5 );
+    dc.DrawLine( x-5, y +20, x + 5 + sx, y +20 );
+    dc.DrawLine( x + 5 + sx, y-5, x + 5 + 30, y+20);
+    dc.DrawLine( x -5, y - 5, x - 5, y + 20);           // 100, 505, 135, 540
+    dc.DrawRectangle( x-4, y - 4, 8 + sx, 23);
+    dc.DrawText(wxT("Settings"), x, y);
+
+    x = 620; sx = 90;
+    dc.DrawLine( x-5, y - 5, x + 5 + sx, y - 5 );
+    dc.DrawLine( x-5, y +20, x + 5 + sx, y +20 );
+    dc.DrawLine( x + 5 + sx, y-5, x + 5 + 30, y+20);
+    dc.DrawLine( x -5, y - 5, x - 5, y + 20);           // 100, 505, 135, 540
+    dc.DrawRectangle( x-4, y - 4, 8 + sx, 23);
+    dc.DrawText(wxT("Free Folkization"), x, y);
+
     // draw a line
     dc.SetPen( wxPen( wxColor(0,0,0), 3 ) ); // black line, 3 pixels thick
     dc.DrawLine( 100, 50, 100, 500 ); // draw line across the rectangle
@@ -1194,23 +1585,27 @@ void BandView::render(wxDC&  dc)
 
     // Draw Overloading Info at 100,600 - 790, 700
 
-    if (( myMidiPreview->AudioReady) && !(myMidiPreview->AudioRedrawn))
+    if (myaudioplayerAL->GetABC() != NULL)
+    {
+
+
+    if (( myaudioplayerAL->GetABC()->AudioReady) && !(myaudioplayerAL->GetABC()->AudioRedrawn))
     {
        wxMemoryDC dc2;
        dc2.SelectObject(myOverLoadPic[0]);
 
-       for (int i = 0; i < myMidiPreview->m_TotalToneCounts.size(); i++)
+       for (size_t i = 0; i < myaudioplayerAL->GetABC()->m_TotalToneCounts.size(); i++)
        {
            dc2.SetPen( wxPen( wxColor(0,0,0), 1));
-           if ( myMidiPreview->m_TotalToneCounts[i] > 64) dc2.SetPen( wxPen( wxColor(255,0,0), 1));
-           if ( myMidiPreview->m_TotalToneCounts[i] < 65) dc2.SetPen( wxPen( wxColor(0,255,0), 1));
-           dc2.DrawLine(i, 50, i, 50-myMidiPreview->m_TotalToneCounts[i]/2);
+           if ( myaudioplayerAL->GetABC()->m_TotalToneCounts[i] > 64) dc2.SetPen( wxPen( wxColor(255,0,0), 1));
+           if ( myaudioplayerAL->GetABC()->m_TotalToneCounts[i] < 65) dc2.SetPen( wxPen( wxColor(0,255,0), 1));
+           dc2.DrawLine(i, 50, i, 50-myaudioplayerAL->GetABC()->m_TotalToneCounts[i]/2);
            dc2.SetPen( wxPen( wxColor(255,255,255), 1));
-           dc2.DrawLine(i, 50-myMidiPreview->m_TotalToneCounts[i]/2, i, 0);
+           dc2.DrawLine(i, 50-myaudioplayerAL->GetABC()->m_TotalToneCounts[i]/2, i, 0);
        }
-       myMidiPreview->AudioRedrawn = true;
+       myaudioplayerAL->GetABC()->AudioRedrawn = true;
     }
-
+    }
 
 
     dc.DrawBitmap(myOverLoadPic[0], 100, 580, false);
@@ -1262,20 +1657,48 @@ void BandView::OnDropFiles(wxDropFilesEvent& event) {
        m_ABCMODE = true;
        m_MIDIMODE = false;
        std::cout << " Switching to pure playback " << std::endl;
-
+       myaudioplayerAL->Stop();
        // this is a hack right now:
        std::ifstream myabcfile;
        myabcfile.open(MidiFileName);
        myBrute->m_ABCText.str(std::string());
        myBrute->m_ABCText << myabcfile.rdbuf();
        myabcfile.close();
-       myaudioplayerAL->Stop();
+       std::cout << " ABC File read in " << std::endl;
+       // myBrute->DeleteMidi();
+       std::cout << " Deleted Midi File " << std::endl;
+
+       std::cout << " ABC Player Stopped " << std::endl;
+       
        myaudioplayerAL->SendABC(&myBrute->m_ABCText);
+       std::cout << " New ABC sent to player " << std::endl;
+       myaudioplayerAL->GetABC()->UpdateToneCounts();
+       std::cout << " Recalculated Tone Counts " << std::endl;
+     //         myaudioplayerAL->PlayLoop();
+       
+       BVabctracks.resize(myaudioplayerAL->GetNumberOfTracks());
+       for (size_t i = 0; i < BVabctracks.size(); i++)
+       {
+           BVabctracks[i].miditrackinfo.resize(1);
+           BVabctracks[i].miditrackinfo[0].miditrack = myaudioplayerAL->GetXNumber(i);
+           BVabctracks[i].miditrackinfo[0].midiinstrument = 10;
+           BVabctracks[i].id = myaudioplayerAL->GetID(i);
+           BVabctracks[i].instrument = myaudioplayerAL->GetInstrument(i);
+           BVabctracks[i].x = int(100+590*(0.5 - myaudioplayerAL->GetPanning(i)*0.01));
+           BVabctracks[i].y = myaudioplayerAL->GetZPanning(i);
+
+       }
+       std::cout << " Info for Display updated " << std::endl;
        myaudioplayerAL->Play();
        myaudioplayerAL->audio_playing = 1;
-    }
 
+       std::cout << " ABC Player Restarted " << std::endl;
+       
+       Refresh();
+       std::cout << " Display Refreshed " << std::endl;
+    }
 }
+
 
 
 #endif

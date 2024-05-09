@@ -26,6 +26,9 @@ public:
     wxStaticBox * stmuted;
     wxCheckBox * tcmuted;
 
+    wxStaticBox * idbox;
+    wxTextCtrl * idvalue;
+
 
 private:
     BandViewABCTrack * thisABCTrack;
@@ -72,6 +75,11 @@ ABCTrackDialogue::ABCTrackDialogue(BandViewABCTrack * myABCTrack)
   tcdmin = new wxTextCtrl(panel, -1, std::to_string(myABCTrack->duration_min), wxPoint(x+10, y+20), wxSize(45,sy-25));
   tcdmax = new wxTextCtrl(panel, -1, std::to_string(myABCTrack->duration_max), wxPoint(x+95, y+20), wxSize(60,sy-25));
 
+  x = 205; y = 20; sx = 70; sy = 45;
+  idbox = new wxStaticBox(panel, -1, wxT("ID"), wxPoint(x, y), wxSize(sx, sy), wxTE_READONLY);
+  idvalue = new wxTextCtrl(panel, -1, std::to_string(myABCTrack->id), wxPoint(x+10, y+20), wxSize(sx-25,sy-25));
+
+
   okButton = new wxButton(this, wxID_OK, wxT("Ok"),wxDefaultPosition, wxSize(70, 30));
 
   hbox->Add(okButton, 1);
@@ -89,7 +97,8 @@ ABCTrackDialogue::ABCTrackDialogue(BandViewABCTrack * myABCTrack)
   thisABCTrack->polydirection = tcpolydir->GetSelection();
   thisABCTrack->duration_min = wxAtoi(tcdmin->GetValue());
   thisABCTrack->duration_max = wxAtoi(tcdmax->GetValue());
-  thisABCTrack->muted = tcmuted->GetValue();
+  thisABCTrack->id = wxAtoi(idvalue->GetValue());
+//  thisABCTrack->muted = tcmuted->GetValue();
 
   Destroy();
 }
