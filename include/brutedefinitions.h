@@ -13,7 +13,9 @@
 typedef std::tuple< int64_t, int64_t, int64_t, int32_t, int32_t, float > ToneTuple;
 
 
-    const double timetoticks = 0.60476973728946;
+    //const double timetoticks = 0.60476973728946 / 0.961;
+
+    const double timetoticks = 50000.0 / ( 3.0*26460.0 );
 
     const std::vector<uint16_t> cmajor = {1,0,1,0,1,1,0,1,0,1,0,1};
 
@@ -241,7 +243,7 @@ typedef std::tuple< int64_t, int64_t, int64_t, int32_t, int32_t, float > ToneTup
     /* Pipe     73-80*/  5,5,5,5,5,5,5,5, /* Synth Lead 81-88          */ 4,3,4,4,4,4,4,0, /* Synth Pad 89-96*/ 5,5,5,5,5,4,5,5,
     /* Synth   97-104*/  1,0,1,1,1,1,1,1, /* Ethnic 105-112            */ 1,0,0,0,1,6,6,6, /* Perc. 113-120  */ 0,0,0,0,2,2,2,1,
     /* Sound effects 121-128 */ 9,9,10,9,9,9,9,9};
-    const int nInstruments = 22;
+    const int nInstruments = 23;
 
     std::vector<std::string> rockstyleinstrumentnames =
     {
@@ -249,8 +251,8 @@ typedef std::tuple< int64_t, int64_t, int64_t, int32_t, int32_t, float > ToneTup
      //      0      1        2         3         4          5        6           7         8
            "basic cowbell", "moor cowbell", "basic lute", "misty harp", "student fiddle", "lm fiddle", "sprightly fiddle", "travel fiddle", "bardic fiddle",
      //      9                10                 11            12          13               14            15                  16          17
-           "basic fiddle", "basic bassoon", "lm bassoon", "bruesque bassoon"
-           // 18               19               20             21
+           "basic fiddle", "basic bassoon", "lm bassoon", "bruesque bassoon", "Knells"
+           // 18               19               20             21               22
     };
 
     std::vector<std::string> TSOtyleinstrumentnames =
@@ -259,7 +261,7 @@ typedef std::tuple< int64_t, int64_t, int64_t, int32_t, int32_t, float > ToneTup
      //      0      1        2         3         4          5        6           7         8
         "Basic Cowbell", "Moor Cowbell", "Basic Lute", "Misty M Harp", "Student Fiddle", "Lonely M Fiddle", "Sprightly Fiddle", "Travel. T. Fiddle", "Bardic Fiddle",
      //      9          10                 11            12         13          14           15         16          17
-        "Basic Fiddle", "Basic Bassoon", "Lonely M Bassoon", "Bruesque Bassoon"
+        "Basic Fiddle", "Basic Bassoon", "Lonely M Bassoon", "Bruesque Bassoon", "Knells"
     };
 
     std::vector<std::string> Maestrostyleinstrumentnames =
@@ -268,43 +270,66 @@ typedef std::tuple< int64_t, int64_t, int64_t, int32_t, int32_t, float > ToneTup
      //      0      1        2         3         4          5        6           7         8
         "Basic Cowbell", "Moor Cowbell", "Basic Lute", "Misty Mountain Harp", "Student Fiddle", "Lonely Mountain Fiddle", "Sprightly Fiddle", "Traveller's Trusty Fiddle", "Bardic Fiddle",
      //      9          10                 11            12         13          14           15         16          17
-        "Basic Fiddle", "Basic Bassoon", "Lonely Mountain Bassoon", "Brusque Bassoon"
+        "Basic Fiddle", "Basic Bassoon", "Lonely Mountain Bassoon", "Brusque Bassoon", "Knells"
+    };
+    
+    std::vector<std::string> Weirdoinstrumentnames =
+    {
+        "Lute of Ages", "Harp", "Theorbo", "Horn", "Clarinet", "Flute", "Bagpipe", "Pipgorn ", "Basic Drum",
+     //      0      1        2         3         4          5        6           7         8
+        "Basic Cowbell", "Moor Cowbell", "Basic Lute", "Misty Mountain Harp", "Student Fiddle", "Lonely Mountain Fiddle", "Sprightly Fiddle", "Traveller's Trusty Fiddle", "Bardic Fiddle",
+     //      9          10                 11            12         13          14           15         16          17
+        "Basic Fiddle", "Basic Bassoon", "Lonely Mountain Bassoon", "Brusque Bassoon", "Knells"
     };
 
     std::vector<std::vector<std::string>> abcnamingstyleinstrumentnames =
     {
-        rockstyleinstrumentnames, TSOtyleinstrumentnames, TSOtyleinstrumentnames, Maestrostyleinstrumentnames
+        rockstyleinstrumentnames, TSOtyleinstrumentnames, TSOtyleinstrumentnames, Maestrostyleinstrumentnames, Weirdoinstrumentnames
     };
 
 
-    std::string lotroinstruments[22] =
+    std::string lotroinstruments[23] =
           {"lute", "harp", "theorbo", "horn", "clarinet", "flute", "bagpipes", "pipgorn", "drums",
      //      0      1        2         3         4          5        6           7         8
            "cowbell", "moor cowbell", "basic lute", "misty harp", "student", "lonely", "sprightly", "travellers", "bardic",
      //      9          10                 11            12         13          14           15         16          17
-           "basicfiddle", "basson_flat", "basson_vib", "basson_stac"};
-     //      18             19              20            21
+           "basicfiddle", "basson_flat", "basson_vib", "basson_stac", "knells"};
+     //      18             19              20            21            22
 
 
-     std::string lotroinstruments2[22] =
+     std::string lotroinstruments2[23] =
           {"Lute", "Harp", "Theorbo", "horn", "clarinet", "flute", "bagpipes", "pipgorn", "drums",
      //      0      1        2         3         4          5        6           7         8
            "cowbell", "moor cowbell", "basic lute", "misty harp", "student", "lonely", "sprightly", "travellers", "bardic",
      //      9          10                 11            12         13          14           15         16          17
-           "basicfiddle", "basson_flat", "basson_vib", "basson_stac"};
+           "basicfiddle", "basson_flat", "basson_vib", "basson_stac", "knells"};
      //      18             19              20            21
 
      // Lotro instruments
-        std::string lotroinstruments3[22] = { "Lute", "Harp", "Theorbo", "Horn", "Clarinet", "Flute", "bagpipe", "Pibgorn", "drum",
-                    "cowbell", "moor", "basic", "misty", "Student", "Lonely", "Sprightly", "Travellers", "Bardic", "BasicFiddle", "Basson_flat", "Basson_vib", "Basson_stac" };
+        std::string lotroinstruments3[23] = { "Lute", "Harp", "Theorbo", "Horn", "Clarinet", "Flute", "bagpipe", "Pibgorn", "drum",
+                    "cowbell", "moor", "basic", "misty", "Student", "Lonely", "Sprightly", "Travellers", "Bardic", "BasicFiddle", 
+                    "Basson_flat", "Basson_vib", "Basson_stac", "Knells" };
 
-    std::string lotroinstruments_formal[22] =
+/*
+    std::string lotroinstruments_formal[23] =
           {"Lute of the Ages", "Basic Harp", "Theorbo", "Horn", "Clarinet", "Flute", "Bagpipes", "Pipgorn", "Drums",
      //      0      1        2         3         4          5        6           7         8
            "Cowbell", "Moor Cowbell", "Basic Lute", "Misty M. Harp", "Student Fiddle", "Lonely M. Fiddle", "Sprightly Fiddle", "Travellers Tr.", "Bardic Fiddle",
      //      9          10                 11            12         13          14           15         16          17
-           "Basic Fiddle", "Basic Basson", "Lonely M. Basson", "Brusque Basson"};
+           "Basic Fiddle", "Basic Basson", "Lonely M. Basson", "Brusque Basson", "Hand-Knells"};
      //      18             19              20            21
+  */   
+    wxString lotroinstruments_formal[23] =
+          {"Lute of the Ages", "Basic Harp", "Theorbo", "Horn", "Clarinet", "Flute", "Bagpipes", "Pipgorn", "Drums",
+     //      0      1        2         3         4          5        6           7         8
+           "Cowbell", "Moor Cowbell", "Basic Lute", "Misty M. Harp", "Student Fiddle", "Lonely M. Fiddle", "Sprightly Fiddle", "Travellers Tr.", "Bardic Fiddle",
+     //      9          10                 11            12         13          14           15         16          17
+           "Basic Fiddle", "Basic Basson", "Lonely M. Basson", "Brusque Basson", "Hand-Knells"};
+     //      18             19              20            21
+     
+     
+     
+     
 //     const char * pitchnames[38] = {"=C,","^C,","=D,","^D,","=E,","=F,","^F,","=G,","^G,","=A,","^A,","=B,", "=C","^C","=D","^D","=E","=F","^F","=G","^G","=A","^A","=B", "=c","^c","=d","^d","=e","=f","^f","=g","^g","=a","^a","=b","=c'", "^c'" };
 
      std::string pitchnames[38] = {"=C,","^C,","=D,","^D,","=E,","=F,","^F,","=G,","^G,","=A,","^A,","=B,", "=C","^C","=D","^D","=E","=F","^F","=G","^G","=A","^A","=B", "=c","^c","=d","^d","=e","=f","^f","=g","^g","=a","^a","=b","=c'", "^c'" };
@@ -315,12 +340,13 @@ typedef std::tuple< int64_t, int64_t, int64_t, int32_t, int32_t, float > ToneTup
 
 
      std::vector<float> pitchgains = {0.2, 0.2, 0.28, 0.37, 0.46, 0.55, 0.64, 0.73, 0.78, 0.78};
-     std::vector<float> relativegain = {1, 1.25, 0.56, 1.25, 0.95, 0.95, 0.95, 0.95, 1.25, 1., 1.25, 0.55, 0.74, 1.  , 1.25, 0.6, 0.8, 1.25, 1.25, 1.25, 1.25, 1.25, 1.25};
+     std::vector<float> relativegain = {1, 1.25, 0.56, 1.25, 0.95, 0.95, 0.95, 0.95, 1.25, 1., 1.25, 0.55, 0.74, 1.  
+                                           , 1.25, 0.6, 0.8, 1.25, 1.25, 1.25, 1.25, 1.25, 1.25, 1.0};
                                       //1  2     3      4    5    6     7     8      9   10 11  12    13     14    15    16  17   18    19     20   21
                             //      1 2 3 4   5   6   7   8   9 10  11  12 13  14     15    16   17   18     19   20    21
-     std::vector<float> fadeouts = {0,0,0,0.2,0.2,0.2,0.2,0.2,0,0  ,0  ,0  ,0  ,0.2  ,0.2  ,0.4, 0   ,0.2   ,0.2 ,0.2,  0.2,  0.5};
+     std::vector<float> fadeouts = {0,0,0,0.2,0.2,0.2,0.2,0.2,0,0  ,0  ,0  ,0  ,0.2  ,0.2  ,0.4, 0   ,0.2   ,0.2 ,0.2,  0.2,  0.5, 0};
 
-     std::vector < float > relvol = { 1 , 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1  };
+     std::vector < float > relvol = { 1 , 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 , 1 , 1 ,1 };
 
 
      // time of attack in samples at 44.1KHz       lute of ages    harp          theorbo      horn        clarinet      flute        bagpipes       pibgorn
@@ -337,7 +363,7 @@ typedef std::tuple< int64_t, int64_t, int64_t, int32_t, int32_t, float > ToneTup
        };
 
      // Fade Out duration, used for estimation of sample load
-     const int fadeout[22] = {
+     const int fadeout[23] = {
        34,  // lute
        34,  // harp
        29,  // theorbo
@@ -359,12 +385,13 @@ typedef std::tuple< int64_t, int64_t, int64_t, int32_t, int32_t, float > ToneTup
        7,    // basic
        7,   // bassonflat
        7,   // bassonvib
-       7    // bassonstac
+       7,    // bassonstac
+       34   // knells
        };
 
 
        // type specifies if its added at the end of a tone or always constant duration (as for drums etc)
-       const int fadeouttype[22] = {
+       const int fadeouttype[23] = {
        0,0,0,      // lute, harp, theorbo
        1,1,1,1,1,  // horn, clarinet, flute, bagpipes, pibgorn
        0,0,0,      // drums, cowbell, cowbell
@@ -372,7 +399,8 @@ typedef std::tuple< int64_t, int64_t, int64_t, int32_t, int32_t, float > ToneTup
        1, 1, 1,    // student, lonely, sprightly
        0,          // travellers
        1,1,        // bardic, basic
-       1,1,1       // bassons: flat,vib,stac
+       1,1,1,       // bassons: flat,vib,stac
+       0            // knells
        };
 
        // tonality conversion tables
@@ -383,11 +411,11 @@ typedef std::tuple< int64_t, int64_t, int64_t, int32_t, int32_t, float > ToneTup
 
 
 
-        const int lotroinstrumentadd[22] = { 10, 20, 30, 60, 70, 50, 40, 90, 0, 80, 100 , 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 210 };
-        const int bardeninstrumentadd[22] = { 90, 10, 20, 50, 30, 40, 60, 100, 70, 80, 110 , 120, 130, 140, 150, 160, 170, 180, 190, 200, 210, 220};
+        const int lotroinstrumentadd[23] = { 10, 20, 30, 60, 70, 50, 40, 90, 0, 80, 100 , 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 210, 220 };
+        const int bardeninstrumentadd[23] = { 90, 10, 20, 50, 30, 40, 60, 100, 70, 80, 110 , 120, 130, 140, 150, 160, 170, 180, 190, 200, 210, 220, 230};
 
         //  Volume corrections U16.1  (in dB)
-        const float instrumentvolumeoffset[22] = {0, 0.75, 3.75, -1.0, -2.75, -3.0, -2.0, -4.0, 2.75, 5.0, 12.0, -1.25, 0.25, 0, 0, 0 ,0 ,0 ,0 ,0,0,0};
+        const float instrumentvolumeoffset[23] = {0, 0.75, 3.75, -1.0, -2.75, -3.0, -2.0, -4.0, 2.75, 5.0, 12.0, -1.25, 0.25, 0, 0, 0 ,0 ,0 ,0 ,0,0,0,0};
 
 /*
         // Volume offsets per tone (in dB)
@@ -439,7 +467,7 @@ typedef std::tuple< int64_t, int64_t, int64_t, int32_t, int32_t, float > ToneTup
 */
 
 // Note ranges
-int noteranges[22][2] = {
+int noteranges[23][2] = {
                {0,36},  // Lute
                {0,36},  // Harp
                {0,36},  // Theorbo
@@ -461,7 +489,8 @@ int noteranges[22][2] = {
                {0,36},   // basicfiddle
                {0,36},  // bassonflat
                {0,36},  // bassonvib
-               {0,36}   // bassonstac
+               {0,36},   // bassonstac
+               {0,36}   // knells
               };
 
 // Midi Generation Information
@@ -535,7 +564,10 @@ std::map<std::string,int>InstrumentMidiChannels =
     {"Basson_vib", 76},
     {"basson_vib", 76},
     {"basson_stac", 75},
-    {"Basson_stac", 75}
+    {"Basson_stac", 75},
+    {"Knells", 76},
+    {"knells", 76},
+    {"Hand Knells", 76}
 };
 
 
@@ -600,7 +632,10 @@ std::map<std::string,int>InstrumentMidiNumbers =
     {"Basson_vib", 20},
     {"basson_vib", 20},
     {"basson_stac", 21},
-    {"Basson_stac", 21}
+    {"Basson_stac", 21},
+    {"Knells", 22},
+    {"knells", 22},
+    {"Hand Knells", 22}
 };
 
 /*
@@ -863,8 +898,39 @@ typedef struct STEREO_WAV_HEADER {
         {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72},
         {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72},
         {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72},
+        {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72},
         {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72}
     };
+
+
+
+
+std::vector<std::vector<int>> default3Dpositions=
+{
+    {-6, 151, 0},   // 0 Lute of ages
+    {-36,248,1},    // 1 Basic Harp
+    {2, 88, 2},     // 2 Basic Theorbo
+    {33, 174, 3},   // 3 Horn
+    {-14, 336, 4},  // 4 Clarinet
+    {4, 335, 5},    // 5 Flute
+    {-28, 290, 6}, // 6 Bagpipes
+    {23,119,7},    // 7 Pipgorn
+    {-15, 73, 8},   // 8 Drums
+    {-48, 60, 9},  // 9 Basic Cowbell
+    {25, 55, 10},  // 10 Moor Cowbell
+    {-13, 185, 11}, // 11 Basic Lute
+    {26, 242, 12},  // 12 Misty Mountain Harp
+    {10, 153, 13},  // 13 Student Fiddle
+    {-9, 110, 14},  // 14 Lonely Mountain Fiddle
+    {35,331,15},    // 15 Sprightly Fiddle
+    {5, 224, 16},   // 16 Travellers Trusty Fiddle
+    {13, 196, 17},   // 17 Bardic Fiddle
+    {-25, 156, 18}, // 18 Basic Fiddle
+    {-45,161,19},   // 19 Basic Bassoon
+    {16,276,20},    // 20 Lonely Mountain Bassoon
+    {-32, 92,21},   // 21 Brusque Bassoon
+    {-1, 92, 22}    // 22 Knells
+};
 
 
 int WhichInstrumentNumber(std::string input)
@@ -905,6 +971,8 @@ int GetABCInstrumentFromTLine(std::string line)
    {
       // we only used instruments defined between [] in the T line
       std::string myinstrument = line.substr(line.find_last_of("[")+1,line.find_last_of("]") );
+     
+      
       myinstrument.pop_back();
       int oldinstrument = WhichInstrumentNumber(myinstrument);
       if (oldinstrument > -1)  { returnvalue = oldinstrument; }
@@ -918,7 +986,14 @@ int GetABCInstrumentFromTLine(std::string line)
 double EvaluateDurationString(std::string input)
 {
 
-    //std::cout << "Eval String " << input <<  "   " << std::endl;
+    // check if last character of input is a carriage return and if so, delete it from the string
+    if (!input.empty() && input.back() == '\r') {
+        input.pop_back();
+    }
+
+   // std::cout << "Eval String " << input.length() << "  " << input <<  "   " << std::endl;
+    // The previous check for a single carriage return is now handled by the code above.
+
     // if the length is 0 this is easy
     if (input.length() == 0) return 1.0;
 
@@ -950,6 +1025,7 @@ double EvaluateDurationString(std::string input)
         return std::stoi(input);
     }
     // we have no idea what this means .... we're returning a full tone ...
+   // std::cout << " returning full tone " << std::endl;
     return 1.;
 }
 
@@ -1269,6 +1345,11 @@ bool IsRel(char input)
     return returnvalue;
 }
 
+bool IsOMod(char input)
+{
+    return (input == '\'') || (input == ',');
+}
+
 
 int16_t Charvalue(char input)
 {
@@ -1340,23 +1421,23 @@ std::vector<int16_t> GetPitches3(std::string input)
 
 std::vector<int16_t> GetPitches2(std::string input)
 {
-    //std::cout <<"Input:" <<  input << std::endl;
+   // std::cout <<"Pitches Input:" <<  input << std::endl;
     std::string myinput = input;
-    std::vector< char > forbidden = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '/', '[', ']', 'z'};
-    // first replace all non-pitch information ( duration and chord brackets with spaces
-    for (size_t i = 0; i < myinput.length(); i++)
+    const std::string forbidden_chars = "0123456789/[]z_";
+    // first replace all non-pitch information ( duration and chord brackets with spaces )
+    for (char &c : myinput)
     {
-        for (size_t j = 0; j < forbidden.size(); j++)
-            if (myinput[i]==forbidden[j])
-               myinput[i] = ' ';
+        if (forbidden_chars.find(c) != std::string::npos)
+            c = ' ';
     }
-    //std::cout <<"Input adjusted " << myinput << std::endl;
+
     // now make sure continuation signs are distinguishable
     for (size_t i=0; i < myinput.length(); i++)
     {
         if ( myinput[i]=='-' ) myinput.insert(i+1, " ");
     }
-
+   // std::cout <<"Input adjusted " << myinput << std::endl;
+    
     // now we need to make sure that tones without a duration (1) are splitted
     for (size_t i=0; i < myinput.length()-1; i++)
     {
@@ -1364,6 +1445,15 @@ std::vector<int16_t> GetPitches2(std::string input)
              {
                  myinput.insert(i+1, " ");
              }
+        if ( IsOMod( myinput[i] ) && IsRel(myinput[i+1]))
+        {
+            myinput.insert(i+1, " ");
+        }
+        if ( IsOMod( myinput[i] ) && IsLetter(myinput[i+1]))
+        {
+            myinput.insert(i+1, " ");
+        }
+
         if ( IsOctave(myinput[i]) && IsLetter(myinput[i+1]))
             {
                 myinput.insert(i+1, " ");

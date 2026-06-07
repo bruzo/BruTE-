@@ -96,7 +96,7 @@ public:
     bool CRTLIsDown = false;
     bool ShiftIsDown = false;
 
-    void GenerateDefaultMapping();
+    //void GenerateDefaultMapping();
 
 
     wxBitmap * myOverLoadPic = new wxBitmap(690,50,-1);
@@ -876,6 +876,7 @@ void BandView::mouseLeftDown(wxMouseEvent& event)
            myBrute->ParseConfig(&myBrute->m_MappingText);
            GetMapping();
            Refresh();
+           std::cout << "Done with Defaulting  " << std::endl; 
         }
     }
 
@@ -1249,20 +1250,20 @@ void BandView::DrawOneMidiTrack(wxDC& dc, int x, int y, int i, size_t midiinstru
    dc.SetBrush(*wxGREEN_BRUSH); // green filling
 
    wxColor mycolor;
-   mycolor.Set("rgb(255,255,255)"); // default is white
-   if ( midiinstrumentnumber < 17) mycolor.Set("rgb(255,200,200)");  // pale red for pianos
-   if (( midiinstrumentnumber > 16) && ( midiinstrumentnumber < 25)) mycolor.Set("rgb(200,200,255)"); // pale blue  for organs
-   if (( midiinstrumentnumber > 24) && ( midiinstrumentnumber < 33)) mycolor.Set("rgb(255,150,150)"); // stronger red  for guitars
-   if (( midiinstrumentnumber > 32) && ( midiinstrumentnumber < 41)) mycolor.Set("rgb(255,100,100)"); // even stronger red  for base
-   if (( midiinstrumentnumber > 40) && ( midiinstrumentnumber < 49)) mycolor.Set("rgb(150,150,255)"); // stronger blue  for strings
-   if (( midiinstrumentnumber > 48) && ( midiinstrumentnumber < 57)) mycolor.Set("rgb(100,100,255)"); // even stronger blue  for ensemble
-   if (( midiinstrumentnumber > 56) && ( midiinstrumentnumber < 65)) mycolor.Set("rgb(200,255,200)"); // green  for brass
-   if (( midiinstrumentnumber > 64) && ( midiinstrumentnumber < 73)) mycolor.Set("rgb(150,255,150)"); // green  for reed
-   if (( midiinstrumentnumber > 72) && ( midiinstrumentnumber < 81)) mycolor.Set("rgb(100,255,100)"); // green  for pipes
-   if (( midiinstrumentnumber > 80) && ( midiinstrumentnumber < 97)) mycolor.Set("rgb(255,255,200)"); // green  for synth lead
-   if (( midiinstrumentnumber > 96) && ( midiinstrumentnumber < 105)) mycolor.Set("rgb(255,255,150)"); // green  for synth
-   if (( midiinstrumentnumber > 104) && ( midiinstrumentnumber < 113)) mycolor.Set("rgb(255,200,255)"); // green  for ethnic
-   if (midiinstrumentnumber == 201) mycolor.Set("rgb(150,150,150)"); // dark grey for Drums
+   mycolor.Set(wxT("rgb(255,255,255)")); // default is white
+   if ( midiinstrumentnumber < 17) mycolor.Set(wxT("rgb(255,200,200)"));  // pale red for pianos
+   if (( midiinstrumentnumber > 16) && ( midiinstrumentnumber < 25)) mycolor.Set(wxT("rgb(200,200,255)")); // pale blue  for organs
+   if (( midiinstrumentnumber > 24) && ( midiinstrumentnumber < 33)) mycolor.Set(wxT("rgb(255,150,150)")); // stronger red  for guitars
+   if (( midiinstrumentnumber > 32) && ( midiinstrumentnumber < 41)) mycolor.Set(wxT("rgb(255,100,100)")); // even stronger red  for base
+   if (( midiinstrumentnumber > 40) && ( midiinstrumentnumber < 49)) mycolor.Set(wxT("rgb(150,150,255)")); // stronger blue  for strings
+   if (( midiinstrumentnumber > 48) && ( midiinstrumentnumber < 57)) mycolor.Set(wxT("rgb(100,100,255)")); // even stronger blue  for ensemble
+   if (( midiinstrumentnumber > 56) && ( midiinstrumentnumber < 65)) mycolor.Set(wxT("rgb(200,255,200)")); // green  for brass
+   if (( midiinstrumentnumber > 64) && ( midiinstrumentnumber < 73)) mycolor.Set(wxT("rgb(150,255,150)")); // green  for reed
+   if (( midiinstrumentnumber > 72) && ( midiinstrumentnumber < 81)) mycolor.Set(wxT("rgb(100,255,100)")); // green  for pipes
+   if (( midiinstrumentnumber > 80) && ( midiinstrumentnumber < 97)) mycolor.Set(wxT("rgb(255,255,200)")); // green  for synth lead
+   if (( midiinstrumentnumber > 96) && ( midiinstrumentnumber < 105)) mycolor.Set(wxT("rgb(255,255,150)")); // green  for synth
+   if (( midiinstrumentnumber > 104) && ( midiinstrumentnumber < 113)) mycolor.Set(wxT("rgb(255,200,255)")); // green  for ethnic
+   if (midiinstrumentnumber == 201) mycolor.Set(wxT("rgb(150,150,150)")); // dark grey for Drums
 
 
    dc.SetBrush(mycolor);
@@ -1270,13 +1271,15 @@ void BandView::DrawOneMidiTrack(wxDC& dc, int x, int y, int i, size_t midiinstru
 
    dc.SetPen( wxPen( wxColor(255,0,0), 1 ) ); // 5-pixels-thick red outline
    dc.DrawCircle( wxPoint(x,y), 12); /* radius */ // );
-   std::stringstream mytext;
-   mytext << i;
+   //wxString mytext;
+   //mytext << i;
 
    //wxFont font(9, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
    //dc.SetFont(font);
 
-   dc.DrawText(mytext.str(), x-4,y-6);
+   //dc.DrawText(mytext, x-4,y-6);
+   
+   dc.DrawText(wxString::Format(wxT("%d"), i), x - 4, y - 6);
  }
 
  void BandView::DrawOneMidiTrack(wxMemoryDC& dc, int x, int y, int i, size_t midiinstrumentnumber)
@@ -1305,12 +1308,14 @@ void BandView::DrawOneMidiTrack(wxDC& dc, int x, int y, int i, size_t midiinstru
 
    dc.SetPen( wxPen( wxColor(255,0,0), 1 ) ); // 5-pixels-thick red outline
    dc.DrawCircle( wxPoint(x,y), 12); /* radius */ // );
-   std::stringstream mytext;
+   //std::stringstream mytext;
+   wxString mytext;
    mytext << i;
 
   // wxFont font(9, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
    dc.SetFont( m_myfont );         //dc2.GetFont());
-   dc.DrawText(mytext.str(), x-4,y-6);
+  // dc.DrawText(wxString::Format(wxT("%02d"), i), x - 4, y - 6);
+   dc.DrawText(mytext, x-4,y-6);
  }
 
  void BandView::DrawOneInstrument(wxDC& dc, int x, int y, wxString mytext, bool muted)

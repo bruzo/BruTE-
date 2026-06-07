@@ -416,14 +416,21 @@ void AudioPlayerAL::PlayLoop()
            // we take the next couple of tones in this track that had to be played
            while ((trackpositions[i] < myabc->m_ABCTonesvector[i].size()) && ( std::get<0>(myabc->m_ABCTonesvector[i][trackpositions[i]]) < static_cast<int64_t>(st+dt)  ))
            {
-
+               int dontplay = 0;
                int instrument = std::get<3>(myabc->m_ABCTonesvector[i][trackpositions[i]]);
                int pitch = std::get<4>(myabc->m_ABCTonesvector[i][trackpositions[i]]) - 36;
-               if (pitch < 0) pitch = 0;
-               if (pitch > 37) pitch = 37;
 
-               if (instrument == 10) pitch = 0;  // Cowbell and Moor Cowbell
+               if (instrument == 10) pitch = 0;  // Cowbell and Moor Cowbell always play the 0 sample
                if (instrument == 9) pitch = 0;
+
+               // We can only play in the existing range
+               if (pitch < 0) dontplay = 1;
+               if (pitch > 36) dontplay = 1;
+
+               if (instrument == 13) {      // student fiddle has some additional empty tones
+                  if ((pitch > 38) && (pitch < 43)) dontplay = 1;
+               } 
+
                int velocity = std::get<5>(myabc->m_ABCTonesvector[i][trackpositions[i]]);
                if (velocity < 0) velocity = 0;
                if (velocity > 9) velocity = 9;
@@ -433,7 +440,7 @@ void AudioPlayerAL::PlayLoop()
                trackpositions[i]++;   // next tone
                m.unlock();
 
-               if ((m_mute == 0) && ( m_mutes[i] == 0))
+               if ((m_mute == 0) && ( m_mutes[i] == 0) && (dontplay==0))
                {
                    // find first free slot
                    size_t ii = 0;
@@ -441,7 +448,7 @@ void AudioPlayerAL::PlayLoop()
                    ALint sourcestate;
                    alGetSourcei(sources[0], AL_SOURCE_STATE, &sourcestate);
 
-                   while (( sourcestate == AL_PLAYING ) && ( ii < 64 ))
+                   while (( sourcestate == AL_PLAYING ) && ( ii < 63 ))
                    {
                        ii++;
                        alGetSourcei(sources[ii], AL_SOURCE_STATE, &sourcestate);
@@ -544,8 +551,8 @@ AudioPlayerAL::~AudioPlayerAL()
 void AudioPlayerAL::Initialize(float volume, int panning)
 {
     // Allocate Sample Space
-    allsamples.resize(oggpitchnumbers.size());
-	for (size_t i = 0; i < oggpitchnumbers.size(); i++)
+    allsamples.resize(oggpitchnumbers.size()-1);
+	for (size_t i = 0; i < oggpitchnumbers.size()-1; i++)
 	{
 	    allsamples[i].resize(73); // yes we also allocate 0s for the pitches below the ones we actually use ...
 	    for (size_t j = 0; j < oggpitchnumbers[i].size(); j++)
@@ -580,12 +587,12 @@ void AudioPlayerAL::Initialize(float volume, int panning)
           if (actualread != 1) std::cout<<"Error in Instrument File" << std::endl;
           FILE * thisfile = fmemopen(&datablock[0], filesize, "rb" );
 
-//          std::cout << i << "  " << j << "  " << filesize << " actual " << actualread << " info " << infoblock << std::endl;
+         // std::cout << i << "  " << j << "  " << filesize << " actual " << actualread << " info " << infoblock << std::endl;
 
           allsamples[i][j] = snd_load_file(thisfile);
 
 
-//          std::cout << i << "  " << j << "  " << filesize << "  " << allsamples[i][j].size() << std::endl;
+       //   std::cout << i << "  " << j << "  " << filesize << "  " << allsamples[i][j].size() << std::endl;
           fclose(thisfile);
         }
      }
@@ -718,6 +725,11 @@ std::vector<uint8_t> AudioPlayerAL::snd_load_file(FILE * oggFile ){
 	while(result > 0){
 
 		char data[BUFFER_SIZE];
+
+        //char * data;
+        //std::vector<char> datablock(BUFFER_SIZE);
+        //data = &datablock[0];
+
         result = ov_read(&oggStream, data, BUFFER_SIZE, 0, 2, 1, &section);
 
 		if(result > 0){
@@ -862,7 +874,7 @@ void AudioPlayerAL::SendABC(std::stringstream * abctext)
 
 
     m_durationseconds = newabc->GetDuration();
-  //  m_ABCTonesvector = newabc->m_ABCTonesvector;
+    //  m_ABCTonesvector = newabc->m_ABCTonesvector;
 
 
 
@@ -878,7 +890,7 @@ void AudioPlayerAL::SendABC(std::stringstream * abctext)
 
     if ((m_Nabctracks>0) && (newabc->GetID(0) == -1))
     {
-        // this ABC didn't have ID info so we're setting this
+        // this ABC didn't have Track ID info so we're setting this
         for (int i = 0; i < static_cast<int>(m_Nabctracks); i++) myabc->SetID(i, i+1);
     }
 

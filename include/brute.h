@@ -2,6 +2,7 @@
 #define BRUTE_H
 
 //#include "chord.h"
+#include <cinttypes>
 #include "Options.h"
 #include "MidiFile.h"
 #include "configfile.h"
@@ -104,7 +105,7 @@ public:
     // list of the pitches used in a track
     std::vector< std::vector < bool > > m_samplesused;
     size_t nthreads = 1;
-    
+
     void SetSeed(int seed);
     int GetSeed();
 
@@ -230,7 +231,7 @@ void Brute::SetSeed(int seed)
 
 int Brute::GetSeed()
 {
-   return m_seed;	
+   return m_seed;
 }
 
 int Brute::GetOctavePitch(int miditrack)
@@ -252,7 +253,18 @@ void Brute::Tonality()
            for (size_t i = 0; i < m_pitches2[abctrack][miditrack].size(); i++)
            {
                // add 12 - tonality to the pitch to be on a C Major Scale
-               int ton = m_tonality[ static_cast<int>(m_tonestarts2[abctrack][miditrack][i] * m_timechunk) ];
+               // int ton = m_tonality[ static_cast<int>(m_tonestarts2[abctrack][miditrack][i] * m_timechunk) ];
+
+
+        
+               // With:
+               int ton_idx = static_cast<int>(m_tonestarts2[abctrack][miditrack][i] * m_timechunk);
+               if (ton_idx < 0 || ton_idx >= static_cast<int>(m_tonality.size()))
+               {
+                   ton_idx = 0;
+                   std::cout << "Issue encounterd in tonality calculation" << std::endl;
+               }
+               int ton = m_tonality[ton_idx];
 
 
                int spitch = m_pitches2[abctrack][miditrack][i] + 12   + ton;
@@ -600,20 +612,34 @@ void Brute::LoadMidi(char * mymidiname)
             // check for pitch bend events
             if (m_Midi[i][j].isPitchbend() )
             {
-                double time = timetoticks * m_Midi.getTimeInSeconds(m_Midi[i][j].tick) ;
+                double time = timetoticks * m_Midi.getTimeInSeconds(m_Midi[i][j].tick);
 
+/*
                 // Extract the least significant 7 bits of the pitch bend data
                 int lsb = m_Midi[i][j][3] & 0x7F;
+                // Extract the most significant 7 bits of the pitch bend data
+                int msb = m_Midi[i][j][2] & 0x7F;
+                int PitchBendData = (msb << 7) | lsb;
+  */              
+                
+                // Extract the least significant 7 bits of the pitch bend data
+                int lsb = m_Midi[i][j][1] & 0x7F;
                 // Extract the most significant 7 bits of the pitch bend data
                 int msb = m_Midi[i][j][2] & 0x7F;
                 int PitchBendData = (msb << 7) | lsb;
 
                 // Calculate the maximum pitch bend value
                 int maxPitchBendValue = (1 << 14) - 1;
+                
+                double normalizedpitchbend = ( PitchBendData - 8192)/8192.0;
 
 
                 // Calculate the pitch bend range in semitones
-                double pitchBendRangeSemitones = (PitchBendData - maxPitchBendValue/2.0) * (1.0*pitchbendrange / (1.0*maxPitchBendValue));
+                // double pitchBendRangeSemitones = (PitchBendData - maxPitchBendValue/2.0) * (1.0*pitchbendrange / (1.0*maxPitchBendValue));
+                
+                double pitchBendRangeSemitones = normalizedpitchbend * 2.0;
+                std::cout << "PB " << pitchBendRangeSemitones << std::endl;
+                
                 // Assume that the relative pitch value is stored in a variable called relativePitch
                 if (time > 0.00001)
                 {
@@ -968,7 +994,7 @@ void Brute::GenerateDefaultConfig( )
                 {
                     std::string numberstring = split(thisline, ' ')[j];
                     int number = std::atoi( numberstring.c_str() );
-                    miditolotro[pos] = number;
+                    miditolotro[pos%128] = number;
                     pos = pos + 1;
                 }
         }
@@ -1009,6 +1035,8 @@ void Brute::GenerateDefaultConfig( )
     bool drumsplitting = true;
     if (strcmp("nosplit", defaultdrumhandling) >= 0)
         drumsplitting = false;
+
+    std::cout << "Done with Config File." << std::endl;
 
     m_MappingText << "Name: <insert title>" << std::endl;
     m_MappingText << "Speedup: 0" << std::endl;
@@ -1084,6 +1112,8 @@ void Brute::GenerateDefaultConfig( )
         m_MappingText << "%BV " << i << " x: " << x << " y: " << y << std::endl;
 
     }
+
+    std::cout << "Done with Mapping Text " << std::endl;
 }
 
 
@@ -1137,6 +1167,14 @@ int Brute::Tonality_Pitch_Rounded(int mypitch, double rpitch, double timep)
 {
     // determine timechunk of this tone
     int tonalitytime = static_cast<int>(  timep * m_timechunk );
+    
+        // ✅ FIX: Clamp index to valid range to prevent heap-buffer-overflow
+    if (tonalitytime < 0 || tonalitytime >= static_cast<int>(m_tonality.size())) {
+        tonalitytime = 0; // Fallback to first element
+        std::cout << "Tonality out of bounds access" << std::endl;
+    }
+    
+    
     int tonality = m_tonality[tonalitytime];
 
     int roundedpitch = static_cast<int>(std::round(mypitch+rpitch));
@@ -1153,6 +1191,12 @@ int Brute::Tonality_Pitch_Rounded(int mypitch, double rpitch, double timep)
 int Brute::Tonality_Pitch_Trunced(int mypitch, double rpitch, double timep)
 {
     int tonalitytime = static_cast<int>(  timep * m_timechunk );
+    
+    // ✅ FIX: Clamp index to valid range to prevent heap-buffer-overflow
+    if (tonalitytime < 0 || tonalitytime >= static_cast<int>(m_tonality.size())) {
+        tonalitytime = 0; // Fallback to first element
+    }
+    
     int tonality = m_tonality[tonalitytime];
 
     int fullpitch = mypitch + static_cast<int>(std::trunc( rpitch));
@@ -1176,7 +1220,7 @@ void Brute::CopyMidiInfoToTracks()
 	m_tonestarts2.resize(nabctracks);
 	m_toneends2.resize(nabctracks);
 	double dzminstep = m_minstep/m_Mapping.m_oversampling;
-	float resolution = 0.15;  // we use 
+	float resolution = 0.15;  // we use
 
 	// check if we need to do the freefolkization
 	bool doff = false;
@@ -1199,15 +1243,15 @@ void Brute::CopyMidiInfoToTracks()
        for (size_t i = 0; i < nabctracks; i++) couplings[i].resize(nabctracks, 1.0);
        for (size_t i = 0; i < nabctracks; i++)
        {
-		 size_t idi = m_Mapping.m_idmap[i];
-		 
+		 // size_t idi = m_Mapping.m_idmap[i];
+
          for (size_t j = 0; j < nabctracks; j++)
          {
 		    size_t tid = m_Mapping.m_idmap[j];
-		    
+
 		    for (size_t k = 0; k < m_Mapping.m_couplingid[i].size(); k++)
 		    {
-			   if (tid == m_Mapping.m_couplingid[i][k]) couplings[i][j] = m_Mapping.m_coupling[i][k];	
+			   if (tid == m_Mapping.m_couplingid[i][k]) couplings[i][j] = m_Mapping.m_coupling[i][k];
 			}
 		 }
        }
@@ -1236,7 +1280,7 @@ void Brute::CopyMidiInfoToTracks()
             offsets[abctrack][t] = offsets[abctrack][t-1] + corr *  myrandom()*amplitudes[abctrack] + (1.0-corr) * (offsets[abctrack][t-1]-offsets[abctrack][t-2])  + shifts[abctrack];  // random walk with amplitude and shift
 
             for (size_t k = 0; k < nabctracks; k++)
-            {  
+            {
                 offsets[abctrack][t] += ( -offsets[abctrack][t-1] + offsets[k][t-1] ) * couplings[abctrack][k];
             }
           }
@@ -1272,6 +1316,11 @@ void Brute::CopyMidiInfoToTracks()
              int myvelocity = m_velocities[thismiditrack][j];
              double tonestart = m_tonestarts[thismiditrack][j];
              double toneend   = m_toneends[thismiditrack][j];
+
+             if ((m_Mapping.m_minstepmod > 0.000001)||(m_Mapping.m_minstepmod < -0.000001)){
+                tonestart = tonestart * (1.0 + m_Mapping.m_minstepmod*0.01);
+                toneend = toneend * (1.0 + m_Mapping.m_minstepmod*0.01);
+             }
 
              if (doff){
                     size_t myposition = static_cast<size_t>(tonestart * tohq);
@@ -2878,11 +2927,11 @@ void Brute::GenerateABC()
             // general formula: velocity [0-255] / 9 -5.7
 
             int wantedvelocity = int( (   ( ( current->velocity-127) * m_Mapping.m_volumecompress + m_Mapping.m_globalvolume+127) /9.0 -5.7)*0.77 + 1.5);
-            
+
             // here we need to take fade outs and compression into account
-            // 
-            
-            
+            //
+
+
             if (wantedvelocity < 0) wantedvelocity = 0;
             if (wantedvelocity > 7) wantedvelocity = 7;
 

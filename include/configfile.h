@@ -26,7 +26,7 @@ public:
    std::string m_transcribername;
 
    int m_bpm;
-   int m_minstepmod;
+   double m_minstepmod;
    int m_InvertMajor;
    int m_generalpitch;
    int m_oversampling;
@@ -311,10 +311,18 @@ void ConfigFile::ParseConfigMapping(std::stringstream * mappingtext)
     // get speed modifier
     std::string mappingtextline;
     std::getline(myconfigfile, mappingtextline);
-    m_minstepmod = atoi( split( mappingtextline ,' ')[1].c_str() );
+    m_minstepmod = atof( split( mappingtextline ,' ')[1].c_str() );
+
+    if (m_minstepmod != 999){
 
     if (m_minstepmod < -75) m_minstepmod = -75;
     if (m_minstepmod > 200) m_minstepmod = 200;
+
+    }
+
+    else{
+        m_minstepmod = 999;
+    }
 
     // pitch line
     std::getline(myconfigfile, mappingtextline);
@@ -908,9 +916,17 @@ void ConfigFile::ImportConfigFile(char * infilename)
     m_log << "Songname: " << m_songname << std::endl;
 
     // get speed modifier
-    m_minstepmod = atoi(split(readline( myconfigfile ),' ')[1].c_str());
+    m_minstepmod = atof(split(readline( myconfigfile ),' ')[1].c_str());
+    if (m_minstepmod != 999){
+
     if (m_minstepmod < -75) m_minstepmod = -75;
     if (m_minstepmod > 200) m_minstepmod = 200;
+
+    }
+
+    else{
+        m_minstepmod = 999;
+    }
 
     // pitch line
     std::vector< std::string > myline = split(readline( myconfigfile ),' ');
